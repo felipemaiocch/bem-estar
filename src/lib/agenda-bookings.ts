@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import type { BookingStatus, SessionBooking } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
