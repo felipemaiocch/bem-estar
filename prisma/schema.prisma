@@ -138,6 +138,7 @@ model ProfessionalProfile {
   updatedAt         DateTime         @updatedAt
   user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   patients          SessionBooking[] @relation("ProfessionalBookings")
+  engagementCards   EngagementCard[]
 }
 
 model SessionBooking {
@@ -399,7 +400,7 @@ model EngagementCard {
 
   responsibleName String?
   responsibleId   String?
-  responsible     Professional? @relation(fields: [responsibleId], references: [id])
+  responsible     ProfessionalProfile? @relation(fields: [responsibleId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -412,15 +413,4 @@ model GlobalAlert {
   message   String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String?  // null if global
-  title     String
-  message   String
-  category  String?  // Ex: COMUNICADO, EVENTO, AGENDAMENTO
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
