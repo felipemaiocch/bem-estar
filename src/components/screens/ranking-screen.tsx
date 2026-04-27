@@ -35,7 +35,7 @@ export function RankingScreen() {
         const result = (await response.json()) as {
           ok?: boolean;
           leaderboard?: RankingUser[];
-          me?: { position: number | null };
+          me?: { position: number | null; points: number };
         };
 
         if (result.ok && result.leaderboard) {
