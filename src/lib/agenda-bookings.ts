@@ -1,7 +1,4 @@
-import bcrypt from "bcryptjs";
-import type { BookingStatus, SessionBooking } from "@prisma/client";
 
-import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 
 type SessionIdentity = {
@@ -413,7 +410,7 @@ export async function listAgendaSlots(options: {
         events: demoEvents.map(e => ({
           id: e.id,
           title: e.title,
-          time: format(e.startsAt, "HH:mm"),
+          time: e.startsAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }),
           location: e.location,
           type: e.category,
           points: e.points,
@@ -427,8 +424,8 @@ export async function listAgendaSlots(options: {
   if (!userExists) return { slots: [], events: [], cards: [] };
 
   // Fetch all Engagement Cards with custom scheduling for this day (Derived from CMS)
-  const dayNameEn = format(start, "EEEE"); // e.g. "Monday"
-  const dateStr = format(start, "yyyy-MM-dd");
+  const dayNameEn = start.toLocaleDateString("en-US", { weekday: "long" }); // e.g. "Monday"
+  const dateStr = start.toISOString().split("T")[0]; // "yyyy-MM-dd"
 
   const cardsWithSlots = await prisma.engagementCard.findMany({
     where: {
@@ -499,7 +496,7 @@ export async function listAgendaSlots(options: {
   const companyEvents = events.map(e => ({
     id: e.id,
     title: e.title,
-    time: format(e.startsAt, "HH:mm"),
+    time: e.startsAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }),
     location: e.location,
     type: e.category,
     points: e.points,
@@ -834,16 +831,16 @@ export async function createAgendaBooking(options: {
   }
 
   const professionalMap = await ensureAgendaProfessionals();
-  const professionalId = professionalMap[slot.profile.email];
+  const legacyProfessionalId = professionalMap[slot.profile.email];
 
-  if (!professionalId) {
+  if (!legacyProfessionalId) {
     throw new Error("Profissional não encontrado.");
   }
 
   const existingUserBooking = await prisma.sessionBooking.findFirst({
     where: {
       userId: options.session.sub,
-      professionalId,
+      professionalId: legacyProfessionalId,
       startsAt,
       status: { in: activeStatuses },
     },
@@ -867,7 +864,7 @@ export async function createAgendaBooking(options: {
   }
 
   const occupiedBooking = await prisma.sessionBooking.findFirst({
-    where: { professionalId, startsAt, status: { in: confirmedStatuses } },
+    where: { professionalId: legacyProfessionalId, startsAt, status: { in: confirmedStatuses } },
   });
 
   if (options.action === "reserve") {
@@ -876,7 +873,7 @@ export async function createAgendaBooking(options: {
     }
 
     await prisma.sessionBooking.create({
-      data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: slot.specialty, status: "SCHEDULED" },
+      data: { userId: options.session.sub, professionalId: legacyProfessionalId, startsAt, endsAt, specialty: slot.specialty, status: "SCHEDULED" },
     });
 
     return { message: "Sessão reservada com sucesso." };
@@ -884,20 +881,20 @@ export async function createAgendaBooking(options: {
 
   if (!occupiedBooking) {
     await prisma.sessionBooking.create({
-      data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: slot.specialty, status: "SCHEDULED" },
+      data: { userId: options.session.sub, professionalId: legacyProfessionalId, startsAt, endsAt, specialty: slot.specialty, status: "SCHEDULED" },
     });
 
     return { message: "Sessão reservada com sucesso." };
   }
 
   const waitlistCount = await prisma.sessionBooking.count({
-    where: { professionalId, startsAt, status: "WAITLIST" },
+    where: { professionalId: legacyProfessionalId, startsAt, status: "WAITLIST" },
   });
 
   const waitlistPosition = waitlistCount + 1;
 
   await prisma.sessionBooking.create({
-    data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: slot.specialty, status: "WAITLIST", waitlistPosition },
+    data: { userId: options.session.sub, professionalId: legacyProfessionalId, startsAt, endsAt, specialty: slot.specialty, status: "WAITLIST", waitlistPosition },
   });
 
   return { message: `Você entrou na fila de espera (#${waitlistPosition}).` };
