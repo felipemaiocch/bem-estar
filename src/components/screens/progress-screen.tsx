@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, ArrowUpRight, HeartPulse, Scale, Smile } from "lucide-react";
+import { Activity, ArrowUpRight, HeartPulse, Scale, Smile, Trophy } from "lucide-react";
 
-import { GoalAreaChart } from "@/components/charts/goal-area-chart";
 import { MiniBarChart } from "@/components/charts/mini-bar-chart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +22,8 @@ type WellnessEntry = {
   moodLabel: string | null;
   habitsScore: number | null;
   notes: string | null;
-  createdAtLabel: string;
   createdAtIso: string;
+  createdAtLabel: string;
 };
 
 export function ProgressScreen() {
@@ -45,24 +44,19 @@ export function ProgressScreen() {
     { label: "Hábitos (média)", value: history.length > 0 ? `${Math.round(history.reduce((acc, e) => acc + (e.habitsScore ?? 0), 0) / history.length)}%` : "—" },
   ];
 
-  // Build weekly bar chart from last 7 entries
+  // Build weekly bar chart from last entries
   const weeklyProgress = (() => {
     const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const base = days.map(d => ({ day: d, score: 0 }));
-    history.slice(0, 7).forEach((entry) => {
+    history.slice(0, 10).forEach((entry) => {
       const date = new Date(entry.createdAtIso);
       const dayIdx = date.getDay();
-      base[dayIdx].score = Math.min((base[dayIdx].score ?? 0) + (entry.habitsScore ?? 50), 100);
+      if (base[dayIdx]) {
+        base[dayIdx].score = Math.min((base[dayIdx].score ?? 0) + 20, 100);
+      }
     });
     return base;
   })();
-
-  // Build goal evolution from habitsScore history
-  const goalEvolution = history.slice(0, 7).reverse().map((entry, i) => ({
-    week: `Sem ${i + 1}`,
-    target: 80,
-    actual: entry.habitsScore ?? 0,
-  }));
 
   useEffect(() => {
     async function loadLatestWellness() {
@@ -241,13 +235,13 @@ export function ProgressScreen() {
         </Card>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+      <section className="grid gap-4 xl:grid-cols-[1fr_auto]">
         <Card>
           <CardHeader>
             <SectionHeading
-              eyebrow="Frequência"
+              eyebrow="Ritmo"
               title="Frequência semanal"
-              description="Ritmo de participação e check-ins ao longo da semana."
+              description="Acompanhe sua constância de check-ins nos últimos dias."
             />
           </CardHeader>
           <CardContent>
@@ -255,17 +249,14 @@ export function ProgressScreen() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <SectionHeading
-              eyebrow="Evolução"
-              title="Evolução de metas"
-              description="Linha de meta planejada vs. entrega realizada."
-            />
-          </CardHeader>
-          <CardContent>
-            <GoalAreaChart data={goalEvolution} />
-          </CardContent>
+        <Card className="flex flex-col justify-center bg-blue-600 p-6 text-white sm:min-w-[300px]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 mb-4">
+            <Trophy className="h-6 w-6 text-white" />
+          </div>
+          <h3 className="text-xl font-bold">Resumo da constância</h3>
+          <p className="mt-2 text-sm text-blue-100 opacity-90">
+             Você realizou {history.length} check-ins no ciclo atual. Continue mantendo o ritmo para acumular mais pontos!
+          </p>
         </Card>
       </section>
 
