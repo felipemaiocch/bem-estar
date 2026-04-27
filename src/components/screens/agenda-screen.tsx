@@ -297,6 +297,18 @@ export function AgendaScreen() {
     }
   }
 
+  const handleParticipate = async (event: any) => {
+    const response = await fetch("/api/user/events/participate", {
+      method: "POST",
+      body: JSON.stringify({ eventId: event.id }),
+    });
+    if (response.ok) await loadSlots();
+  };
+
+  const handleCardAction = async (card: any) => {
+    // Logic for card interaction
+  };
+
   const monthName = baseDate.toLocaleString("pt-BR", { month: "long" });
   const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
@@ -404,30 +416,53 @@ export function AgendaScreen() {
           {(dayEvents.length > 0 || dayCards.length > 0) && (
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-gray-900">Destaques e Programação</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4">
                 {dayEvents.map((event) => (
                   <Card key={event.id} className="relative overflow-hidden p-4 border-l-4 border-blue-500 bg-blue-50/30">
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-100 px-2 py-0.5 rounded">Evento</span>
-                       <span className="text-[10px] font-bold text-slate-500">{new Date(event.startsAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                       <span className="text-[10px] font-bold text-slate-500">{event.time}</span>
                     </div>
-                    <p className="font-bold text-gray-900 leading-tight">{event.title}</p>
-                    <p className="mt-1 text-xs text-gray-500 line-clamp-2">{event.description}</p>
-                    <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-blue-700">
-                      <MapPin size={12} />
-                      {event.location}
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <p className="font-bold text-gray-900 leading-tight">{event.title}</p>
+                        <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-blue-700">
+                          <MapPin size={12} />
+                          {event.location}
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant={event.isParticipating ? "secondary" : "default"}
+                        className={cn("h-8 rounded-lg", event.isParticipating && "bg-emerald-100 text-emerald-700")}
+                        onClick={() => void handleParticipate(event)}
+                      >
+                        {event.isParticipating ? "Participando" : "Participar"}
+                      </Button>
                     </div>
                   </Card>
                 ))}
                 {dayCards.map((card) => (
                   <Card key={card.id} className="relative overflow-hidden p-4 border-l-4 border-purple-500 bg-purple-50/30">
                     <div className="flex justify-between items-start mb-2">
-                       <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-100 px-2 py-0.5 rounded">{card.category.replace(/-/g, ' ')}</span>
+                       <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-100 px-2 py-0.5 rounded">{card.category?.replace(/-/g, ' ') || "Conteúdo"}</span>
                     </div>
-                    <p className="font-bold text-gray-900 leading-tight">{card.title}</p>
-                    <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-purple-700">
-                      <Star size={12} className="fill-purple-500" />
-                      Atividade coletiva
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <p className="font-bold text-gray-900 leading-tight">{card.title}</p>
+                        <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-purple-700">
+                          <Star size={12} className="fill-purple-500" />
+                          Atividade coletiva
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 rounded-lg text-purple-600 hover:bg-purple-100"
+                        onClick={() => void handleCardAction(card)}
+                      >
+                        Ver detalhes
+                      </Button>
                     </div>
                   </Card>
                 ))}

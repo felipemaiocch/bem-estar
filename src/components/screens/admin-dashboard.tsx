@@ -91,6 +91,7 @@ export function AdminDashboardScreen() {
   const [professionalForm, setProfessionalForm] = useState(defaultProfessionalForm);
   const [eventForm, setEventForm] = useState(defaultEventForm);
   const [cardCount, setCardCount] = useState(0);
+  const [globalSlots, setGlobalSlots] = useState("");
 
   const activeUsers = users.filter((user) => user.isActive).length;
   const monthlyEngagement = useMemo(() => {
@@ -115,12 +116,18 @@ export function AdminDashboardScreen() {
     setFeedback(null);
 
     try {
-      const [usersResponse, professionalsResponse, eventsResponse, cardsResponse] = await Promise.all([
+      const [usersResponse, professionalsResponse, eventsResponse, cardsResponse, agendaConfigResponse] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/admin/professionals"),
         fetch("/api/admin/events"),
         fetch("/api/admin/cards"),
+        fetch("/api/admin/agenda-config"),
       ]);
+
+      if (agendaConfigResponse.ok) {
+        const agendaData = await agendaConfigResponse.json();
+        setGlobalSlots(agendaData.slots || "");
+      }
 
       const usersData = (await usersResponse.json()) as {
         ok?: boolean;
@@ -439,6 +446,27 @@ export function AdminDashboardScreen() {
     }
   }
 
+  async function handleSaveAgendaConfig() {
+    if (!globalSlots.trim() || busyAction) return;
+    setBusyAction("save-agenda");
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/agenda-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slots: globalSlots }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error);
+      setFeedback("Configuração da agenda salva!");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Falha ao salvar horários.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   async function handleSendGlobalAlert() {
     if (!message.trim() || busyAction) return;
     setBusyAction("send-alert");
@@ -579,7 +607,34 @@ export function AdminDashboardScreen() {
             <p className="mt-4 text-[11px] text-slate-500 uppercase tracking-widest font-semibold text-center text-rose-500/80">Dados cruciais anonimizados</p>
           </Card>
 
-          {/* Notificações em Massa (Moved from bottom) */}
+          {/* Configuração de Agenda (Novo) */}
+          <Card className="p-6 border-amber-100 shadow-sm bg-white">
+            <h3 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
+               <Calendar className="text-amber-500 h-5 w-5" />
+               Grade de Horários da Agenda
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Defina os horários disponíveis (ex: 08:30, 09:30) para todos os especialistas.
+            </p>
+            <input
+              value={globalSlots}
+              onChange={(e) => setGlobalSlots(e.target.value)}
+              placeholder="Ex: 09:00, 10:30, 14:00"
+              className={inputClassName}
+            />
+            <div className="mt-4">
+              <Button 
+                variant="secondary"
+                className="w-full bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200" 
+                onClick={() => void handleSaveAgendaConfig()}
+                disabled={busyAction === "save-agenda"}
+              >
+                {busyAction === "save-agenda" ? "Salvando..." : "Salvar grade de horários"}
+              </Button>
+            </div>
+          </Card>
+
+          {/* Notificações em Massa */}
           <Card id="notificacoes-massa" className="p-6 border-blue-100 shadow-sm bg-white">
             <h3 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
                <Megaphone className="text-blue-500 h-5 w-5" />

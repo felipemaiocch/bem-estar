@@ -434,6 +434,14 @@ export async function listAgendaSlots(options: {
 
   if (professionals.length === 0) return { slots: [], events: [], cards: [] };
 
+  // Fetch Agenda Configuration (Virtual Slots)
+  const agendaConfig = await prisma.agendaSetting.findUnique({
+    where: { id: "global-config" },
+  });
+
+  const rawSlots = agendaConfig?.slots ?? "09:00, 10:00, 11:00, 14:00, 15:00, 16:00";
+  const virtualTimes = rawSlots.split(",").map(t => t.trim());
+
   const dayStart = start;
   const dayEnd = end;
 
@@ -447,7 +455,6 @@ export async function listAgendaSlots(options: {
   });
 
   // Virtual time slots for every professional
-  const virtualTimes = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
   const normalizedFilter = (options.filter ?? "Todos").trim().toLowerCase();
   const normalizedFocus = (options.focusFilter ?? "Todos focos").trim().toLowerCase();
 
