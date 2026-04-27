@@ -94,7 +94,7 @@ export function UserShell({ children }: { children: ReactNode }) {
                     <h2 className="text-xl font-bold">Comunicado</h2>
                     <p className="mt-1 text-xs text-white/70 uppercase tracking-widest font-semibold font-mono">Mensagem Oficial</p>
                   </div>
-                  <button onClick={dismissAlert} className="rounded-lg p-1 hover:bg-white/10">
+                  <button onClick={dismissModal} className="rounded-lg p-1 hover:bg-white/10">
                     <X size={20} />
                   </button>
                 </div>
