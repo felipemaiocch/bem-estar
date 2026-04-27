@@ -237,6 +237,7 @@ export function AdminDashboardScreen() {
     setBusyAction("create-professional");
     setFeedback(null);
 
+    try {
       if (editingProfessionalId) {
         // Mode UPDATE professional
         const resp = await fetch(`/api/admin/professionals`, {
