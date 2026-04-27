@@ -176,6 +176,8 @@ export function AgendaScreen() {
         ok?: boolean;
         error?: string;
         slots?: AgendaSlot[];
+        events?: any[];
+        cards?: any[];
       };
 
       if (!response.ok || !data.ok) {
