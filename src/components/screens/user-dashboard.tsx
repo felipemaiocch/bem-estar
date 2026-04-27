@@ -114,7 +114,7 @@ export function UserDashboardScreen() {
 
   const loadGlobalAlert = useCallback(async () => {
     try {
-      const resp = await fetch("/api/admin/global-alert", { cache: "no-store" });
+      const resp = await fetch("/api/user/global-alert", { cache: "no-store" });
       const data = await resp.json();
       if (data.ok && data.alert) {
         setGlobalAlert(data.alert.message);
@@ -377,9 +377,6 @@ export function UserDashboardScreen() {
       <section>
         <div className="mb-4 mt-2 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Para você</h2>
-          <div className="flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1.5 text-xs font-bold text-orange-600 shadow-sm border border-orange-200">
-            🔥 12 dias seguidos
-          </div>
         </div>
 
         {globalAlert && (
@@ -623,6 +620,11 @@ export function UserDashboardScreen() {
                   </div>
                   <div className="flex-1">
                     <p className="font-bold leading-snug text-gray-900">{event.title}</p>
+                    {event.specialist && (
+                      <p className="text-[10px] font-bold text-[#0264af] uppercase tracking-wide truncate">
+                        Por: {event.specialist}
+                      </p>
+                    )}
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
                       <Clock3 size={12} />
                       {event.isCard 

@@ -451,33 +451,36 @@ export async function listAgendaSlots(options: {
     const times = card.slots.split(",").map(t => t.trim());
     
     for (const time of times) {
-       const { startsAt } = buildSlotWindow(options.date, time);
-       // Skip past slots
-       // if (startsAt <= new Date()) continue;
+      try {
+        const { startsAt } = buildSlotWindow(options.date, time);
+        if (isNaN(startsAt.getTime())) continue;
 
-       // Check if already booked
-       const bookings = await prisma.sessionBooking.findMany({
-         where: {
+        // Check if already booked
+        const bookings = await prisma.sessionBooking.findMany({
+          where: {
             professionalId: card.responsibleId || "no-prof",
             startsAt: startsAt,
             status: { not: "CANCELED" }
-         }
-       });
+          }
+        });
 
-       const hasConfirmed = bookings.some(b => confirmedStatuses.includes(b.status));
-       const mineBooked = bookings.some(b => b.userId === options.session.sub && confirmedStatuses.includes(b.status));
+        const hasConfirmed = bookings.some(b => confirmedStatuses.includes(b.status));
+        const mineBooked = bookings.some(b => b.userId === options.session.sub && confirmedStatuses.includes(b.status));
 
-       slots.push({
-         slotId: `slot|${card.id}|${card.responsibleId || '0'}|${time}`,
-         time,
-         specialist: card.responsibleName || card.responsible?.user.name || "Especialista",
-         specialty: card.title,
-         focus: card.category,
-         mode: "presencial",
-         location: card.location,
-         status: hasConfirmed ? "occupied" : "available",
-         mineStatus: mineBooked ? "booked" : undefined,
-       });
+        slots.push({
+          slotId: `slot|${card.id}|${card.responsibleId || '0'}|${time}`,
+          time,
+          specialist: card.responsibleName || card.responsible?.user.name || "Especialista",
+          specialty: card.title,
+          focus: card.category,
+          mode: "presencial",
+          location: card.location,
+          status: hasConfirmed ? "occupied" : "available",
+          mineStatus: mineBooked ? "booked" : undefined,
+        });
+      } catch (e) {
+        console.error("Error building slot for card:", card.title, time, e);
+      }
     }
   }
 

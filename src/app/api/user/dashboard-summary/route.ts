@@ -34,6 +34,11 @@ export async function GET(request: NextRequest) {
     const latestCards = await prisma.engagementCard.findMany({
         orderBy: { createdAt: "desc" },
         take: 3,
+        include: {
+          responsible: {
+            include: { user: { select: { name: true } } }
+          }
+        }
     });
 
     // 3. User Engagement Metrics
@@ -62,6 +67,7 @@ export async function GET(request: NextRequest) {
         category: e.category,
         startsAtIso: e.startsAt.toISOString(),
         isCard: false,
+        specialist: e.responsibleName || null
     }));
 
     const latestCardsData = latestCards.map(c => {
@@ -80,7 +86,8 @@ export async function GET(request: NextRequest) {
           category: c.category.replace('saude-bem-estar', 'Saúde').replace('cultura', 'Cultura'),
           startsAtIso: cardDate.toISOString(),
           isCard: true,
-          cardDisplayDate: c.date // Enviamos a string original para o front decidir se mostra fixo ou recorrente
+          cardDisplayDate: c.date,
+          specialist: c.responsibleName || c.responsible?.user.name || null
         };
     });
 

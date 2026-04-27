@@ -29,7 +29,7 @@ export function UserShell({ children }: { children: ReactNode }) {
 
   const loadGlobalAlert = useCallback(async () => {
     try {
-      const resp = await fetch("/api/admin/global-alert", { cache: "no-store" });
+      const resp = await fetch("/api/user/global-alert", { cache: "no-store" });
       const data = await resp.json();
       if (data.ok && data.alert) {
         setActiveAlert(data.alert.message);
