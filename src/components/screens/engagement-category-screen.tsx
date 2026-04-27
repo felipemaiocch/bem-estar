@@ -118,7 +118,6 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
                 location: e.location,
                 status: e.status === "PUBLISHED" ? "Inscrições abertas" : e.status,
                 points: e.points,
-                points: e.points,
                 gradient: "from-blue-600 to-indigo-700", // Default gradient for events
                 responsibleName: e.responsibleName,
             }));
