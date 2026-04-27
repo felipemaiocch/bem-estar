@@ -23,7 +23,7 @@ export function RankingScreen() {
 
   // Reward Store State
   const [isStoreOpen, setIsStoreOpen] = useState(false);
-  const [points, setPoints] = useState(4250);
+  const [points, setPoints] = useState(0);
   const [redeemedItems, setRedeemedItems] = useState<string[]>([]);
 
   useEffect(() => {
@@ -41,6 +41,7 @@ export function RankingScreen() {
         if (result.ok && result.leaderboard) {
           setData(result.leaderboard);
           setMyPosition(result.me?.position ?? null);
+          setPoints(result.me?.points ?? 0);
         }
       } catch (error) {
         console.error("Falha ao carregar ranking", error);
@@ -156,37 +157,6 @@ export function RankingScreen() {
         </p>
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-col gap-3">
-        <div className="flex gap-2">
-          <button className="rounded-full px-5 py-2 text-sm font-bold bg-[#0264af] text-white shadow-sm ring-1 ring-[#0264af]">🕴️ Ranking Individual</button>
-          <button className="rounded-full px-5 py-2 text-sm font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors">🛡️ Batalha de Equipes</button>
-        </div>
-
-        <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
-          {rankingCategories.map((category) => (
-            <button
-              key={category}
-              onClick={() => {
-                if (category !== selectedCategory) {
-                  setSelectedCategory(category);
-                  setIsLoading(true);
-                }
-              }}
-              className={cn(
-                "whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-colors",
-                category === selectedCategory
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "border border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50",
-              )}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tabela de Ranking */}
       <Card className="overflow-hidden p-0 shadow-sm">
         <div className="hidden grid-cols-12 border-b border-gray-100 bg-gray-50/60 p-4 text-xs font-bold uppercase tracking-wider text-gray-500 md:grid">
           <div className="col-span-1 text-center">Pos</div>
