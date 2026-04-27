@@ -7,6 +7,7 @@ import Link from "next/link";
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface AdminUserItem {
   id: string;
