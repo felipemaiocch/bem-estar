@@ -431,10 +431,11 @@ export async function listAgendaSlots(options: {
   const cardsWithSlots = await prisma.engagementCard.findMany({
     where: {
       OR: [
-        { availableDays: { contains: dayNameEn } },
-        { availableDays: { contains: dateStr } }
+        { availableDays: { contains: dayNameEn, mode: 'insensitive' } },
+        { availableDays: { contains: dateStr } },
+        { date: dateStr }
       ],
-      NOT: { slots: null }
+      NOT: { slots: "" }
     },
     include: {
       responsible: {
@@ -452,7 +453,7 @@ export async function listAgendaSlots(options: {
     for (const time of times) {
        const { startsAt } = buildSlotWindow(options.date, time);
        // Skip past slots
-       if (startsAt <= new Date()) continue;
+       // if (startsAt <= new Date()) continue;
 
        // Check if already booked
        const bookings = await prisma.sessionBooking.findMany({

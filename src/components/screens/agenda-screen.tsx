@@ -307,7 +307,7 @@ export function AgendaScreen() {
 
   const handleCardAction = (card: any) => {
     if (card.category) {
-      router.push(`/usuario/categoria/${card.category}`);
+      router.push(`/usuario/${card.category}`);
     }
   };
 
@@ -448,6 +448,11 @@ export function AgendaScreen() {
                   <Card key={card.id} className="relative overflow-hidden p-4 border-l-4 border-purple-500 bg-purple-50/30">
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-100 px-2 py-0.5 rounded">{card.category?.replace(/-/g, ' ') || "Conteúdo"}</span>
+                       {card.slots && (
+                         <span className="text-[10px] font-bold text-slate-500">
+                           Grade: {card.slots.split(',')[0]}...
+                         </span>
+                       )}
                     </div>
                     <div className="flex justify-between items-end">
                       <div>
