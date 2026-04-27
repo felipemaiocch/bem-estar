@@ -305,8 +305,10 @@ export function AgendaScreen() {
     if (response.ok) await loadSlots();
   };
 
-  const handleCardAction = async (card: any) => {
-    // Logic for card interaction
+  const handleCardAction = (card: any) => {
+    if (card.category) {
+      router.push(`/usuario/categoria/${card.category}`);
+    }
   };
 
   const monthName = baseDate.toLocaleString("pt-BR", { month: "long" });

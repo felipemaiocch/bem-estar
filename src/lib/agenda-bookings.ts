@@ -506,7 +506,11 @@ export async function listAgendaSlots(options: {
 
   const engagementCards = await prisma.engagementCard.findMany({
     where: {
-       createdAt: { gte: start }, // Simplified day filter for cards display
+      OR: [
+        { availableDays: { contains: dayNameEn } },
+        { availableDays: { contains: dateStr } },
+        { date: dateStr }
+      ]
     }
   });
 
