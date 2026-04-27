@@ -433,7 +433,7 @@ export function AgendaScreen() {
                       </div>
                       <Button 
                         size="sm" 
-                        variant={event.isParticipating ? "secondary" : "default"}
+                        variant={event.isParticipating ? "secondary" : "primary"}
                         className={cn("h-8 rounded-lg", event.isParticipating && "bg-emerald-100 text-emerald-700")}
                         onClick={() => void handleParticipate(event)}
                       >
