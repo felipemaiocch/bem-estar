@@ -237,7 +237,7 @@ export function AgendaScreen() {
     void loadMyBookings();
   }, [loadMyBookings]);
 
-  const nextSession = bookings[0] ?? null;
+  const nextSession = myBookings[0] ?? null;
 
   const myBookingsForDay = useMemo(() => {
     return myBookings.filter(b => {
