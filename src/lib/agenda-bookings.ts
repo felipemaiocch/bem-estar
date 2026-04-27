@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { BookingStatus, SessionBooking } from "@prisma/client";
 
+import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 
 type SessionIdentity = {
