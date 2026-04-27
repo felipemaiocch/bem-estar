@@ -40,6 +40,16 @@ const defaultCardForm = {
 const inputClassName =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#0264af] focus:bg-white";
 
+const DAYS_OF_WEEK = [
+  { id: "Monday", label: "Seg" },
+  { id: "Tuesday", label: "Ter" },
+  { id: "Wednesday", label: "Qua" },
+  { id: "Thursday", label: "Qui" },
+  { id: "Friday", label: "Sex" },
+  { id: "Saturday", label: "Sáb" },
+  { id: "Sunday", label: "Dom" },
+];
+
 export function AdminCardsScreen() {
   const [cards, setCards] = useState<EngagementCardItem[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
@@ -165,6 +175,17 @@ export function AdminCardsScreen() {
      setEditingId(null);
   }
 
+  function toggleDay(dayId: string) {
+    const current = form.availableDays.split(",").filter(Boolean).map(d => d.trim());
+    let next: string[];
+    if (current.includes(dayId)) {
+      next = current.filter(d => d !== dayId);
+    } else {
+      next = [...current, dayId];
+    }
+    setForm(f => ({ ...f, availableDays: next.join(", ") }));
+  }
+
   return (
     <BackofficeShell
       badge="Gerenciamento CMS"
@@ -285,15 +306,40 @@ export function AdminCardsScreen() {
                       onChange={(event) => setForm((f) => ({ ...f, slots: event.target.value }))}
                     />
                  </label>
-                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Dias recorrentes (ex: Monday, Wednesday) ou Data fixa
-                    <input
-                      className={inputClassName}
-                      placeholder="Monday, Wednesday ou 2026-04-27"
-                      value={form.availableDays}
-                      onChange={(event) => setForm((f) => ({ ...f, availableDays: event.target.value }))}
-                    />
-                 </label>
+                 
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                       Dias da Semana Recorrentes
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                       {DAYS_OF_WEEK.map((day) => {
+                          const isActive = form.availableDays.toLowerCase().includes(day.id.toLowerCase());
+                          return (
+                             <button
+                                key={day.id}
+                                type="button"
+                                onClick={() => toggleDay(day.id)}
+                                className={`h-10 w-10 rounded-full border text-[11px] font-bold uppercase transition-all ${
+                                   isActive 
+                                   ? "bg-[#0264af] border-[#0264af] text-white shadow-md scale-105" 
+                                   : "bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300"
+                                }`}
+                             >
+                                {day.label}
+                             </button>
+                          );
+                       })}
+                    </div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                       Data Fixa ou Manual (opcional)
+                       <input
+                         className={`${inputClassName} mt-1`}
+                         placeholder="Ex: 2026-04-27"
+                         value={form.availableDays}
+                         onChange={(event) => setForm((f) => ({ ...f, availableDays: event.target.value }))}
+                       />
+                    </label>
+                 </div>
               </div>
 
               <Button type="submit" disabled={busyAction === "create"} className="mt-2">
