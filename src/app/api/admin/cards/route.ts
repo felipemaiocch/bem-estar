@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 const cardSchema = z.object({
   category: z.string().min(1),
   title: z.string().min(1),
-  date: z.string().min(1),
+  date: z.string().optional().or(z.literal("")),
   location: z.string().min(1),
   status: z.string().min(1),
   points: z.number().int().nonnegative(),
