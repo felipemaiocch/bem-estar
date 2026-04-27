@@ -63,13 +63,15 @@ export function BackofficeShell({
           </span>
         </div>
 
-        <div className="px-6 pb-6">
-          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-500">{badge}</p>
-            <h1 className="mt-3 text-xl font-bold text-gray-900">{title}</h1>
-            <p className="mt-2 text-sm leading-6 text-gray-500">{description}</p>
+        {title && (
+          <div className="px-6 pb-6">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+              {badge && <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-500">{badge}</p>}
+              <h1 className="mt-3 text-xl font-bold text-gray-900">{title}</h1>
+              {description && <p className="mt-2 text-sm leading-6 text-gray-500">{description}</p>}
+            </div>
           </div>
-        </div>
+        )}
 
         <nav className="flex-1 space-y-2 px-4">
           <Link

@@ -89,6 +89,7 @@ export function AdminDashboardScreen() {
   const [userForm, setUserForm] = useState(defaultUserForm);
   const [professionalForm, setProfessionalForm] = useState(defaultProfessionalForm);
   const [eventForm, setEventForm] = useState(defaultEventForm);
+  const [cardCount, setCardCount] = useState(0);
 
   const activeUsers = users.filter((user) => user.isActive).length;
   const monthlyEngagement = useMemo(() => {
@@ -113,10 +114,11 @@ export function AdminDashboardScreen() {
     setFeedback(null);
 
     try {
-      const [usersResponse, professionalsResponse, eventsResponse] = await Promise.all([
+      const [usersResponse, professionalsResponse, eventsResponse, cardsResponse] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/admin/professionals"),
         fetch("/api/admin/events"),
+        fetch("/api/admin/cards"),
       ]);
 
       const usersData = (await usersResponse.json()) as {
@@ -151,6 +153,13 @@ export function AdminDashboardScreen() {
         setFeedback((current) => current ?? eventsData.error ?? "Falha ao carregar eventos.");
       } else {
         setEvents(eventsData.events ?? []);
+      }
+
+      if (cardsResponse.ok) {
+        const cardsData = await cardsResponse.json();
+        if (cardsData.ok) {
+          setCardCount(cardsData.cards?.length ?? 0);
+        }
       }
     } catch {
       setFeedback("Falha de conexão ao carregar dados do admin.");
@@ -381,11 +390,33 @@ export function AdminDashboardScreen() {
     }
   }
 
+  async function handleSendGlobalAlert() {
+    if (!message.trim() || busyAction) return;
+    setBusyAction("send-alert");
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/global-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error();
+      setFeedback("Comunicado enviado para todos os usuários!");
+      setMessage("");
+    } catch {
+      setFeedback("Falha ao enviar comunicado.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   return (
     <BackofficeShell
-      badge="Painel administrativo"
-      title="Governança, relatórios e crescimento"
-      description="Visão consolidada de engajamento, sessões, agenda dr e regras da operação."
+      badge=""
+      title=""
+      description=""
     >
       <div className="flex flex-col gap-6">
         <div className="mb-2 mt-2">
@@ -418,9 +449,9 @@ export function AdminDashboardScreen() {
               color: "border-l-emerald-500 text-emerald-500",
             },
             {
-              title: "Eventos publicados",
-              value: String(publishedEvents),
-              detail: `${events.length} eventos cadastrados`,
+              title: "Publicações totais",
+              value: String(events.length + cardCount),
+              detail: `${cardCount} cards e ${events.length} eventos`,
               icon: Calendar,
               color: "border-l-purple-500 text-purple-500",
             },
@@ -449,22 +480,7 @@ export function AdminDashboardScreen() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mt-2">
-          {/* ROI Calculator Mock */}
-          <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50/50 p-0 shadow-sm">
-            <div className="p-6">
-              <div className="mb-2 flex items-center gap-2 text-emerald-700">
-                <Activity size={20} />
-                <h3 className="font-bold uppercase tracking-wider text-sm">Retorno de Investimento (ROI) Saúde</h3>
-              </div>
-              <p className="text-4xl font-black text-emerald-600 tracking-tight">R$ 142.500</p>
-              <p className="mt-1 text-sm font-medium text-emerald-800">Economia estimada em absenteísmo no trimestre atual</p>
-            </div>
-            <div className="bg-emerald-600 px-6 py-4 text-emerald-50">
-              <p className="text-sm font-medium leading-relaxed">
-                Baseado na redução de 14% nos acionamentos médicos indevidos e aumento expressivo no engajamento ativo na plataforma dr.monitora.
-              </p>
-            </div>
-          </Card>
+
 
           {/* Burnout Heatmap Mock */}
           <Card className="p-6 border-rose-100 shadow-sm bg-gradient-to-br from-white to-rose-50/30">
@@ -825,9 +841,13 @@ export function AdminDashboardScreen() {
             className="min-h-40 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm outline-none focus:border-[#0264af] focus:bg-white"
           />
           <div className="mt-4">
-            <Button className="w-full md:w-auto">
+            <Button 
+              className="w-full md:w-auto" 
+              onClick={() => void handleSendGlobalAlert()}
+              disabled={busyAction === "send-alert"}
+            >
               <Send size={16} />
-              Enviar comunicado
+              {busyAction === "send-alert" ? "Enviando..." : "Enviar comunicado"}
             </Button>
           </div>
         </Card>

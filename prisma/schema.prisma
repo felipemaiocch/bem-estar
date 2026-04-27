@@ -401,3 +401,10 @@ model EngagementCard {
 
   @@index([category])
 }
+
+model GlobalAlert {
+  id        String   @id @default(cuid())
+  message   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

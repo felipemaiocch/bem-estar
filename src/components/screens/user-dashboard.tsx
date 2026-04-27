@@ -11,6 +11,7 @@ import {
   Clock3,
   Heart,
   MapPin,
+  Megaphone,
   MessageCircleMore,
   SendHorizontal,
   Star,
@@ -92,6 +93,9 @@ export function UserDashboardScreen() {
   const [checkInFeedback, setCheckInFeedback] = useState<string | null>(null);
   const feedSentinelRef = useRef<HTMLDivElement | null>(null);
 
+  const [activeAlert, setActiveAlert] = useState<string | null>(null);
+  const [alertDismissed, setAlertDismissed] = useState(true); // Default to true until fetched
+
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
   const [missions, setMissions] = useState([
@@ -127,6 +131,19 @@ export function UserDashboardScreen() {
       const data = await response.json();
       if (data.ok) {
         setDashboardSummary(data);
+      }
+
+      // Check for global alert
+      const alertRes = await fetch("/api/admin/global-alert");
+      const alertData = await alertRes.json();
+      if (alertData.ok && alertData.alert) {
+        const seen = sessionStorage.getItem(`seen-alert-${alertData.alert.id}`);
+        if (!seen) {
+          setActiveAlert(alertData.alert.message);
+          setAlertDismissed(false);
+          // Auto-mark as seen if user wants simple "when login" behavior
+          // but we keep alertDismissed to control the modal UI
+        }
       }
     } catch (e) {
       console.error(e);
@@ -385,8 +402,46 @@ export function UserDashboardScreen() {
     }
   }
 
+  const dismissAlert = () => {
+    setAlertDismissed(true);
+    if (activeAlert) {
+      sessionStorage.setItem("seen-global-alert", "true");
+    }
+  };
+
   return (
-    <div className="animate-in fade-in flex flex-col gap-6 pb-24 md:pb-8">
+    <div className="relative animate-in fade-in flex flex-col gap-6 pb-24 md:pb-8">
+      {/* Global Alert Modal */}
+      {!alertDismissed && activeAlert && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-md animate-in fade-in zoom-in duration-300 overflow-hidden border-blue-100 shadow-2xl">
+            <div className="bg-[#0264af] p-6 text-white">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20">
+                  <Megaphone className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Comunicado Importante</h2>
+                  <p className="mt-1 text-sm text-white/80 uppercase tracking-widest font-semibold">Mensagem da Operação</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-white">
+              <div className="rounded-2xl bg-blue-50 p-5 border border-blue-100/50">
+                <p className="text-gray-700 leading-relaxed font-medium">
+                  {activeAlert}
+                </p>
+              </div>
+              <Button 
+                onClick={dismissAlert}
+                className="mt-6 w-full bg-[#0264af] hover:bg-[#015392] text-white h-12 font-bold text-lg rounded-xl shadow-lg shadow-blue-600/20"
+              >
+                Entendi, obrigado!
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
       <section>
         <div className="mb-4 mt-2 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Para você</h2>
