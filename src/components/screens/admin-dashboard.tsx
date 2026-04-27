@@ -82,6 +82,7 @@ export function AdminDashboardScreen() {
   const [professionals, setProfessionals] = useState<AdminProfessionalItem[]>([]);
   const [events, setEvents] = useState<AdminEventItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingProfessionalId, setEditingProfessionalId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [message, setMessage] = useState(
     "Novo desafio de bem-estar liberado. Participe e ganhe pontos extras nesta semana.",
@@ -236,33 +237,50 @@ export function AdminDashboardScreen() {
     setBusyAction("create-professional");
     setFeedback(null);
 
-    try {
-      const response = await fetch("/api/admin/professionals", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: professionalForm.name,
-          email: professionalForm.email,
-          specialty: professionalForm.specialty,
-          licenseCode: professionalForm.licenseCode || undefined,
-          password: professionalForm.password || undefined,
-        }),
-      });
+      if (editingProfessionalId) {
+        // Mode UPDATE professional
+        const resp = await fetch(`/api/admin/professionals`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingProfessionalId,
+            name: professionalForm.name,
+            specialty: professionalForm.specialty,
+            licenseCode: professionalForm.licenseCode,
+          })
+        });
+        const d = await resp.json();
+        if(!resp.ok || !d.ok) throw new Error(d.error || "Erro ao atualizar profissional");
+        setFeedback("Profissional atualizado com sucesso.");
+        setEditingProfessionalId(null);
+      } else {
+        const response = await fetch("/api/admin/professionals", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: professionalForm.name,
+            email: professionalForm.email,
+            specialty: professionalForm.specialty,
+            licenseCode: professionalForm.licenseCode || undefined,
+            password: professionalForm.password || undefined,
+          }),
+        });
 
-      const data = (await response.json()) as {
-        ok?: boolean;
-        error?: string;
-      };
+        const data = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+        };
 
-      if (!response.ok || !data.ok) {
-        setFeedback(data.error ?? "Não foi possível criar profissional.");
-        return;
+        if (!response.ok || !data.ok) {
+          setFeedback(data.error ?? "Não foi possível criar profissional.");
+          return;
+        }
+        setFeedback("Profissional criado com sucesso.");
       }
 
       setProfessionalForm(defaultProfessionalForm);
-      setFeedback("Profissional criado com sucesso.");
       await loadAdminData();
     } catch {
       setFeedback("Falha de conexão ao criar profissional.");
@@ -799,9 +817,22 @@ export function AdminDashboardScreen() {
                   setProfessionalForm((current) => ({ ...current, licenseCode: event.target.value }))
                 }
               />
-              <Button type="submit" disabled={busyAction === "create-professional"} className="md:col-span-2">
-                {busyAction === "create-professional" ? "Salvando..." : "Cadastrar profissional"}
+              <Button type="submit" disabled={busyAction === "create-professional"} className={cn("md:col-span-2", editingProfessionalId && "bg-amber-600 hover:bg-amber-700")}>
+                {busyAction === "create-professional" ? "Salvando..." : editingProfessionalId ? "Atualizar profissional" : "Cadastrar profissional"}
               </Button>
+              {editingProfessionalId && (
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  className="md:col-span-2"
+                  onClick={() => {
+                    setEditingProfessionalId(null);
+                    setProfessionalForm(defaultProfessionalForm);
+                  }}
+                >
+                  Cancelar Edição
+                </Button>
+              )}
             </form>
 
             <div className="mt-4 space-y-3">
@@ -820,6 +851,24 @@ export function AdminDashboardScreen() {
                       </p>
                     </div>
                     <div className="flex gap-2">
+                       <Button 
+                         variant="ghost"
+                         size="sm"
+                         className="text-blue-600 hover:bg-blue-50"
+                         onClick={() => {
+                           setEditingProfessionalId(professional.id);
+                           setProfessionalForm({
+                             name: professional.name,
+                             email: professional.email,
+                             specialty: professional.specialty,
+                             licenseCode: professional.licenseCode || "",
+                             password: "", // Don't edit password here
+                           });
+                           document.getElementById("gestao-profissionais")?.scrollIntoView({ behavior: "smooth" });
+                         }}
+                       >
+                         Editar
+                       </Button>
                        <Button 
                          variant={professional.isActive ? "outline" : "secondary"}
                          size="sm"

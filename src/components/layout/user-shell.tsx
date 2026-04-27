@@ -36,7 +36,10 @@ export function UserShell({ children }: { children: ReactNode }) {
         setActiveAlertId(data.alert.id);
         
         const modalSeen = sessionStorage.getItem(`modal-seen-${data.alert.id}`);
-        if (!modalSeen) setModalDismissed(false);
+        console.log("Modal seen check:", modalSeen, data.alert.id);
+        if (!modalSeen) {
+          setModalDismissed(false);
+        }
 
         const listSeen = localStorage.getItem(`alert-read-${data.alert.id}`);
         if (!listSeen) setHasUnreadAlert(true);

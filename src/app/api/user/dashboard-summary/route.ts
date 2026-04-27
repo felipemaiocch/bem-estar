@@ -61,18 +61,27 @@ export async function GET(request: NextRequest) {
         location: e.location,
         category: e.category,
         startsAtIso: e.startsAt.toISOString(),
+        isCard: false,
     }));
 
-    const latestCardsData = latestCards.map(c => ({
-        id: c.id,
-        title: c.title,
-        location: c.location,
-        category: c.category.replace('saude-bem-estar', 'Saúde').replace('cultura', 'Cultura'),
-        startsAtIso: c.createdAt.toISOString(),
-    }));
+    const latestCardsData = latestCards.map(c => {
+        // Se o card tem uma data fixa no banco, tentar usar ela
+        let cardDate = c.createdAt;
+        if (c.date && c.date.length > 5 && !isNaN(Date.parse(c.date))) {
+          cardDate = new Date(c.date);
+        }
 
-    // Combine and sort: we want Upcoming Events first, but we want the newest items to be visible
-    // To satisfy "Sala SP and Pilates appearing", we just merge and perhaps sort by startsAtIso
+        return {
+          id: c.id,
+          title: c.title,
+          location: c.location,
+          category: c.category.replace('saude-bem-estar', 'Saúde').replace('cultura', 'Cultura'),
+          startsAtIso: cardDate.toISOString(),
+          isCard: true,
+          cardDisplayDate: c.date // Enviamos a string original para o front decidir se mostra fixo ou recorrente
+        };
+    });
+
     const unifiedEvents = [...upcomingEventsData, ...latestCardsData]
         .sort((a, b) => new Date(a.startsAtIso).getTime() - new Date(b.startsAtIso).getTime())
         .slice(0, 5);

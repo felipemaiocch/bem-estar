@@ -614,14 +614,20 @@ export function UserDashboardScreen() {
               {dashboardSummary?.upcomingEvents?.map((event: any, i: number) => (
                 <div key={i} className="flex gap-4">
                   <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-blue-50 text-[#0264af]">
-                    <span className="text-xs font-bold uppercase">{new Date(event.startsAtIso).toLocaleString('pt-BR', { month: 'short' })}</span>
-                    <span className="text-lg font-black">{new Date(event.startsAtIso).getDate()}</span>
+                    <span className="text-xs font-bold uppercase">
+                        {event.isCard ? 'Card' : new Date(event.startsAtIso).toLocaleString('pt-BR', { month: 'short' })}
+                    </span>
+                    <span className="text-lg font-black">
+                        {event.isCard ? 'Rec' : new Date(event.startsAtIso).getDate()}
+                    </span>
                   </div>
                   <div className="flex-1">
                     <p className="font-bold leading-snug text-gray-900">{event.title}</p>
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
                       <Clock3 size={12} />
-                      {new Date(event.startsAtIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {event.location}
+                      {event.isCard 
+                        ? (event.cardDisplayDate || "Recorrente")
+                        : new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(event.startsAtIso))} · {event.location}
                     </p>
                   </div>
                 </div>

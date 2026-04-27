@@ -71,3 +71,30 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  const auth = await requireSession(request, "ADMIN");
+  if (auth.response) return auth.response;
+
+  const body = await request.json();
+  const { id, name, specialty, licenseCode } = body;
+
+  try {
+    const prof = await prisma.professionalProfile.update({
+      where: { id },
+      data: {
+        specialty,
+        licenseCode: licenseCode || null,
+        user: {
+          update: {
+            name,
+          }
+        }
+      }
+    });
+
+    return NextResponse.json({ ok: true, professional: prof });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: "Falha ao atualizar profissional." }, { status: 500 });
+  }
+}
