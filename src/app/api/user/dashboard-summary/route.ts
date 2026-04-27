@@ -22,8 +22,11 @@ export async function GET(request: NextRequest) {
     });
     
     // 2. Upcoming events (Categorized)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const upcomingEvents = await prisma.event.findMany({
-      where: { status: "PUBLISHED", startsAt: { gte: new Date() } },
+      where: { status: "PUBLISHED", startsAt: { gte: today } },
       orderBy: { startsAt: "asc" },
       take: 4,
     });
@@ -34,14 +37,18 @@ export async function GET(request: NextRequest) {
         where: { userId: sub, startsAt: { gte: new Date() } }
     });
     
-    // Contagem global de eventos publicados para os cards da home
-    const totalCultureEvents = await prisma.event.count({
-        where: { status: "PUBLISHED", category: "Cultura" }
-    });
-
-    const totalAgendaEvents = await prisma.event.count({
-        where: { status: "PUBLISHED", category: "Agenda dr" }
-    });
+    // Contagem global de conteúdos e eventos publicados para os cards da home
+    const [
+        totalCultureEvents, totalCultureCards,
+        totalAgendaEvents, totalAgendaCards,
+        totalHealthCards
+    ] = await Promise.all([
+        prisma.event.count({ where: { status: "PUBLISHED", category: "Cultura" } }),
+        prisma.engagementCard.count({ where: { category: "cultura" } }),
+        prisma.event.count({ where: { status: "PUBLISHED", category: "Agenda dr" } }),
+        prisma.engagementCard.count({ where: { category: "agenda-dr" } }),
+        prisma.engagementCard.count({ where: { category: "saude-bem-estar" } }),
+    ]);
 
     return NextResponse.json({
       ok: true,
@@ -59,8 +66,9 @@ export async function GET(request: NextRequest) {
       })),
       metrics: {
           bookingsCount,
-          cultureCount: totalCultureEvents,
-          agendaCount: totalAgendaEvents
+          cultureCount: totalCultureEvents + totalCultureCards,
+          agendaCount: totalAgendaEvents + totalAgendaCards,
+          healthCount: totalHealthCards
       }
     });
 

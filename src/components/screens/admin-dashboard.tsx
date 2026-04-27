@@ -71,6 +71,7 @@ const defaultEventForm = {
   endsAtIso: "",
   points: 0,
   maxAttendees: "",
+  responsibleName: "",
 };
 
 const inputClassName =
@@ -290,6 +291,7 @@ export function AdminDashboardScreen() {
           points: eventForm.points,
           maxAttendees: eventForm.maxAttendees ? Number(eventForm.maxAttendees) : undefined,
           status: "PUBLISHED",
+          responsibleName: eventForm.responsibleName,
         }),
       });
 
@@ -784,18 +786,27 @@ export function AdminDashboardScreen() {
                   }
                   required
                 />
-                <select
-                  className={inputClassName}
-                  value={eventForm.kind}
-                  onChange={(event) =>
-                    setEventForm((current) => ({ ...current, kind: event.target.value as typeof current.kind }))
-                  }
-                >
-                  <option value="EVENT">EVENT</option>
-                  <option value="CULTURE">CULTURE</option>
-                  <option value="PARTY">PARTY</option>
-                </select>
-              </div>
+                 <select
+                   className={inputClassName}
+                   value={eventForm.kind}
+                   onChange={(event) =>
+                     setEventForm((current) => ({ ...current, kind: event.target.value as typeof current.kind }))
+                   }
+                 >
+                   <option value="EVENT">EVENT</option>
+                   <option value="CULTURE">CULTURE</option>
+                   <option value="PARTY">PARTY</option>
+                 </select>
+               </div>
+
+               <input
+                 className={inputClassName}
+                 placeholder="Nome do Responsável (Ex: Prof. Silva)"
+                 value={eventForm.responsibleName}
+                 onChange={(event) =>
+                   setEventForm((current) => ({ ...current, responsibleName: event.target.value }))
+                 }
+               />
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                   Início

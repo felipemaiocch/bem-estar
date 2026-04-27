@@ -27,6 +27,8 @@ const defaultCardForm = {
   status: "Agenda aberta",
   points: "" as unknown as number,
   imageUrl: "",
+  responsibleName: "",
+  responsibleId: "",
 };
 
 const inputClassName =
@@ -34,6 +36,7 @@ const inputClassName =
 
 export function AdminCardsScreen() {
   const [cards, setCards] = useState<EngagementCardItem[]>([]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -44,16 +47,22 @@ export function AdminCardsScreen() {
     setFeedback(null);
 
     try {
-      const response = await fetch("/api/admin/cards");
-      const data = (await response.json()) as { ok?: boolean; error?: string; cards?: EngagementCardItem[] };
+      const [cardsRes, profRes] = await Promise.all([
+        fetch("/api/admin/cards"),
+        fetch("/api/admin/professionals"),
+      ]);
+      
+      const cardsData = await cardsRes.json();
+      const profData = await profRes.json();
 
-      if (!response.ok || !data.ok) {
-        setFeedback(data.error ?? "Falha ao carregar cards.");
-      } else {
-        setCards(data.cards ?? []);
+      if (cardsData.ok) {
+        setCards(cardsData.cards ?? []);
+      }
+      if (profData.ok) {
+        setProfessionals(profData.professionals ?? []);
       }
     } catch {
-      setFeedback("Falha de conexão ao carregar cards.");
+      setFeedback("Falha de conexão ao carregar dados.");
     } finally {
       setLoading(false);
     }
@@ -97,6 +106,8 @@ export function AdminCardsScreen() {
         body: JSON.stringify({
           ...form,
           points: Number(form.points),
+          responsibleName: form.responsibleName,
+          responsibleId: form.responsibleId,
         }),
       });
 
@@ -205,6 +216,27 @@ export function AdminCardsScreen() {
                   type="url"
                 />
               </div>
+
+              {form.category === "saude-bem-estar" ? (
+                <select
+                  className={inputClassName}
+                  value={form.responsibleId}
+                  onChange={(event) => setForm((f) => ({ ...f, responsibleId: event.target.value, responsibleName: professionals.find(p => p.id === event.target.value)?.name || "" }))}
+                  required
+                >
+                  <option value="">Selecione o Profissional Responsável...</option>
+                  {professionals.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.specialty})</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className={inputClassName}
+                  placeholder="Nome do Responsável / Palestrante"
+                  value={form.responsibleName}
+                  onChange={(event) => setForm((f) => ({ ...f, responsibleName: event.target.value, responsibleId: "" }))}
+                />
+              )}
 
               <Button type="submit" disabled={busyAction === "create"} className="mt-2">
                 {busyAction === "create" ? "Salvando..." : "Publicar Card"}

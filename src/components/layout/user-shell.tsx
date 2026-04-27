@@ -24,19 +24,22 @@ export function UserShell({ children }: { children: ReactNode }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeAlert, setActiveAlert] = useState<string | null>(null);
   const [activeAlertId, setActiveAlertId] = useState<string | null>(null);
-  const [alertDismissed, setAlertDismissed] = useState(true);
+  const [modalDismissed, setModalDismissed] = useState(true);
+  const [hasUnreadAlert, setHasUnreadAlert] = useState(false);
 
   const loadGlobalAlert = useCallback(async () => {
     try {
       const resp = await fetch("/api/admin/global-alert");
       const data = await resp.json();
       if (data.ok && data.alert) {
-        const seen = sessionStorage.getItem(`seen-alert-${data.alert.id}`);
-        if (!seen) {
-          setActiveAlert(data.alert.message);
-          setActiveAlertId(data.alert.id);
-          setAlertDismissed(false);
-        }
+        setActiveAlert(data.alert.message);
+        setActiveAlertId(data.alert.id);
+        
+        const modalSeen = sessionStorage.getItem(`modal-seen-${data.alert.id}`);
+        if (!modalSeen) setModalDismissed(false);
+
+        const listSeen = localStorage.getItem(`alert-read-${data.alert.id}`);
+        if (!listSeen) setHasUnreadAlert(true);
       }
     } catch {}
   }, []);
@@ -61,17 +64,25 @@ export function UserShell({ children }: { children: ReactNode }) {
     }
   }
 
-  const dismissAlert = () => {
-    setAlertDismissed(true);
+  const dismissModal = () => {
+    setModalDismissed(true);
     if (activeAlertId) {
-      sessionStorage.setItem(`seen-alert-${activeAlertId}`, "true");
+      sessionStorage.setItem(`modal-seen-${activeAlertId}`, "true");
     }
+  };
+
+  const openNotifications = () => {
+      setNotificationsOpen(!notificationsOpen);
+      if (!notificationsOpen && activeAlertId) {
+          setHasUnreadAlert(false);
+          localStorage.setItem(`alert-read-${activeAlertId}`, "true");
+      }
   };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 text-gray-900">
       {/* Modal Global */}
-      {!alertDismissed && activeAlert && (
+      {!modalDismissed && activeAlert && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-md animate-in fade-in zoom-in duration-300 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl">
               <div className="bg-[#0264af] p-6 text-white">
@@ -93,7 +104,7 @@ export function UserShell({ children }: { children: ReactNode }) {
                   {activeAlert}
                 </div>
                 <button 
-                  onClick={dismissAlert}
+                  onClick={dismissModal}
                   className="mt-6 w-full cursor-pointer rounded-2xl bg-[#0264af] py-4 text-center font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-[#015392] active:scale-[0.98]"
                 >
                   Entendi, fechar
@@ -191,11 +202,11 @@ export function UserShell({ children }: { children: ReactNode }) {
             </div>
             <div className="relative">
               <button 
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                onClick={openNotifications}
                 className="relative rounded-full bg-gray-50 p-2 text-gray-600 transition-colors hover:bg-gray-100 md:p-3"
               >
                 <Bell size={20} />
-                {!alertDismissed && <span className="absolute right-1 top-1 h-2 w-2 rounded-full border-2 border-white bg-red-500 md:right-2 md:top-2 md:h-2.5 md:w-2.5" />}
+                {hasUnreadAlert && <span className="absolute right-1 top-1 h-2 w-2 rounded-full border-2 border-white bg-red-500 md:right-2 md:top-2 md:h-2.5 md:w-2.5" />}
               </button>
 
               {notificationsOpen && (

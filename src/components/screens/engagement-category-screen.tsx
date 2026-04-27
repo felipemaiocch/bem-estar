@@ -74,16 +74,6 @@ const engagementCategoryPages = {
     sectionEyebrow: "Programação da agenda",
     sectionTitle: "Próximas ações da agenda dr",
     sectionDescription: "Eventos, encontros e festas concentrados em uma única frente.",
-    feedTitle: "Como a agenda dr funciona",
-    feedDescription: "Uma única categoria para concentrar encontros e ativações especiais.",
-    feedItems: [
-      { title: "Eventos", description: "Palestras, talks e encontros especiais entram direto na agenda dr." },
-      { title: "Festas", description: "Quando houver comemorações, elas aparecem dentro dessa mesma agenda." },
-      { title: "Confirmação simples", description: "O prestador visualiza, confirma presença e acompanha a programação." },
-    ],
-    interactionTitle: "Engajamento da agenda",
-    interactionDescription: "Eventos e festas concentrados no mesmo fluxo de acompanhamento.",
-    comments: ["As festas passam a entrar dentro da agenda dr quando forem abertas.", "Os eventos especiais ficam agrupados em uma frente única.", "A confirmação de presença ocorre direto pelo app."],
     primaryAction: "Confirmar presença",
     secondaryAction: "Compartilhar evento",
   },
@@ -128,7 +118,9 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
                 location: e.location,
                 status: e.status === "PUBLISHED" ? "Inscrições abertas" : e.status,
                 points: e.points,
+                points: e.points,
                 gradient: "from-blue-600 to-indigo-700", // Default gradient for events
+                responsibleName: e.responsibleName,
             }));
             merged = [...merged, ...formattedEvents];
         }
@@ -218,6 +210,12 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
                         <MapPin className="h-4 w-4 shrink-0" />
                         {item.location}
                       </p>
+                      {item.responsibleName && (
+                        <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-[#0264af] line-clamp-1">
+                          <Leaf className="h-4 w-4 shrink-0" />
+                          Responsável: {item.responsibleName}
+                        </p>
+                      )}
                     </div>
                     <span
                       className={cn(
@@ -234,64 +232,14 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
                     <span className="text-slate-500">Pontos na participação</span>
                     <span className="font-semibold text-slate-950">+{item.points}</span>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Button>{page.primaryAction}</Button>
-                    <Button variant="secondary">{page.secondaryAction}</Button>
+                  <div className="grid gap-3 sm:grid-cols-1">
+                    <Button onClick={() => window.location.href = '/usuario/agenda'}>{page.primaryAction}</Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>{page.feedTitle}</CardTitle>
-            <CardDescription>{page.feedDescription}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {page.feedItems.map((item) => (
-              <div
-                key={item.title}
-                className="rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-4"
-              >
-                <p className="font-medium text-slate-950">{item.title}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-500">{item.description}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{page.interactionTitle}</CardTitle>
-            <CardDescription>{page.interactionDescription}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {page.comments.map((item) => (
-              <div
-                key={item}
-                className="rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-4"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-600">
-                    <MessageSquareText className="h-4 w-4" />
-                  </div>
-                  <p className="text-sm leading-6 text-slate-600">{item}</p>
-                </div>
-              </div>
-            ))}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Button variant="secondary">{page.secondaryAction}</Button>
-              <Button>
-                {page.primaryAction}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </section>
     </div>
   );

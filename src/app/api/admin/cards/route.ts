@@ -12,6 +12,8 @@ const cardSchema = z.object({
   status: z.string().min(1),
   points: z.number().int().nonnegative(),
   imageUrl: z.string().url().optional().or(z.literal("")),
+  responsibleName: z.string().optional(),
+  responsibleId: z.string().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -30,6 +32,12 @@ export async function GET(request: NextRequest) {
       publishedBy: {
         select: {
           name: true,
+        },
+      },
+      responsible: {
+        select: {
+          name: true,
+          specialty: true,
         },
       },
     },
@@ -64,6 +72,8 @@ export async function POST(request: NextRequest) {
       status: parsed.data.status,
       points: parsed.data.points,
       imageUrl: parsed.data.imageUrl || null,
+      responsibleName: parsed.data.responsibleName || null,
+      responsibleId: parsed.data.responsibleId || null,
       publishedById: auth.session.sub,
     },
   });

@@ -178,6 +178,7 @@ model Event {
   registrationDeadline DateTime?
   publishedBy          String?
   status               EventStatus       @default(PUBLISHED)
+  responsibleName      String?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   attendances          EventAttendance[]
@@ -396,6 +397,10 @@ model EngagementCard {
   publishedById String
   publishedBy   User     @relation("CardPublisher", fields: [publishedById], references: [id])
 
+  responsibleName String?
+  responsibleId   String?
+  responsible     Professional? @relation(fields: [responsibleId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -407,4 +412,15 @@ model GlobalAlert {
   message   String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?  // null if global
+  title     String
+  message   String
+  category  String?  // Ex: COMUNICADO, EVENTO, AGENDAMENTO
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

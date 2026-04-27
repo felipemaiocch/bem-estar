@@ -15,6 +15,7 @@ const createEventSchema = z.object({
   points: z.number().int().min(0).max(5000).optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELED"]).optional(),
   maxAttendees: z.number().int().min(1).max(50000).optional(),
+  responsibleName: z.string().max(200).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
       points: parsed.data.points,
       status: parsed.data.status,
       maxAttendees: parsed.data.maxAttendees,
+      responsibleName: parsed.data.responsibleName,
       publishedBy: auth.session.sub,
     });
 
