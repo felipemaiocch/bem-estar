@@ -7,13 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SectionHeading } from "@/components/ui/section-heading";
 import {
   careRecordCategoryOptions,
-  inboxNotifications,
-  monitoredUsers,
 } from "@/lib/mock-data";
 import type { CareRecordCategory, UserCareRecord } from "@/types";
 import { cn } from "@/lib/utils";
-
-const currentUserId = "user-felipe";
 
 interface PreferenceItem {
   key: "REMINDER_DAY_BEFORE" | "REMINDER_HOUR_BEFORE" | "SLOT_RELEASED" | "AGENDA_NEWS";
@@ -28,6 +24,7 @@ export function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<CareRecordCategory | "todos">("todos");
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [loadingPreferences, setLoadingPreferences] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ name: string; score: number; area: string } | null>(null);
   const [apiFeedback, setApiFeedback] = useState<string | null>(null);
 
   useEffect(() => {
@@ -55,6 +52,9 @@ export function ProfileScreen() {
 
         if (recordsResponse.ok && recordsData.ok) {
           setRecords(recordsData.records ?? []);
+          if (recordsData.user) {
+            setCurrentUser(recordsData.user);
+          }
         } else {
           setApiFeedback(recordsData.error ?? "Falha ao carregar histórico de acompanhamento.");
         }
@@ -77,23 +77,15 @@ export function ProfileScreen() {
     void loadProfileData();
   }, []);
 
-  const currentUser =
-    monitoredUsers.find((item) => item.id === currentUserId) ??
-    (records[0]
-      ? {
-          id: records[0].userId,
-          name: records[0].userName,
-          area: records[0].userArea,
-          objective: "Bem-estar contínuo",
-        }
-      : monitoredUsers[0]);
+  const userPoints = currentUser?.score ?? 0;
+  const userLevel = userPoints >= 3000 ? "Ouro" : userPoints >= 1000 ? "Prata" : "Bronze";
+  const levelColor = userPoints >= 3000 ? "text-amber-500 bg-amber-50 border-amber-100" : userPoints >= 1000 ? "text-slate-400 bg-slate-50 border-slate-200" : "text-orange-700 bg-orange-50 border-orange-100";
 
   const currentUserRecords = useMemo(
     () =>
       records
-        .filter((item) => item.userId === currentUser.id)
         .sort((left, right) => right.recordedAtIso.localeCompare(left.recordedAtIso)),
-    [currentUser.id, records],
+    [records],
   );
 
   const filteredRecords = useMemo(
@@ -146,22 +138,21 @@ export function ProfileScreen() {
             </div>
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
-                {currentUser.name}
+                {currentUser?.name || "Carregando..." }
               </h1>
               <p className="mt-2 text-sm text-gray-500">
-                {currentUser.area} · se.monitora · Prestador
+                {currentUser?.area || "—"} · se.monitora · Colaborador
               </p>
             </div>
             <div className="grid gap-3">
-              {[
-                `Objetivo principal: ${currentUser.objective}`,
-                "Frequência desejada: 3 sessões por semana",
-                "Pontuação atual: 1.990 pts",
-              ].map((item) => (
-                <div key={item} className="rounded-[24px] bg-gray-50 px-4 py-4 text-sm text-gray-700">
-                  {item}
-                </div>
-              ))}
+              <div className={cn("rounded-[24px] border px-4 py-4 text-sm font-bold flex justify-between items-center", levelColor)}>
+                <span>Nível atual</span>
+                <span>Nível {userLevel}</span>
+              </div>
+              <div className="rounded-[24px] bg-slate-900 text-white px-4 py-4 text-sm font-bold flex justify-between items-center shadow-lg">
+                <span>Pontuação acumulada</span>
+                <span>{userPoints} pts</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -353,7 +344,7 @@ export function ProfileScreen() {
         </Card>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+      <section className="max-w-2xl">
         <Card>
           <CardHeader>
             <SectionHeading
@@ -401,32 +392,6 @@ export function ProfileScreen() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Mensagens recentes</CardTitle>
-            <CardDescription>Central interna para sessões, agenda dr e campanhas.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {inboxNotifications.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <div
-                  key={item.title}
-                  className="flex items-start gap-4 rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-4"
-                >
-                  <div className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", item.tone)}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-950">{item.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">{item.detail}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
       </section>
 
     </div>
