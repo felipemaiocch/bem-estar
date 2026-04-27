@@ -11,20 +11,12 @@ import {
 import type { CareRecordCategory, UserCareRecord } from "@/types";
 import { cn } from "@/lib/utils";
 
-interface PreferenceItem {
-  key: "REMINDER_DAY_BEFORE" | "REMINDER_HOUR_BEFORE" | "SLOT_RELEASED" | "AGENDA_NEWS";
-  label: string;
-  description: string;
-  enabled: boolean;
-}
 
 export function ProfileScreen() {
-  const [preferences, setPreferences] = useState<PreferenceItem[]>([]);
   const [records, setRecords] = useState<UserCareRecord[]>([]);
   const [activeTab, setActiveTab] = useState<CareRecordCategory | "todos">("todos");
   const [loadingRecords, setLoadingRecords] = useState(false);
-  const [loadingPreferences, setLoadingPreferences] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ name: string; score: number; area: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name: string; score: number; area: string; avatarUrl: string | null } | null>(null);
   const [apiFeedback, setApiFeedback] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,21 +26,15 @@ export function ProfileScreen() {
       setApiFeedback(null);
 
       try {
-        const [recordsResponse, preferencesResponse] = await Promise.all([
+        const [recordsResponse] = await Promise.all([
           fetch("/api/user/profile/care-records"),
-          fetch("/api/user/notification-preferences"),
         ]);
 
         const recordsData = (await recordsResponse.json()) as {
           ok?: boolean;
           error?: string;
           records?: UserCareRecord[];
-          user?: { name: string; score: number; area: string };
-        };
-        const preferencesData = (await preferencesResponse.json()) as {
-          ok?: boolean;
-          error?: string;
-          preferences?: PreferenceItem[];
+          user?: { name: string; score: number; area: string; avatarUrl: string | null };
         };
 
         if (recordsResponse.ok && recordsData.ok) {
@@ -60,18 +46,10 @@ export function ProfileScreen() {
           setApiFeedback(recordsData.error ?? "Falha ao carregar histórico de acompanhamento.");
         }
 
-        if (preferencesResponse.ok && preferencesData.ok) {
-          setPreferences(preferencesData.preferences ?? []);
-        } else {
-          setApiFeedback(
-            preferencesData.error ?? "Falha ao carregar preferências de notificação.",
-          );
-        }
       } catch {
         setApiFeedback("Falha de conexão ao carregar dados do perfil.");
       } finally {
         setLoadingRecords(false);
-        setLoadingPreferences(false);
       }
     }
 
@@ -100,42 +78,18 @@ export function ProfileScreen() {
   const activeAreas = new Set(currentUserRecords.map((item) => item.category)).size;
   const latestRecord = currentUserRecords[0];
 
-  async function togglePreference(key: PreferenceItem["key"], enabled: boolean) {
-    setApiFeedback(null);
-
-    try {
-      const response = await fetch("/api/user/notification-preferences", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ key, enabled }),
-      });
-
-      const data = (await response.json()) as {
-        ok?: boolean;
-        error?: string;
-        preferences?: PreferenceItem[];
-      };
-
-      if (!response.ok || !data.ok || !data.preferences) {
-        setApiFeedback(data.error ?? "Não foi possível salvar preferência.");
-        return;
-      }
-
-      setPreferences(data.preferences);
-    } catch {
-      setApiFeedback("Falha de conexão ao salvar preferência.");
-    }
-  }
 
   return (
     <div className="space-y-6">
       <section className="grid gap-4 xl:grid-cols-[0.88fr_1.12fr]">
         <Card className="overflow-hidden p-6">
           <CardContent className="space-y-5 px-0 pb-0 pt-0">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-gray-200 bg-[#0264af]/10">
-              <UserRound className="h-9 w-9 text-[#0264af]" />
+            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-gray-200 bg-[#0264af]/10 overflow-hidden">
+              {currentUser?.avatarUrl ? (
+                <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <UserRound className="h-9 w-9 text-[#0264af]" />
+              )}
             </div>
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
@@ -345,55 +299,6 @@ export function ProfileScreen() {
         </Card>
       </section>
 
-      <section className="max-w-2xl">
-        <Card>
-          <CardHeader>
-            <SectionHeading
-              eyebrow="Central de notificações"
-              title="Preferências de push"
-              description="Ative ou desative lembretes, agenda dr e alertas de vagas."
-              action={
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
-                  <Bell className="h-4 w-4" />
-                </div>
-              }
-            />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loadingPreferences ? (
-              <div className="rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                Carregando preferências...
-              </div>
-            ) : null}
-            {apiFeedback ? (
-              <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-                {apiFeedback}
-              </div>
-            ) : null}
-            {preferences.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => void togglePreference(item.key, !item.enabled)}
-                className="flex w-full items-start justify-between gap-4 rounded-[24px] border border-slate-100 bg-slate-50/70 px-4 py-4 text-left"
-              >
-                <div>
-                  <p className="font-medium text-slate-950">{item.label}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">{item.description}</p>
-                </div>
-                <div
-                  className={cn(
-                    "mt-1 flex h-7 w-12 items-center rounded-full px-1 transition-all",
-                    item.enabled ? "justify-end bg-[#0264af]" : "justify-start bg-slate-300",
-                  )}
-                >
-                  <span className="h-5 w-5 rounded-full bg-white" />
-                </div>
-              </button>
-            ))}
-          </CardContent>
-        </Card>
-
-      </section>
 
     </div>
   );

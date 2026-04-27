@@ -26,6 +26,7 @@ export function UserShell({ children }: { children: ReactNode }) {
   const [activeAlertId, setActiveAlertId] = useState<string | null>(null);
   const [modalDismissed, setModalDismissed] = useState(true);
   const [hasUnreadAlert, setHasUnreadAlert] = useState(false);
+  const [user, setUser] = useState<{ name: string; avatarUrl: string | null; score: number } | null>(null);
 
   const loadGlobalAlert = useCallback(async () => {
     try {
@@ -47,9 +48,18 @@ export function UserShell({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  const loadUser = useCallback(async () => {
+    try {
+      const resp = await fetch("/api/user/me");
+      const data = await resp.json();
+      if (data.ok) setUser(data.user);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     void loadGlobalAlert();
-  }, [loadGlobalAlert]);
+    void loadUser();
+  }, [loadGlobalAlert, loadUser]);
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -132,12 +142,18 @@ export function UserShell({ children }: { children: ReactNode }) {
 
         <div className="mb-4 border-b border-gray-50 px-6 py-4">
           <Link href="/usuario/perfil" className="flex items-center gap-3 transition-opacity hover:opacity-80">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-[#0264af]/10 text-sm font-bold text-[#0264af]">
-              FS
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-[#0264af]/10 text-sm font-bold text-[#0264af] overflow-hidden">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                user?.name.substring(0, 2).toUpperCase() || "..."
+              )}
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-900">Felipe Santos</p>
-              <p className="text-xs text-gray-500">Nível Ouro • 1.990 pts</p>
+              <p className="text-sm font-bold text-gray-900 line-clamp-1">{user?.name || "Carregando..."}</p>
+              <p className="text-xs text-gray-500">
+                {user ? `${user.score >= 3000 ? "Nível Ouro" : user.score >= 1000 ? "Nível Prata" : "Nível Bronze"} • ${user.score} pts` : "..."}
+              </p>
             </div>
           </Link>
         </div>
@@ -165,8 +181,11 @@ export function UserShell({ children }: { children: ReactNode }) {
 
         <div className="border-t border-gray-100 p-4">
           <Link
-            href="/usuario/perfil"
-            className="mb-2 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-gray-500 transition-all hover:bg-gray-50"
+            href="/usuario/configuracoes"
+            className={cn(
+              "mb-2 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all hover:bg-gray-50",
+              pathname === "/usuario/configuracoes" ? "bg-[#0264af]/8 text-[#0264af]" : "text-gray-500"
+            )}
           >
             <Settings size={20} />
             Configurações
@@ -185,12 +204,16 @@ export function UserShell({ children }: { children: ReactNode }) {
       <div className="relative flex h-screen flex-1 flex-col overflow-hidden">
         <header className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-100 bg-white/80 px-4 py-3 backdrop-blur-md md:px-8 md:py-4">
           <div className="flex items-center gap-3 md:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#0264af]/10 text-sm font-bold text-[#0264af] shadow-sm">
-              FS
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-white bg-[#0264af]/10 text-sm font-bold text-[#0264af] shadow-sm overflow-hidden">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                user?.name.substring(0, 2).toUpperCase() || "..."
+              )}
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500">Bom dia,</p>
-              <p className="text-sm font-bold text-gray-900">Felipe 👋</p>
+              <p className="text-sm font-bold text-gray-900">{user?.name.split(' ')[0] || "..."} 👋</p>
             </div>
           </div>
 
