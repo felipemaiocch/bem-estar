@@ -229,7 +229,6 @@ export function AdminCardsScreen() {
                 placeholder="Data"
                 value={form.date}
                 onChange={(event) => setForm((c) => ({ ...c, date: event.target.value }))}
-                required
               />
               <input
                 className={inputClassName}

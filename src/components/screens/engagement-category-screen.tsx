@@ -90,6 +90,16 @@ const statusTone: Record<string, string> = {
   "Sempre disponível": "bg-emerald-50 text-emerald-700",
 };
 
+const dayTranslation: Record<string, string> = {
+  Monday: "Seg",
+  Tuesday: "Ter",
+  Wednesday: "Qua",
+  Thursday: "Qui",
+  Friday: "Sex",
+  Saturday: "Sáb",
+  Sunday: "Dom",
+};
+
 export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlug }) {
   const page = engagementCategoryPages[slug];
   const Icon = page.icon;
@@ -203,7 +213,9 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
                       </p>
                       <p className="mt-2 flex items-center gap-2 text-sm text-slate-500 line-clamp-1">
                         <CalendarDays className="h-4 w-4 shrink-0" />
-                        {item.date}
+                        {item.availableDays 
+                          ? item.availableDays.split(",").map((d: string) => dayTranslation[d.trim()] || d.trim()).join(", ") 
+                          : item.date}
                       </p>
                       <p className="mt-1 flex items-center gap-2 text-sm text-slate-500 line-clamp-1">
                         <MapPin className="h-4 w-4 shrink-0" />
