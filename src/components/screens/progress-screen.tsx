@@ -24,6 +24,7 @@ type WellnessEntry = {
   habitsScore: number | null;
   notes: string | null;
   createdAtLabel: string;
+  createdAtIso: string;
 };
 
 export function ProgressScreen() {
@@ -49,7 +50,7 @@ export function ProgressScreen() {
     const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const base = days.map(d => ({ day: d, score: 0 }));
     history.slice(0, 7).forEach((entry) => {
-      const date = new Date(entry.createdAtLabel);
+      const date = new Date(entry.createdAtIso);
       const dayIdx = date.getDay();
       base[dayIdx].score = Math.min((base[dayIdx].score ?? 0) + (entry.habitsScore ?? 50), 100);
     });
