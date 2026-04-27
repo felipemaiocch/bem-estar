@@ -603,28 +603,34 @@ export function AdminDashboardScreen() {
 
           {/* Burnout Heatmap Mock */}
           <Card className="p-6 border-rose-100 shadow-sm bg-gradient-to-br from-white to-rose-50/30">
-            <h3 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
-              Mapa de Calor: Alerta de Burnout
+            <h3 className="mb-4 text-lg font-bold flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+              Mapa de Calor: Bem-estar da Equipe
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-5">
               {[
-                { dep: "Comercial / Vendas", risk: 85, color: "bg-rose-500" },
-                { dep: "Tecnologia / Eng", risk: 65, color: "bg-orange-400" },
-                { dep: "Recursos Humanos", risk: 30, color: "bg-emerald-400" },
+                { area: "Sob pressão (Alerta)", risk: 65, color: "bg-rose-500" },
+                { area: "Cansado (Atenção)", risk: 42, color: "bg-amber-500" },
+                { area: "Equilibrado", risk: 88, color: "bg-blue-500" },
+                { area: "Energizado", risk: 74, color: "bg-emerald-500" },
               ].map((item) => (
-                <div key={item.dep}>
-                  <div className="flex justify-between text-xs font-semibold mb-1.5">
-                    <span className="text-slate-700">{item.dep}</span>
-                    <span className="text-slate-500">{item.risk}% de Risco</span>
+                <div key={item.area} className="space-y-2">
+                  <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
+                    <span className="text-slate-700">{item.area}</span>
+                    <span className="text-slate-500">{item.risk}% do time</span>
                   </div>
-                  <div className="h-2.5 w-full bg-slate-200/50 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.risk}%` }}></div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-1000", item.color)}
+                      style={{ width: `${item.risk}%` }}
+                    />
                   </div>
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-[11px] text-slate-500 uppercase tracking-widest font-semibold text-center text-rose-500/80">Dados cruciais anonimizados</p>
+            <p className="mt-6 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              Dados cruciais anonimizados em tempo real
+            </p>
           </Card>
 
           {/* Notificações em Massa */}

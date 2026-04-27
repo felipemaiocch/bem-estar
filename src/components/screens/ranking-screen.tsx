@@ -5,7 +5,7 @@ import { ArrowDownRight, ArrowUpRight, Award, Trophy } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-const rankingCategories = ["Geral", "Comercial", "Marketing", "Desenvolvimento", "RH"];
+const rankingCategories = ["Geral"];
 interface RankingUser {
   id: string;
   name: string;
