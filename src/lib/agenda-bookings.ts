@@ -1,4 +1,4 @@
-
+import type { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type SessionIdentity = {
