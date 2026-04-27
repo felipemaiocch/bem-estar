@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -29,6 +30,28 @@ const statusTone: Record<string, string> = {
 export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlug }) {
   const page = engagementCategoryPages[slug];
   const Icon = page.icon;
+
+  const [dbCards, setDbCards] = useState<any[]>([]);
+  const [loadingCards, setLoadingCards] = useState(true);
+
+  useEffect(() => {
+    async function loadCards() {
+      try {
+        const res = await fetch(`/api/user/cards?category=${slug}`);
+        const data = await res.json();
+        if (data.ok) {
+          setDbCards(data.cards);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingCards(false);
+      }
+    }
+    void loadCards();
+  }, [slug]);
+
+  const cardsToRender = dbCards.length > 0 ? dbCards : (!loadingCards ? page.cards : []);
 
   return (
     <div className="space-y-6">
@@ -78,40 +101,51 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
           description={page.sectionDescription}
         />
         <div className="grid gap-4 xl:grid-cols-3">
-          {page.cards.map((item) => (
-            <Card key={item.title} className="overflow-hidden">
-              <div className={cn("h-40 bg-gradient-to-br", item.gradient)} />
-              <CardContent className="space-y-4 px-5 pb-5 pt-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xl font-semibold tracking-tight text-slate-950">
-                      {item.title}
-                    </p>
-                    <p className="mt-2 flex items-center gap-2 text-sm text-slate-500">
-                      <CalendarDays className="h-4 w-4" />
-                      {item.date}
-                    </p>
-                    <p className="mt-1 flex items-center gap-2 text-sm text-slate-500">
-                      <MapPin className="h-4 w-4" />
-                      {item.location}
-                    </p>
+          {loadingCards ? (
+             <div className="col-span-3 py-10 text-center text-slate-500">Carregando conteúdos...</div>
+          ) : cardsToRender.map((item: any) => (
+            <Card key={item.id || item.title} className="overflow-hidden flex flex-col">
+              <div className={cn("h-40 bg-gradient-to-br relative", item.gradient || "from-slate-200 to-slate-100")}>
+                 {item.imageUrl && (
+                   // eslint-disable-next-line @next/next/no-img-element
+                   <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover absolute inset-0" />
+                 )}
+              </div>
+              <CardContent className="space-y-4 px-5 pb-5 pt-5 flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xl font-semibold tracking-tight text-slate-950">
+                        {item.title}
+                      </p>
+                      <p className="mt-2 flex items-center gap-2 text-sm text-slate-500 line-clamp-1">
+                        <CalendarDays className="h-4 w-4 shrink-0" />
+                        {item.date}
+                      </p>
+                      <p className="mt-1 flex items-center gap-2 text-sm text-slate-500 line-clamp-1">
+                        <MapPin className="h-4 w-4 shrink-0" />
+                        {item.location}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap",
+                        statusTone[item.status] ?? "bg-slate-100 text-slate-700",
+                      )}
+                    >
+                      {item.status}
+                    </span>
                   </div>
-                  <span
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs font-semibold",
-                      statusTone[item.status] ?? "bg-slate-100 text-slate-700",
-                    )}
-                  >
-                    {item.status}
-                  </span>
                 </div>
-                <div className="flex items-center justify-between rounded-[24px] bg-slate-50 px-4 py-4 text-sm">
-                  <span className="text-slate-500">Pontos na participação</span>
-                  <span className="font-semibold text-slate-950">+{item.points}</span>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button>{page.primaryAction}</Button>
-                  <Button variant="secondary">{page.secondaryAction}</Button>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between rounded-[24px] bg-slate-50 px-4 py-4 text-sm mt-4">
+                    <span className="text-slate-500">Pontos na participação</span>
+                    <span className="font-semibold text-slate-950">+{item.points}</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Button>{page.primaryAction}</Button>
+                    <Button variant="secondary">{page.secondaryAction}</Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

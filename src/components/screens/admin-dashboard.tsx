@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Calendar, ChevronRight, Megaphone, Send, Star, Stethoscope, Users } from "lucide-react";
 
+import Link from "next/link";
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -584,6 +585,14 @@ export function AdminDashboardScreen() {
           <Card className="p-6">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Ações rápidas</h3>
             <div className="space-y-3">
+              <Link href="/admin/conteudos" className="block cursor-pointer p-5 transition-all hover:border-blue-300 hover:shadow-md rounded-xl border bg-card text-card-foreground shadow">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#0264af]">
+                    Gerenciar Cards de Conteúdo
+                  </span>
+                  <ChevronRight size={20} className="text-[#0264af]" />
+                </div>
+              </Link>
               {[
                 "Gerenciar prestadores",
                 "Aprovar profissionais",

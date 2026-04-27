@@ -124,6 +124,7 @@ model User {
   auditLogs                 AuditLog[]               @relation("AuditLogActor")
   publishedEvents           Event[]                  @relation("EventPublisher")
   mediaAssets               MediaAsset[]             @relation("MediaAssetAuthor")
+  publishedCards            EngagementCard[]         @relation("CardPublisher")
 }
 
 model ProfessionalProfile {
@@ -380,4 +381,23 @@ model AuditLog {
   actor     User?    @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([entity, entityId, createdAt])
+}
+
+model EngagementCard {
+  id        String   @id @default(uuid())
+  category  String   // Ex: saude-bem-estar, cultura, agenda-dr
+  title     String
+  date      String
+  location  String
+  status    String   // Ex: Agenda aberta, Ativo, Confirmado
+  points    Int      @default(0)
+  imageUrl  String?  // Se nulo, usar fallback de gradiente
+
+  publishedById String
+  publishedBy   User     @relation("CardPublisher", fields: [publishedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
 }
