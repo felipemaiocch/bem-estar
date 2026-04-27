@@ -412,6 +412,28 @@ export function AdminDashboardScreen() {
     }
   }
 
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case "Gerenciar prestadores":
+      case "Aprovar profissionais":
+        document.getElementById("gestao-profissionais")?.scrollIntoView({ behavior: "smooth" });
+        break;
+      case "Configurar gamificação":
+        setFeedback("Configurações de Gamificação: Os pontos são atribuídos automaticamente via API (Mecânica de Check-in e Streaks ativa).");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        break;
+      case "Relatórios mensais":
+        setFeedback("Relatórios: A exportação de dados (CSV/PDF) será liberada no fechamento do ciclo mensal.");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        break;
+      case "Disparar comunicado":
+        document.getElementById("notificacoes-massa")?.scrollIntoView({ behavior: "smooth" });
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <BackofficeShell
       badge=""
@@ -506,6 +528,30 @@ export function AdminDashboardScreen() {
               ))}
             </div>
             <p className="mt-4 text-[11px] text-slate-500 uppercase tracking-widest font-semibold text-center text-rose-500/80">Dados cruciais anonimizados</p>
+          </Card>
+
+          {/* Notificações em Massa (Moved from bottom) */}
+          <Card id="notificacoes-massa" className="p-6 border-blue-100 shadow-sm bg-white">
+            <h3 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
+               <Megaphone className="text-blue-500 h-5 w-5" />
+               Notificações em massa
+            </h3>
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Digite o comunicado oficial para todos os usuários..."
+              className="min-h-32 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm outline-none focus:border-[#0264af] focus:bg-white resize-none"
+            />
+            <div className="mt-4">
+              <Button 
+                className="w-full" 
+                onClick={() => void handleSendGlobalAlert()}
+                disabled={busyAction === "send-alert"}
+              >
+                <Send size={16} />
+                {busyAction === "send-alert" ? "Enviando..." : "Enviar comunicado"}
+              </Button>
+            </div>
           </Card>
         </div>
 
@@ -618,6 +664,7 @@ export function AdminDashboardScreen() {
               ].map((action) => (
                 <Card
                   key={action}
+                  onClick={() => handleQuickAction(action)}
                   className="group cursor-pointer p-5 transition-all hover:border-blue-300 hover:shadow-md"
                 >
                   <div className="flex items-center justify-between">
@@ -636,7 +683,7 @@ export function AdminDashboardScreen() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <Card className="p-6">
+          <Card id="gestao-profissionais" className="p-6">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Gestão de profissionais</h3>
             <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void handleCreateProfessional(event)}>
               <input
@@ -833,75 +880,7 @@ export function AdminDashboardScreen() {
           </Card>
         </div>
 
-        <Card className="p-6">
-          <h3 className="mb-4 text-lg font-bold text-gray-900">Notificações em massa</h3>
-          <textarea
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            className="min-h-40 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm outline-none focus:border-[#0264af] focus:bg-white"
-          />
-          <div className="mt-4">
-            <Button 
-              className="w-full md:w-auto" 
-              onClick={() => void handleSendGlobalAlert()}
-              disabled={busyAction === "send-alert"}
-            >
-              <Send size={16} />
-              {busyAction === "send-alert" ? "Enviando..." : "Enviar comunicado"}
-            </Button>
-          </div>
-        </Card>
 
-        {/* Conexão End-to-end: Publicação e Cadastro */}
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {/* Publicar Conteúdo */}
-          <Card className="p-6 border-indigo-100 shadow-sm bg-white">
-            <h3 className="mb-1 text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Megaphone className="text-indigo-500 h-5 w-5" />
-              Publicar Conteúdo Institucional
-            </h3>
-            <p className="text-sm text-slate-500 mb-5">Adicione cards e comunicados oficiais nas categorias fixas da Home dos colaboradores.</p>
-            <div className="space-y-4">
-              <select className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors">
-                <option>Selecione a Categoria de Destino...</option>
-                <option>Saúde e Bem-Estar</option>
-                <option>Cultura Organizacional</option>
-                <option>Agenda Dr. Monitora</option>
-              </select>
-              <input type="text" placeholder="Título do Card (ex: Nova Parceria de Academias)" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors" />
-              <textarea placeholder="Descrição ou link do programa..." rows={3} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors resize-none"></textarea>
-              <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11">
-                Disparar para a Home
-              </Button>
-            </div>
-          </Card>
-
-          {/* Cadastrar Profissional */}
-          <Card className="p-6 border-sky-100 shadow-sm bg-white">
-            <h3 className="mb-1 text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Stethoscope className="text-sky-500 h-5 w-5" />
-              Credenciar Novo Especialista
-            </h3>
-            <p className="text-sm text-slate-500 mb-5">Cadastre profissionais (que atuarão na Agenda e poderão postar no Feed de Saúde).</p>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <input type="text" placeholder="Nome Completo do Profissional" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 transition-colors" />
-                <input type="text" placeholder="Registro (Ex: CRP / CRM)" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 transition-colors" />
-              </div>
-              <select className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700 focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 transition-colors">
-                <option>Especialidade de Atendimento...</option>
-                <option>Psicologia Clínica</option>
-                <option>Nutrição</option>
-                <option>Medicina Preventiva</option>
-                <option>Educador Físico / Fisioterapia</option>
-              </select>
-              <input type="text" placeholder="Email de Acesso (para login do médico)" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 transition-colors" />
-              <Button className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold h-11">
-                Cadastrar Perfil
-              </Button>
-            </div>
-          </Card>
-        </div>
       </div>
     </BackofficeShell>
   );
