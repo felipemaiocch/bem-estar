@@ -11,9 +11,9 @@ export async function GET(request: Request) {
     const yesterday = new Date();
     yesterday.setHours(yesterday.getHours() - 24);
 
-    const checkIns = await prisma.wellnessCheckIn.findMany({
+    const checkIns = await prisma.wellnessEntry.findMany({
       where: {
-        recordedAt: { gte: yesterday }
+        createdAt: { gte: yesterday }
       },
       select: { moodLabel: true }
     });
