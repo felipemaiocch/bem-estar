@@ -544,7 +544,7 @@ function getSlotForBooking(options: {
     agendaSlotTemplates.find(
       (slot) =>
         slot.time === bookingTime &&
-        (professionalEmail ? slot.profile.email === professionalEmail : true),
+        (professionalEmail ? slot.profile.email === professionalEmail : false),
     ) ?? null;
 
   if (exact) {
@@ -641,13 +641,25 @@ export async function listUserAgendaBookings(options: {
     take: 20,
   });
 
+  const cards = await prisma.engagementCard.findMany();
+  const cardMap = new Map(cards.map((c) => [c.title, c]));
+
   return bookings.map((booking) => {
-    const slot = getSlotForBooking({
-      professionalId: booking.professionalId,
-      startsAt: booking.startsAt,
-      specialty: booking.specialty,
-      professionalMap,
-    });
+    const card = cardMap.get(booking.specialty);
+
+    const slot = card
+      ? {
+          focus: card.category,
+          mode: "presencial" as const,
+          location: card.location,
+          meetingUrl: undefined,
+        }
+      : getSlotForBooking({
+          professionalId: booking.professionalId,
+          startsAt: booking.startsAt,
+          specialty: booking.specialty,
+          professionalMap,
+        });
 
     return {
       id: booking.id,
