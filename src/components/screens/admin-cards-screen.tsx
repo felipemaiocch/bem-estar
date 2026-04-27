@@ -25,7 +25,7 @@ const defaultCardForm = {
   date: "",
   location: "",
   status: "Agenda aberta",
-  points: 0,
+  points: "" as unknown as number,
   imageUrl: "",
 };
 
@@ -62,6 +62,26 @@ export function AdminCardsScreen() {
   useEffect(() => {
     void loadCards();
   }, []);
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Você tem certeza que deseja excluir permanentemente este card?")) {
+      return;
+    }
+
+    setBusyAction(`delete-${id}`);
+    setFeedback(null);
+    try {
+      const response = await fetch(`/api/admin/cards/${id}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error();
+      setFeedback("Card deletado com sucesso.");
+      await loadCards();
+    } catch {
+      setFeedback("Falha ao deletar card.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -136,7 +156,8 @@ export function AdminCardsScreen() {
               />
               <input
                 className={inputClassName}
-                placeholder="Data / Frequência (Ex: Atendimento contínuo)"
+                type="date"
+                placeholder="Data"
                 value={form.date}
                 onChange={(event) => setForm((c) => ({ ...c, date: event.target.value }))}
                 required
@@ -150,20 +171,25 @@ export function AdminCardsScreen() {
               />
               
               <div className="grid gap-3 grid-cols-2">
-                 <input
+                 <select
                   className={inputClassName}
-                  placeholder="Status (Ex: Ativo)"
                   value={form.status}
                   onChange={(event) => setForm((c) => ({ ...c, status: event.target.value }))}
                   required
-                />
+                >
+                  <option value="Agenda aberta">Agenda aberta</option>
+                  <option value="Atendimento contínuo">Atendimento contínuo</option>
+                  <option value="Vagas limitadas">Vagas limitadas</option>
+                  <option value="Breve">Em breve</option>
+                  <option value="Ativo">Ativo</option>
+                </select>
                  <input
                   className={inputClassName}
                   type="number"
                   min={0}
-                  placeholder="Pontos (Ex: 80)"
+                  placeholder="Pontos (ex: 80)"
                   value={form.points}
-                  onChange={(event) => setForm((c) => ({ ...c, points: Number(event.target.value) }))}
+                  onChange={(event) => setForm((c) => ({ ...c, points: event.target.value as unknown as number }))}
                 />
               </div>
 
@@ -211,8 +237,21 @@ export function AdminCardsScreen() {
                         <span className="absolute top-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] uppercase font-bold text-white tracking-widest">{card.category}</span>
                      </div>
                      <div className="p-4">
-                        <p className="font-bold text-slate-900 leading-tight">{card.title}</p>
-                        <p className="text-xs text-slate-500 mt-1">{card.status} · {card.points} pts</p>
+                        <div className="flex justify-between items-start">
+                           <div>
+                             <p className="font-bold text-slate-900 leading-tight">{card.title}</p>
+                             <p className="text-xs text-slate-500 mt-1">{card.status} · {card.points} pts</p>
+                           </div>
+                           <button
+                             type="button"
+                             onClick={() => void handleDelete(card.id)}
+                             disabled={busyAction === `delete-${card.id}`}
+                             className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                             title="Excluir card"
+                           >
+                             <Trash2 className="h-4 w-4" />
+                           </button>
+                        </div>
                      </div>
                   </div>
                 ))}
