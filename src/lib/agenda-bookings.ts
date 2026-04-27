@@ -490,11 +490,6 @@ export async function listAgendaSlots(options: {
         status: hasConfirmed ? "occupied" : "available",
         mineStatus: mineBooked ? "booked" : mineWaitlist ? "waitlist" : undefined,
       });
-    }
-  }
-
-    }
-  }
 
   return {
     slots,
@@ -502,6 +497,7 @@ export async function listAgendaSlots(options: {
     cards: engagementCards
   };
 }
+
 
 function getSlotForBooking(options: {
   professionalId: string;
