@@ -43,6 +43,7 @@ export function ProfileScreen() {
           ok?: boolean;
           error?: string;
           records?: UserCareRecord[];
+          user?: { name: string; score: number; area: string };
         };
         const preferencesData = (await preferencesResponse.json()) as {
           ok?: boolean;
