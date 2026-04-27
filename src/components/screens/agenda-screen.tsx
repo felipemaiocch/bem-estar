@@ -459,7 +459,7 @@ export function AgendaScreen() {
                         <p className="font-bold text-gray-900 leading-tight">{card.title}</p>
                         <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-purple-700">
                           <Star size={12} className="fill-purple-500" />
-                          Atividade coletiva
+                          {card.slots ? "Sessão com horários" : "Evento / Atividade"}
                         </div>
                       </div>
                       <Button 
