@@ -31,6 +31,11 @@ export async function GET(request: NextRequest) {
       take: 4,
     });
 
+    const latestCards = await prisma.engagementCard.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 3,
+    });
+
     // 3. User Engagement Metrics
     // Quantos agendamentos esse usuario tem (Saude e bem-estar)
     const bookingsCount = await prisma.sessionBooking.count({
@@ -57,13 +62,22 @@ export async function GET(request: NextRequest) {
           area: u.company || "Geral",
           points: u.score,
       })),
-      upcomingEvents: upcomingEvents.map(e => ({
-          id: e.id,
-          title: e.title,
-          location: e.location,
-          category: e.category,
-          startsAtIso: e.startsAt.toISOString(),
-      })),
+      upcomingEvents: [
+          ...upcomingEvents.map(e => ({
+              id: e.id,
+              title: e.title,
+              location: e.location,
+              category: e.category,
+              startsAtIso: e.startsAt.toISOString(),
+          })),
+          ...latestCards.map(c => ({
+              id: c.id,
+              title: c.title,
+              location: c.location,
+              category: c.category.replace('saude-bem-estar', 'Saúde').replace('cultura', 'Cultura'),
+              startsAtIso: c.createdAt.toISOString(),
+          }))
+      ].slice(0, 5),
       metrics: {
           bookingsCount,
           cultureCount: totalCultureEvents + totalCultureCards,
