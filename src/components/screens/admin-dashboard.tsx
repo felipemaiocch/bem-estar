@@ -94,6 +94,7 @@ export function AdminDashboardScreen() {
   const [eventForm, setEventForm] = useState(defaultEventForm);
   const [cardCount, setCardCount] = useState(0);
   const [globalSlots, setGlobalSlots] = useState("");
+  const [moodStats, setMoodStats] = useState<any[]>([]);
 
   const activeUsers = users.filter((user) => user.isActive).length;
   const monthlyEngagement = useMemo(() => {
@@ -118,61 +119,35 @@ export function AdminDashboardScreen() {
     setFeedback(null);
 
     try {
-      const [usersResponse, professionalsResponse, eventsResponse, cardsResponse, agendaConfigResponse] = await Promise.all([
+      const [usersResponse, professionalsResponse, eventsResponse, cardsResponse, agendaConfigResponse, moodStatsResponse] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/admin/professionals"),
         fetch("/api/admin/events"),
         fetch("/api/admin/cards"),
         fetch("/api/admin/agenda-config"),
+        fetch("/api/admin/stats/moods"),
       ]);
 
-      if (agendaConfigResponse.ok) {
-        const agendaData = await agendaConfigResponse.json();
-        setGlobalSlots(agendaData.slots || "");
-      }
+      const [usersData, professionalsData, eventsData, cardsData, agendaData, moodData] = await Promise.all([
+        usersResponse.json(),
+        professionalsResponse.json(),
+        eventsResponse.json(),
+        cardsResponse.json(),
+        agendaConfigResponse.json(),
+        moodStatsResponse.json(),
+      ]);
 
-      const usersData = (await usersResponse.json()) as {
-        ok?: boolean;
-        error?: string;
-        users?: AdminUserItem[];
-      };
-      const professionalsData = (await professionalsResponse.json()) as {
-        ok?: boolean;
-        error?: string;
-        professionals?: AdminProfessionalItem[];
-      };
-      const eventsData = (await eventsResponse.json()) as {
-        ok?: boolean;
-        error?: string;
-        events?: AdminEventItem[];
-      };
+      if (usersData.ok) setUsers(usersData.users ?? []);
+      if (professionalsData.ok) setProfessionals(professionalsData.professionals ?? []);
+      if (eventsData.ok) setEvents(eventsData.events ?? []);
+      if (cardsData.ok) setCardCount(cardsData.cards?.length ?? 0);
+      if (agendaData.ok) setGlobalSlots(agendaData.slots || "");
+      if (moodData.ok) setMoodStats(moodData.stats ?? []);
 
-      if (!usersResponse.ok || !usersData.ok) {
-        setFeedback(usersData.error ?? "Falha ao carregar usuários.");
-      } else {
-        setUsers(usersData.users ?? []);
-      }
-
-      if (!professionalsResponse.ok || !professionalsData.ok) {
-        setFeedback((current) => current ?? professionalsData.error ?? "Falha ao carregar profissionais.");
-      } else {
-        setProfessionals(professionalsData.professionals ?? []);
-      }
-
-      if (!eventsResponse.ok || !eventsData.ok) {
-        setFeedback((current) => current ?? eventsData.error ?? "Falha ao carregar eventos.");
-      } else {
-        setEvents(eventsData.events ?? []);
-      }
-
-      if (cardsResponse.ok) {
-        const cardsData = await cardsResponse.json();
-        if (cardsData.ok) {
-          setCardCount(cardsData.cards?.length ?? 0);
-        }
-      }
-    } catch {
-      setFeedback("Falha de conexão ao carregar dados do admin.");
+      if (!usersData.ok) setFeedback(usersData.error || "Falha ao carregar usuários.");
+    } catch (error) {
+      console.error(error);
+      setFeedback("Falha de conexão ao carregar dados administrativos.");
     } finally {
       setLoading(false);
     }
@@ -608,12 +583,12 @@ export function AdminDashboardScreen() {
               Mapa de Calor: Bem-estar da Equipe
             </h3>
             <div className="space-y-5">
-              {[
-                { area: "Sob pressão (Alerta)", risk: 65, color: "bg-rose-500" },
-                { area: "Cansado (Atenção)", risk: 42, color: "bg-amber-500" },
-                { area: "Equilibrado", risk: 88, color: "bg-blue-500" },
-                { area: "Energizado", risk: 74, color: "bg-emerald-500" },
-              ].map((item) => (
+              {(moodStats.length > 0 ? moodStats : [
+                { area: "Sob pressão (Alerta)", risk: 0, color: "bg-rose-500" },
+                { area: "Cansado (Atenção)", risk: 0, color: "bg-amber-500" },
+                { area: "Equilibrado", risk: 100, color: "bg-blue-500" },
+                { area: "Energizado", risk: 0, color: "bg-emerald-500" },
+              ]).map((item) => (
                 <div key={item.area} className="space-y-2">
                   <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
                     <span className="text-slate-700">{item.area}</span>
