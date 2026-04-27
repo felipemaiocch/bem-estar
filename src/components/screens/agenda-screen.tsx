@@ -27,14 +27,6 @@ function getNextDays(startDate: Date, count: number) {
   return daysArray;
 }
 
-const specialistFocusFilters = [
-  "Todos focos",
-  "Burnout",
-  "Ansiedade",
-  "Nutrição esportiva",
-  "Postura",
-  "Sono",
-];
 
 type AgendaSlot = {
   slotId: string;
@@ -132,7 +124,6 @@ function getOutlookCalendarUrl(booking: UserBooking) {
 export function AgendaScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState("Todos");
-  const [selectedFocusFilter, setSelectedFocusFilter] = useState("Todos focos");
   const [showWaitlist, setShowWaitlist] = useState(true);
 
   const [baseDate, setBaseDate] = useState(() => new Date());
@@ -167,7 +158,6 @@ export function AgendaScreen() {
         month: String(selectedDate.month),
         year: String(selectedDate.year),
         filter: selectedFilter,
-        focus: selectedFocusFilter,
       });
       const response = await fetch(`/api/user/agenda/slots?${params.toString()}`, {
         cache: "no-store",
@@ -199,7 +189,7 @@ export function AgendaScreen() {
     } finally {
       setLoadingSlots(false);
     }
-  }, [selectedDate, selectedFilter, selectedFocusFilter]);
+  }, [selectedDate, selectedFilter]);
 
   const loadMyBookings = useCallback(async () => {
     setLoadingBookings(true);
@@ -342,22 +332,6 @@ export function AgendaScreen() {
         ))}
       </div>
 
-      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
-        {specialistFocusFilters.map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setSelectedFocusFilter(filter)}
-            className={cn(
-              "whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition-colors",
-              filter === selectedFocusFilter
-                ? "bg-blue-600 text-white"
-                : "border border-blue-100 bg-blue-50 text-blue-700 hover:border-blue-200 hover:bg-blue-100",
-            )}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
         <Card className="h-fit p-6 md:col-span-5">
