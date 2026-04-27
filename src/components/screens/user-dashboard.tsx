@@ -431,7 +431,7 @@ export function UserDashboardScreen() {
                   <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
                     <Clock3 size={14} />
                     {event.title === "Saúde e bem-estar" ?
-                      (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.bookingsCount ?? 0} agendamentos`) :
+                      (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.healthCount ?? 0} cuidados disponíveis`) :
                      event.title === "Cultura" ?
                       (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.cultureCount ?? 0} eventos`) :
                       (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.agendaCount ?? 0} eventos`)}
