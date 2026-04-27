@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const slots = await listAgendaSlots({
+  const dayContent = await listAgendaSlots({
     date: {
       day: parsed.data.day,
       month: parsed.data.month,
@@ -50,6 +50,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    slots,
+    ...dayContent,
   });
 }
