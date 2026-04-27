@@ -36,8 +36,12 @@ export async function GET(request: NextRequest) {
       },
       responsible: {
         select: {
-          name: true,
           specialty: true,
+          user: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
     },
