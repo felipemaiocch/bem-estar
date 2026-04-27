@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Calendar, ChevronRight, Megaphone, Send, Star, Stethoscope, Users } from "lucide-react";
+import { Activity, Calendar, ChevronRight, Megaphone, Send, Star, Stethoscope, Trash2, Users } from "lucide-react";
 
 import Link from "next/link";
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
@@ -310,6 +310,29 @@ export function AdminDashboardScreen() {
       await loadAdminData();
     } catch {
       setFeedback("Falha de conexão ao criar evento.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleDeleteEvent(id: string) {
+    if (!confirm("Tem certeza que deseja excluir permanentemente este evento?")) {
+      return;
+    }
+
+    setBusyAction(`delete-event-${id}`);
+    try {
+      const response = await fetch(`/api/admin/events?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        await loadAdminData();
+      } else {
+        setFeedback("Falha ao excluir evento.");
+      }
+    } catch {
+      setFeedback("Erro de conexão ao excluir.");
     } finally {
       setBusyAction(null);
     }
@@ -874,17 +897,27 @@ export function AdminDashboardScreen() {
                       {event.location} · {event.status} · {event.points} pts
                     </p>
                   </div>
-                  <Button
-                    variant={event.status === "PUBLISHED" ? "outline" : "secondary"}
-                    onClick={() => void publishOrDraftEvent(event)}
-                    disabled={busyAction === `toggle-event-${event.id}`}
-                  >
-                    {busyAction === `toggle-event-${event.id}`
-                      ? "Atualizando..."
-                      : event.status === "PUBLISHED"
-                        ? "Mover p/ rascunho"
-                        : "Publicar"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={event.status === "PUBLISHED" ? "outline" : "secondary"}
+                      onClick={() => void publishOrDraftEvent(event)}
+                      disabled={busyAction === `toggle-event-${event.id}`}
+                    >
+                      {busyAction === `toggle-event-${event.id}`
+                        ? "Atualizando..."
+                        : event.status === "PUBLISHED"
+                          ? "Mover p/ rascunho"
+                          : "Publicar"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                      onClick={() => void handleDeleteEvent(event.id)}
+                      disabled={busyAction === `delete-event-${event.id}`}
+                    >
+                      <Trash2 size={18} />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

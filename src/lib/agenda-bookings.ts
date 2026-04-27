@@ -28,6 +28,12 @@ export interface AgendaSlotResponse {
   mineStatus?: "booked" | "waitlist";
 }
 
+export interface AgendaDayContent {
+  slots: AgendaSlotResponse[];
+  events: any[];
+  cards: any[];
+}
+
 interface AgendaSlotTemplate {
   id: string;
   time: string;
@@ -351,11 +357,29 @@ export async function listAgendaSlots(options: {
   filter?: string;
   focusFilter?: string;
   session: SessionIdentity;
-}) {
+}): Promise<AgendaDayContent> {
+  const { start, end } = buildDayRange(options.date);
+  const dateStr = `${options.date.year}-${String(options.date.month).padStart(2, '0')}-${String(options.date.day).padStart(2, '0')}`;
+
+  // Fetch company events for the day
+  const companyEvents = await prisma.event.findMany({
+    where: { 
+        status: "PUBLISHED", 
+        startsAt: { gte: start, lt: end } 
+    }
+  });
+
+  // Fetch engagement cards (CMS) for the day
+  const engagementCards = await prisma.engagementCard.findMany({
+    where: {
+        date: dateStr
+    }
+  });
+
   if (isDemoMode()) {
     const demoBookings = getDemoBookingsStore();
 
-    return buildAgendaSlots({
+    const slots = buildAgendaSlots({
       date: options.date,
       filter: options.filter,
       focusFilter: options.focusFilter,
@@ -391,6 +415,12 @@ export async function listAgendaSlots(options: {
             ),
           ),
     });
+
+    return {
+        slots,
+        events: companyEvents,
+        cards: engagementCards
+    };
   }
 
   const userExists = await ensureUserExists(options.session.sub);
@@ -463,7 +493,14 @@ export async function listAgendaSlots(options: {
     }
   }
 
-  return slots;
+    }
+  }
+
+  return {
+    slots,
+    events: companyEvents,
+    cards: engagementCards
+  };
 }
 
 function getSlotForBooking(options: {

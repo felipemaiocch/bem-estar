@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus2, ChevronLeft, ChevronRight, Clock3, ExternalLink, MapPin } from "lucide-react";
+import { CalendarPlus2, ChevronLeft, ChevronRight, Clock3, ExternalLink, MapPin, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -148,6 +148,8 @@ export function AgendaScreen() {
   });
 
   const [slots, setSlots] = useState<AgendaSlot[]>([]);
+  const [dayEvents, setDayEvents] = useState<any[]>([]);
+  const [dayCards, setDayCards] = useState<any[]>([]);
   const [myBookings, setMyBookings] = useState<UserBooking[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [loadingBookings, setLoadingBookings] = useState(false);
@@ -178,13 +180,19 @@ export function AgendaScreen() {
 
       if (!response.ok || !data.ok) {
         setSlots([]);
+        setDayEvents([]);
+        setDayCards([]);
         setErrorMessage(data.error ?? "Não foi possível carregar os horários.");
         return;
       }
 
       setSlots(data.slots ?? []);
+      setDayEvents(data.events ?? []);
+      setDayCards(data.cards ?? []);
     } catch {
       setSlots([]);
+      setDayEvents([]);
+      setDayCards([]);
       setErrorMessage("Falha de conexão ao carregar a agenda.");
     } finally {
       setLoadingSlots(false);
@@ -226,6 +234,17 @@ export function AgendaScreen() {
   useEffect(() => {
     void loadMyBookings();
   }, [loadMyBookings]);
+
+  const nextSession = bookings[0] ?? null;
+
+  const myBookingsForDay = useMemo(() => {
+    return myBookings.filter(b => {
+      const d = new Date(b.startsAtIso);
+      return d.getDate() === selectedDate.day &&
+             (d.getMonth() + 1) === selectedDate.month &&
+             d.getFullYear() === selectedDate.year;
+    });
+  }, [myBookings, selectedDate]);
 
   const filteredSlots = useMemo(() => slots, [slots]);
 
@@ -378,197 +397,154 @@ export function AgendaScreen() {
           </div>
         </Card>
 
-        <div className="space-y-5 md:col-span-7">
-          {showWaitlist && (
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 to-orange-400 p-4 font-medium text-white shadow-lg shadow-amber-500/20 animate-in fade-in slide-in-from-top-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 backdrop-blur">
-                  <Clock3 className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-amber-100">Fila inteligente</p>
-                  <p className="mt-0.5 text-sm">Vaga liberada! Psicologia com Camila hoje às 14h. Deseja adiantar sua sessão?</p>
-                </div>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50" onClick={() => setShowWaitlist(false)}>Adiantar para 14h</Button>
-                <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={() => setShowWaitlist(false)}>Manter atual</Button>
+        <div className="space-y-6 md:col-span-7">
+          {/* Section 1: Published Content (Events & Cards) */}
+          {(dayEvents.length > 0 || dayCards.length > 0) && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-gray-900">Destaques e Programação</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {dayEvents.map((event) => (
+                  <Card key={event.id} className="relative overflow-hidden p-4 border-l-4 border-blue-500 bg-blue-50/30">
+                    <div className="flex justify-between items-start mb-2">
+                       <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-100 px-2 py-0.5 rounded">Evento</span>
+                       <span className="text-[10px] font-bold text-slate-500">{new Date(event.startsAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p className="font-bold text-gray-900 leading-tight">{event.title}</p>
+                    <p className="mt-1 text-xs text-gray-500 line-clamp-2">{event.description}</p>
+                    <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-blue-700">
+                      <MapPin size={12} />
+                      {event.location}
+                    </div>
+                  </Card>
+                ))}
+                {dayCards.map((card) => (
+                  <Card key={card.id} className="relative overflow-hidden p-4 border-l-4 border-purple-500 bg-purple-50/30">
+                    <div className="flex justify-between items-start mb-2">
+                       <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-100 px-2 py-0.5 rounded">{card.category.replace(/-/g, ' ')}</span>
+                    </div>
+                    <p className="font-bold text-gray-900 leading-tight">{card.title}</p>
+                    <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-purple-700">
+                      <Star size={12} className="fill-purple-500" />
+                      Atividade coletiva
+                    </div>
+                  </Card>
+                ))}
               </div>
             </div>
           )}
 
-          <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
-            <div className="flex items-start gap-3">
-              <div className="rounded-full bg-blue-100 p-2 text-blue-600">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-              </div>
-              <div>
-                <p className="font-semibold text-blue-900">Pré-consulta sugerida</p>
-                <p className="mt-0.5 text-sm text-blue-700">Preencha um check-in rápido de 1 minuto para o seu psicólogo ler antes da sua próxima sessão.</p>
-                <Button size="sm" className="mt-3 h-8 bg-blue-600 hover:bg-blue-700">Preencher Check-in</Button>
-              </div>
-            </div>
+          {/* Section 2: Personal Sessions */}
+          <div className="space-y-4">
+             <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-900">Meus Agendamentos</h3>
+                <span className="text-xs font-semibold text-slate-500">{myBookingsForDay.length} sessão(ões) hoje</span>
+             </div>
+             
+             {loadingBookings ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-20 w-full rounded-xl bg-slate-100" />
+                </div>
+             ) : myBookingsForDay.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                   <p className="text-sm text-slate-500">Nenhuma sessão marcada para este dia.</p>
+                </div>
+             ) : (
+                <div className="space-y-3">
+                  {myBookingsForDay.map((booking) => (
+                    <Card key={booking.id} className="p-4 border-l-4 border-emerald-500 shadow-sm">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-gray-900">{booking.specialty} · {booking.specialist}</p>
+                          <p className="text-xs text-slate-500 mt-1">{booking.focus}</p>
+                          <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
+                             <span className="flex items-center gap-1"><Clock3 size={12} /> {new Date(booking.startsAtIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                             <span className="flex items-center gap-1"><MapPin size={12} /> {booking.location}</span>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700 uppercase">
+                          {bookingStatusLabel(booking.status)}
+                        </span>
+                      </div>
+                      {booking.meetingUrl && (
+                        <Button size="sm" className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => window.open(booking.meetingUrl, '_blank')}>
+                          Entrar na sala online
+                        </Button>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+             )}
           </div>
-          <Card className="p-4">
-            <div className="mb-3 flex items-center gap-2 text-slate-700">
-              <CalendarPlus2 className="h-4 w-4" />
-              <p className="text-sm font-semibold">Minhas próximas sessões</p>
-            </div>
 
-            {loadingBookings ? (
+          {/* Section 3: Available Specialists */}
+          <div className="space-y-4 pt-2">
+            <h3 className="text-lg font-bold text-gray-900">
+              Especialistas Disponíveis
+            </h3>
+            
+            {errorMessage && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {errorMessage}
+              </div>
+            )}
+            {successMessage && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {successMessage}
+              </div>
+            )}
+
+            {loadingSlots ? (
               <div className="space-y-3">
-                {Array.from({ length: 2 }).map((_, index) => (
-                  <div key={index} className="animate-pulse rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <div className="h-4 w-48 rounded bg-slate-200" />
-                    <div className="mt-2 h-3 w-60 rounded bg-slate-200" />
-                    <div className="mt-3 h-8 w-full rounded bg-slate-200" />
-                  </div>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Card key={index} className="animate-pulse p-4">
+                    <div className="h-10 w-full rounded bg-slate-100" />
+                  </Card>
                 ))}
               </div>
-            ) : null}
-
-            {!loadingBookings && !myBookings.length ? (
-              <p className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-4 text-sm text-slate-500">
-                Você ainda não possui sessões agendadas.
-              </p>
-            ) : null}
-
-            <div className="space-y-3">
-              {myBookings.slice(0, 3).map((booking) => (
-                <div key={booking.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        {booking.specialty} · {booking.specialist}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {formatDateLabel(booking.startsAtIso)} · {booking.focus}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {booking.mode === "online" ? "Online" : "Presencial"} · {booking.location}
-                      </p>
+            ) : filteredSlots.length === 0 ? (
+              <div className="rounded-xl border border-gray-100 bg-white px-4 py-8 text-center text-sm text-gray-500">
+                Nenhum horário disponível para os filtros selecionados.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredSlots.map((slot) => (
+                  <Card
+                    key={slot.slotId}
+                    className="group flex flex-col gap-4 p-4 transition-all hover:shadow-md hover:border-blue-200 sm:flex-row sm:items-center"
+                  >
+                    <div className="flex flex-1 items-center gap-4">
+                      <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 font-bold text-slate-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <span className="text-sm">{slot.time}</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900">{slot.specialty}</p>
+                        <p className="text-xs text-gray-500">{slot.specialist} · {slot.focus}</p>
+                      </div>
                     </div>
-                    <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200">
-                      {bookingStatusLabel(booking.status)}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {booking.mode === "online" && booking.meetingUrl ? (
-                      <a href={booking.meetingUrl} target="_blank" rel="noreferrer">
-                        <Button size="sm">
-                          Entrar na sala
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Button>
-                      </a>
-                    ) : null}
-                    <a href={getGoogleCalendarUrl(booking)} target="_blank" rel="noreferrer">
-                      <Button variant="outline" size="sm" className="gap-1.5 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81z" /></svg>
-                        Google Calendar
-                      </Button>
-                    </a>
-                    <a href={getOutlookCalendarUrl(booking)} target="_blank" rel="noreferrer">
-                      <Button variant="outline" size="sm" className="gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2h12c1.1 0 2-.9 2-2V8l-6-6zm-4 14.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5s-1.57 3.5-3.5 3.5z" /></svg>
-                        Outlook
-                      </Button>
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <h3 className="text-lg font-bold text-gray-900">
-            Disponíveis em {String(selectedDate.day).padStart(2, "0")}/{String(selectedDate.month).padStart(2, "0")}
-          </h3>
-          {errorMessage ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {errorMessage}
-            </div>
-          ) : null}
-          {successMessage ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              {successMessage}
-            </div>
-          ) : null}
-
-          {loadingSlots ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Card key={index} className="animate-pulse p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-xl bg-slate-200" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-40 rounded bg-slate-200" />
-                      <div className="h-3 w-56 rounded bg-slate-200" />
-                      <div className="h-3 w-32 rounded bg-slate-200" />
-                    </div>
-                    <div className="h-9 w-24 rounded-lg bg-slate-200" />
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : null}
-
-          {!loadingSlots && !filteredSlots.length ? (
-            <div className="rounded-xl border border-gray-100 bg-white px-4 py-6 text-sm text-gray-500">
-              Nenhum horário disponível para este filtro ou data.
-            </div>
-          ) : null}
-
-          <div className="space-y-4">
-            {filteredSlots.map((slot) => (
-              <Card
-                key={slot.slotId}
-                className="flex flex-col gap-4 p-4 transition-colors hover:border-blue-200 sm:flex-row sm:items-center"
-              >
-                <div className="flex flex-1 items-center gap-4">
-                  <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
-                    <span className="text-sm font-black">{slot.time}</span>
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-900">{slot.specialty}</p>
-                    <p className="text-sm text-gray-500">{slot.specialist} · {slot.focus}</p>
-                    <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-                      <MapPin size={12} />
-                      {slot.mode === "online" ? "Online" : "Presencial"} · {slot.location}
-                    </p>
-                    <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-                      <Clock3 size={12} />
-                      {slot.status === "available"
-                        ? "Disponível agora"
-                        : slot.status === "waitlist"
-                          ? "Lista de espera"
-                          : "Horário ocupado"}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant={
-                    slot.mineStatus
-                      ? "secondary"
-                      : slot.status === "available"
-                        ? "outline"
-                        : "secondary"
-                  }
-                  className="sm:w-auto"
-                  onClick={() => void handleBookingAction(slot)}
-                  disabled={Boolean(slot.mineStatus) || pendingSlotId === slot.slotId}
-                >
-                  {slot.mineStatus === "booked"
-                    ? "Reservado"
-                    : slot.mineStatus === "waitlist"
-                      ? "Na fila"
-                      : pendingSlotId === slot.slotId
-                        ? "Processando..."
-                        : slot.status === "available"
-                          ? "Reservar"
-                          : "Entrar na fila"}
-                </Button>
-              </Card>
-            ))}
+                    <Button
+                      variant={slot.mineStatus ? "secondary" : "outline"}
+                      size="sm"
+                      className={cn(
+                        "sm:w-auto font-bold",
+                        !slot.mineStatus && slot.status === "available" && "border-blue-200 text-blue-600 hover:bg-blue-50"
+                      )}
+                      onClick={() => void handleBookingAction(slot)}
+                      disabled={Boolean(slot.mineStatus) || pendingSlotId === slot.slotId}
+                    >
+                      {slot.mineStatus === "booked"
+                        ? "Agendado"
+                        : slot.mineStatus === "waitlist"
+                          ? "Na fila"
+                          : pendingSlotId === slot.slotId
+                            ? "..."
+                            : slot.status === "available"
+                              ? "Agendar"
+                              : "Fila de espera"}
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
