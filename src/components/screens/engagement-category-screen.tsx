@@ -5,16 +5,89 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
+  Leaf,
   MapPin,
   MessageSquareText,
+  Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { engagementCategoryPages } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import type { EngagementCategorySlug } from "@/types";
+
+const engagementCategoryPages = {
+  "saude-bem-estar": {
+    icon: Leaf,
+    eyebrow: "Saúde e bem-estar",
+    heroTitle: "Cuidado contínuo com foco em saúde física, emocional e prevenção.",
+    heroDescription: "Psicologia, fisioterapia, nutrição e enfermagem organizadas em uma frente clara de acompanhamento e bem-estar.",
+    heroGradient: "from-emerald-500 via-teal-500 to-cyan-500",
+    featureList: ["Psicologia para apoio emocional e rotina mental saudável.", "Fisioterapia para postura, dor e recuperação funcional.", "Nutrição e enfermagem como suporte contínuo de saúde."],
+    sectionEyebrow: "Bem-estar ativo",
+    sectionTitle: "Frentes de atendimento",
+    sectionDescription: "Areas principais de saúde e bem-estar disponíveis na plataforma.",
+    feedTitle: "Frentes de cuidado",
+    feedDescription: "As quatro bases de cuidado presentes na operação atual.",
+    feedItems: [
+      { title: "Psicologia", description: "Apoio emocional, escuta qualificada e fortalecimento da rotina mental." },
+      { title: "Fisioterapia", description: "Postura, recuperação funcional e prevenção de dores recorrentes." },
+      { title: "Nutrição e enfermagem", description: "Orientação alimentar, apoio preventivo e acompanhamento básico de saúde." },
+    ],
+    interactionTitle: "Ações rápidas",
+    interactionDescription: "Ative rotinas com poucos cliques e acompanhe o impacto em pontos.",
+    comments: ["84 prestadores concluíram o check-in diário de humor hoje.", "Nova leva de vouchers para terapia online foi liberada para o time.", "O desafio de sono já elevou a consistência semanal em 12%."],
+    primaryAction: "Agendar cuidado",
+    secondaryAction: "Ativar benefício",
+  },
+  cultura: {
+    icon: Sparkles,
+    eyebrow: "Cultura organizacional",
+    heroTitle: "Cultura viva com repertório, expressão e desenvolvimento contínuo.",
+    heroDescription: "Filosofia, música e inglês organizados como frentes culturais que fortalecem repertório, expressão e convivência.",
+    heroGradient: "from-indigo-600 via-blue-600 to-cyan-500",
+    featureList: ["Filosofia para reflexão, senso crítico e repertório humano.", "Música como experiência cultural e conexão entre pessoas.", "Inglês como desenvolvimento prático e ampliação de acesso."],
+    sectionEyebrow: "Conteúdo interno",
+    sectionTitle: "Frentes culturais da operação",
+    sectionDescription: "Areas principais que entram dentro da categoria cultura.",
+    feedTitle: "Pilares em destaque",
+    feedDescription: "As três bases culturais que estruturam essa categoria.",
+    feedItems: [
+      { title: "Filosofia", description: "Reflexão, pensamento crítico e conversas que ampliam repertório." },
+      { title: "Música", description: "Vivências, expressão e integração por meio de atividades musicais." },
+      { title: "Inglês", description: "Desenvolvimento de idioma aplicado ao cotidiano e à autonomia." },
+    ],
+    interactionTitle: "Engajamento cultural",
+    interactionDescription: "Mantenha feedbacks rápidos e ações simples para ampliar adesão.",
+    comments: ["A campanha de reconhecimento dobrou a participação do time de produto.", "O vídeo da liderança teve 92% de conclusão no mobile.", "A nova trilha de onboarding reduziu dúvidas nas duas primeiras semanas."],
+    primaryAction: "Ver campanha",
+    secondaryAction: "Compartilhar com time",
+  },
+  "agenda-dr": {
+    icon: CalendarDays,
+    eyebrow: "Agenda dr",
+    heroTitle: "Agenda da dr.monitora com encontros, festas e ações especiais.",
+    heroDescription: "Tudo o que envolve encontros, comemorações e eventos especiais fica concentrado aqui, inclusive quando houver festas.",
+    heroGradient: "from-[#0264af] via-[#0b75c7] to-[#fd3a83]",
+    featureList: ["Eventos, encontros e festas da operação em uma única agenda.", "Confirmação de presença e comunicação centralizada.", "Espaço para programações especiais ao longo do mês."],
+    sectionEyebrow: "Programação da agenda",
+    sectionTitle: "Próximas ações da agenda dr",
+    sectionDescription: "Eventos, encontros e festas concentrados em uma única frente.",
+    feedTitle: "Como a agenda dr funciona",
+    feedDescription: "Uma única categoria para concentrar encontros e ativações especiais.",
+    feedItems: [
+      { title: "Eventos", description: "Palestras, talks e encontros especiais entram direto na agenda dr." },
+      { title: "Festas", description: "Quando houver comemorações, elas aparecem dentro dessa mesma agenda." },
+      { title: "Confirmação simples", description: "O prestador visualiza, confirma presença e acompanha a programação." },
+    ],
+    interactionTitle: "Engajamento da agenda",
+    interactionDescription: "Eventos e festas concentrados no mesmo fluxo de acompanhamento.",
+    comments: ["As festas passam a entrar dentro da agenda dr quando forem abertas.", "Os eventos especiais ficam agrupados em uma frente única.", "A confirmação de presença ocorre direto pelo app."],
+    primaryAction: "Confirmar presença",
+    secondaryAction: "Compartilhar evento",
+  },
+} as const;
 
 const statusTone: Record<string, string> = {
   Confirmado: "bg-emerald-50 text-emerald-700",
@@ -51,7 +124,7 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
     void loadCards();
   }, [slug]);
 
-  const cardsToRender = dbCards.length > 0 ? dbCards : (!loadingCards ? page.cards : []);
+  const cardsToRender = dbCards.length > 0 ? dbCards : [];
 
   return (
     <div className="space-y-6">

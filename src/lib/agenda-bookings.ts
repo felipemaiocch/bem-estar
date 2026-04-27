@@ -394,46 +394,76 @@ export async function listAgendaSlots(options: {
   }
 
   const userExists = await ensureUserExists(options.session.sub);
+  if (!userExists) return [];
 
-  if (!userExists) {
-    return [];
-  }
+  // Fetch ALL active professionals from DB
+  const professionals = await prisma.professionalProfile.findMany({
+    where: { user: { isActive: true, role: "PROFESSIONAL" } },
+    include: { user: { select: { id: true, name: true } } },
+  });
 
-  const professionalMap = await ensureAgendaProfessionals();
-  const professionalIds = Object.values(professionalMap);
+  if (professionals.length === 0) return [];
+
   const { start, end } = buildDayRange(options.date);
 
-  const bookings = await prisma.sessionBooking.findMany({
+  // Fetch ALL existing bookings for that day among all professionals
+  const existingBookings = await prisma.sessionBooking.findMany({
     where: {
-      startsAt: {
-        gte: start,
-        lt: end,
-      },
-      professionalId: {
-        in: professionalIds,
-      },
-      status: {
-        in: activeStatuses,
-      },
+      professionalId: { in: professionals.map(p => p.id) },
+      startsAt: { gte: start, lt: end },
+      status: { in: activeStatuses },
     },
   });
 
-  return buildAgendaSlots({
-    date: options.date,
-    filter: options.filter,
-    focusFilter: options.focusFilter,
-    session: options.session,
-    getBookingsForSlot: (slot, startsAt) => {
-      const professionalId = professionalMap[slot.profile.email];
-      return bookings
-        .filter(
-          (booking) =>
-            booking.professionalId === professionalId &&
-            booking.startsAt.getTime() === startsAt.getTime(),
-        )
-        .map((booking) => toBookingWithUser(booking, booking.userId));
-    },
-  });
+  // Virtual time slots for every professional
+  const virtualTimes = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
+  const normalizedFilter = (options.filter ?? "Todos").trim().toLowerCase();
+  const normalizedFocus = (options.focusFilter ?? "Todos focos").trim().toLowerCase();
+
+  const slots: AgendaSlotResponse[] = [];
+
+  for (const prof of professionals) {
+    // Filter by specialty if requested
+    if (normalizedFilter !== "todos" && !prof.specialty.toLowerCase().includes(normalizedFilter)) {
+      continue;
+    }
+    if (normalizedFocus !== "todos focos" && !prof.specialty.toLowerCase().includes(normalizedFocus)) {
+      continue;
+    }
+
+    for (const time of virtualTimes) {
+      const { startsAt } = buildSlotWindow(options.date, time);
+      // Skip past slots
+      if (startsAt <= new Date()) continue;
+
+      const slotId = `${prof.id}::${time}`;
+      const slotBookings = existingBookings.filter(
+        b => b.professionalId === prof.id && b.startsAt.getTime() === startsAt.getTime()
+      );
+
+      const hasConfirmed = slotBookings.some(b => confirmedStatuses.includes(b.status));
+      const mineBooked = slotBookings.some(
+        b => b.userId === options.session.sub && confirmedStatuses.includes(b.status)
+      );
+      const mineWaitlist = slotBookings.some(
+        b => b.userId === options.session.sub && b.status === "WAITLIST"
+      );
+
+      slots.push({
+        slotId,
+        time,
+        specialist: prof.user.name,
+        specialty: prof.specialty,
+        focus: prof.specialty,
+        mode: "presencial",
+        location: "Espaço Bem-estar",
+        status: hasConfirmed ? "occupied" : "available",
+        mineStatus: mineBooked ? "booked" : mineWaitlist ? "waitlist" : undefined,
+      });
+    }
+  }
+
+  return slots;
 }
 
 function getSlotForBooking(options: {
@@ -584,6 +614,63 @@ export async function createAgendaBooking(options: {
   slotId: string;
   session: SessionIdentity;
 }): Promise<BookingResult> {
+  // slotId format for dynamic slots: "<professionalProfileId>::<HH:mm>"
+  // Legacy demo slotId format (no "::") also handled in demo mode
+  const isDynamicSlot = options.slotId.includes("::");
+
+  if (!isDemoMode() && isDynamicSlot) {
+    const [professionalId, time] = options.slotId.split("::") as [string, string];
+    const { startsAt, endsAt } = buildSlotWindow(options.date, time);
+
+    const userExists = await ensureUserExists(options.session.sub);
+    if (!userExists) throw new Error("Usuário não encontrado.");
+
+    const professional = await prisma.professionalProfile.findUnique({
+      where: { id: professionalId },
+      include: { user: { select: { name: true } } },
+    });
+    if (!professional) throw new Error("Profissional não encontrado.");
+
+    // Check user conflict
+    const existing = await prisma.sessionBooking.findFirst({
+      where: { userId: options.session.sub, professionalId, startsAt, status: { in: activeStatuses } },
+    });
+    if (existing) return { message: "Você já está neste horário." };
+
+    const conflict = await prisma.sessionBooking.findFirst({
+      where: { userId: options.session.sub, status: { in: confirmedStatuses }, startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
+    });
+    if (conflict) throw new Error("Você já possui uma sessão neste horário.");
+
+    const occupied = await prisma.sessionBooking.findFirst({
+      where: { professionalId, startsAt, status: { in: confirmedStatuses } },
+    });
+
+    if (options.action === "reserve") {
+      if (occupied) throw new Error("Horário ocupado. Entre na fila de espera.");
+      await prisma.sessionBooking.create({
+        data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: professional.specialty, status: "SCHEDULED" },
+      });
+      return { message: "Sessão reservada com sucesso." };
+    }
+
+    // waitlist
+    if (!occupied) {
+      await prisma.sessionBooking.create({
+        data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: professional.specialty, status: "SCHEDULED" },
+      });
+      return { message: "Sessão reservada com sucesso." };
+    }
+
+    const waitlistCount = await prisma.sessionBooking.count({ where: { professionalId, startsAt, status: "WAITLIST" } });
+    const waitlistPosition = waitlistCount + 1;
+    await prisma.sessionBooking.create({
+      data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: professional.specialty, status: "WAITLIST", waitlistPosition },
+    });
+    return { message: `Você entrou na fila de espera (#${waitlistPosition}).` };
+  }
+
+  // --- LEGACY DEMO-MODE PATH (original code) ---
   const slot = getSlotTemplate(options.slotId);
 
   if (!slot) {
@@ -689,9 +776,7 @@ export async function createAgendaBooking(options: {
       userId: options.session.sub,
       professionalId,
       startsAt,
-      status: {
-        in: activeStatuses,
-      },
+      status: { in: activeStatuses },
     },
   });
 
@@ -702,15 +787,9 @@ export async function createAgendaBooking(options: {
   const conflictingBooking = await prisma.sessionBooking.findFirst({
     where: {
       userId: options.session.sub,
-      status: {
-        in: confirmedStatuses,
-      },
-      startsAt: {
-        lt: endsAt,
-      },
-      endsAt: {
-        gt: startsAt,
-      },
+      status: { in: confirmedStatuses },
+      startsAt: { lt: endsAt },
+      endsAt: { gt: startsAt },
     },
   });
 
@@ -719,13 +798,7 @@ export async function createAgendaBooking(options: {
   }
 
   const occupiedBooking = await prisma.sessionBooking.findFirst({
-    where: {
-      professionalId,
-      startsAt,
-      status: {
-        in: confirmedStatuses,
-      },
-    },
+    where: { professionalId, startsAt, status: { in: confirmedStatuses } },
   });
 
   if (options.action === "reserve") {
@@ -734,14 +807,7 @@ export async function createAgendaBooking(options: {
     }
 
     await prisma.sessionBooking.create({
-      data: {
-        userId: options.session.sub,
-        professionalId,
-        startsAt,
-        endsAt,
-        specialty: slot.specialty,
-        status: "SCHEDULED",
-      },
+      data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: slot.specialty, status: "SCHEDULED" },
     });
 
     return { message: "Sessão reservada com sucesso." };
@@ -749,39 +815,20 @@ export async function createAgendaBooking(options: {
 
   if (!occupiedBooking) {
     await prisma.sessionBooking.create({
-      data: {
-        userId: options.session.sub,
-        professionalId,
-        startsAt,
-        endsAt,
-        specialty: slot.specialty,
-        status: "SCHEDULED",
-      },
+      data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: slot.specialty, status: "SCHEDULED" },
     });
 
     return { message: "Sessão reservada com sucesso." };
   }
 
   const waitlistCount = await prisma.sessionBooking.count({
-    where: {
-      professionalId,
-      startsAt,
-      status: "WAITLIST",
-    },
+    where: { professionalId, startsAt, status: "WAITLIST" },
   });
 
   const waitlistPosition = waitlistCount + 1;
 
   await prisma.sessionBooking.create({
-    data: {
-      userId: options.session.sub,
-      professionalId,
-      startsAt,
-      endsAt,
-      specialty: slot.specialty,
-      status: "WAITLIST",
-      waitlistPosition,
-    },
+    data: { userId: options.session.sub, professionalId, startsAt, endsAt, specialty: slot.specialty, status: "WAITLIST", waitlistPosition },
   });
 
   return { message: `Você entrou na fila de espera (#${waitlistPosition}).` };

@@ -8,18 +8,20 @@ import { MiniBarChart } from "@/components/charts/mini-bar-chart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
-import {
-  goalEvolution,
-  moodOptions,
-  streakSummary,
-  weeklyProgress,
-} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+
+const moodOptions = [
+  { label: "Energizado", accent: "bg-emerald-500 text-white" },
+  { label: "Equilibrado", accent: "bg-blue-500 text-white" },
+  { label: "Sob pressão", accent: "bg-amber-500 text-white" },
+  { label: "Cansado", accent: "bg-rose-500 text-white" },
+];
 
 type WellnessEntry = {
   id: string;
   weightKg: number | null;
   moodLabel: string | null;
+  habitsScore: number | null;
   notes: string | null;
   createdAtLabel: string;
 };
@@ -34,6 +36,32 @@ export function ProgressScreen() {
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
   const [history, setHistory] = useState<WellnessEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Derived data from history
+  const streakSummary = [
+    { label: "Check-ins totais", value: history.length > 0 ? String(history.length) : "—" },
+    { label: "Humor frequente", value: history.length > 0 ? (history[0]?.moodLabel ?? "—") : "—" },
+    { label: "Hábitos (média)", value: history.length > 0 ? `${Math.round(history.reduce((acc, e) => acc + (e.habitsScore ?? 0), 0) / history.length)}%` : "—" },
+  ];
+
+  // Build weekly bar chart from last 7 entries
+  const weeklyProgress = (() => {
+    const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const base = days.map(d => ({ day: d, score: 0 }));
+    history.slice(0, 7).forEach((entry) => {
+      const date = new Date(entry.createdAtLabel);
+      const dayIdx = date.getDay();
+      base[dayIdx].score = Math.min((base[dayIdx].score ?? 0) + (entry.habitsScore ?? 50), 100);
+    });
+    return base;
+  })();
+
+  // Build goal evolution from habitsScore history
+  const goalEvolution = history.slice(0, 7).reverse().map((entry, i) => ({
+    week: `Sem ${i + 1}`,
+    target: 80,
+    actual: entry.habitsScore ?? 0,
+  }));
 
   useEffect(() => {
     async function loadLatestWellness() {

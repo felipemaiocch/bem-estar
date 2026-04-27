@@ -24,21 +24,10 @@ import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/lib/utils";
 
-const engagementCards = [
-  { title: "Saúde e bem-estar", metric: "62% concluído", cta: "Continuar", href: "/usuario/saude-bem-estar" },
-  { title: "Cultura", metric: "2 eventos inscritos", cta: "Ver ingressos", href: "/usuario/cultura" },
-  { title: "Agenda dr", metric: "Próx. amanhã 10h", cta: "Acessar link", href: "/usuario/agenda-dr" },
-];
-
-const upcomingEvents = [
-  { title: "Alongamento com a Equipe", date: "Hoje, 17h", location: "Online" },
-  { title: "Palestra Saúde Mental", date: "Sex, 14h", location: "Auditório Principal" },
-];
-
-const leaderboard = [
-  { name: "Amanda Costa", area: "Produto", points: 2430 },
-  { name: "Bruno Lima", area: "Financeiro", points: 2310 },
-  { name: "Carla Nunes", area: "Marketing", points: 2260 },
+const baseEngagementCards = [
+  { title: "Saúde e bem-estar", cta: "Continuar", href: "/usuario/saude-bem-estar" },
+  { title: "Cultura", cta: "Ver ingressos", href: "/usuario/cultura" },
+  { title: "Agenda dr", cta: "Acessar link", href: "/usuario/agenda-dr" },
 ];
 
 type FeedPost = {
@@ -103,15 +92,47 @@ export function UserDashboardScreen() {
   const [checkInFeedback, setCheckInFeedback] = useState<string | null>(null);
   const feedSentinelRef = useRef<HTMLDivElement | null>(null);
 
+  const [dashboardSummary, setDashboardSummary] = useState<any>(null);
   const [missions, setMissions] = useState([
-    { text: "💧 Beber 2L de água", done: true },
-    { text: "🧘‍♂️ Meditar 5 minutos", done: false },
-    { text: "🏃 Caminhada leve", done: false },
+    { id: "mission_water", text: "💧 Beber 2L de água", done: false, points: 50 },
+    { id: "mission_meditate", text: "🧘‍♂️ Meditar 5 minutos", done: false, points: 50 },
+    { id: "mission_walk", text: "🏃 Caminhada leve", done: false, points: 50 },
   ]);
 
-  const toggleMission = (index: number) => {
-    setMissions(prev => prev.map((m, i) => (i === index ? { ...m, done: !m.done } : m)));
+  const toggleMission = async (index: number) => {
+    const mission = missions[index];
+    if (mission.done) return;
+
+    // Optimistic UI
+    setMissions(prev => prev.map((m, i) => (i === index ? { ...m, done: true } : m)));
+
+    try {
+      const response = await fetch("/api/user/gamification/missions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionId: mission.id, points: mission.points }),
+      });
+      if (!response.ok) throw new Error();
+      void loadSummary(); // Reload ranking
+    } catch {
+       setMissions(prev => prev.map((m, i) => (i === index ? { ...m, done: false } : m)));
+       setCheckInFeedback("Falha ao salvar missão.");
+    }
   };
+
+  const loadSummary = useCallback(async () => {
+    try {
+      const response = await fetch("/api/user/dashboard-summary", { cache: "no-store" });
+      const data = await response.json();
+      if (data.ok) {
+        setDashboardSummary(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+
 
   const nextSession = bookings[0] ?? null;
   const visiblePosts = useMemo(
@@ -228,8 +249,8 @@ export function UserDashboardScreen() {
   }, []);
 
   useEffect(() => {
-    void Promise.all([loadFeed(), loadBookings()]);
-  }, [loadFeed, loadBookings]);
+    void Promise.all([loadFeed(), loadBookings(), loadSummary()]);
+  }, [loadFeed, loadBookings, loadSummary]);
 
   useEffect(() => {
     if (feedCollapsed || !feedHasMore || feedNextOffset === null || feedLoading || feedLoadingMore) {
@@ -372,7 +393,7 @@ export function UserDashboardScreen() {
         </div>
 
         <div className="no-scrollbar flex snap-x gap-4 overflow-x-auto pb-4 md:grid md:grid-cols-2 md:gap-6 lg:grid-cols-3">
-          {engagementCards.map((event) => {
+          {baseEngagementCards.map((event) => {
             const colorMap: Record<string, string> = {
               "Saúde e bem-estar": "bg-emerald-500",
               Cultura: "bg-indigo-500",
@@ -405,7 +426,9 @@ export function UserDashboardScreen() {
                 <div className="flex items-center justify-between bg-white p-4">
                   <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
                     <Clock3 size={14} />
-                    {event.metric}
+                    {event.title === "Saúde e bem-estar" ? (dashboardSummary ? `${dashboardSummary.metrics.bookingsCount} agendamentos` : "Carregando...") :
+                     event.title === "Cultura" ? (dashboardSummary ? `${dashboardSummary.metrics.eventCount} eventos` : "Carregando...") :
+                     (nextSession ? `Próx. ${formatDateLabel(nextSession.startsAtIso)}` : "Disponível")}
                   </span>
                   <span className="flex items-center gap-1 text-sm font-bold text-[#0264af] transition-transform group-hover:translate-x-1">
                     {event.cta}
@@ -591,7 +614,7 @@ export function UserDashboardScreen() {
           <Card className="p-6">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Ranking rápido</h3>
             <div className="space-y-3">
-              {leaderboard.slice(0, 3).map((user, index) => (
+              {dashboardSummary?.leaderboard?.slice(0, 3).map((user: any, index: number) => (
                 <div
                   key={user.name}
                   className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3"
@@ -602,23 +625,37 @@ export function UserDashboardScreen() {
                     </p>
                     <p className="text-sm text-gray-500">{user.area}</p>
                   </div>
-                  <p className="font-bold text-gray-700">{user.points} pts</p>
+                  <p className="font-bold text-[#0264af]">{user.points} pts</p>
                 </div>
               ))}
+              {!dashboardSummary && <p className="text-xs text-gray-500 text-center">Carregando...</p>}
             </div>
           </Card>
 
           <Card className="p-6">
-            <h3 className="mb-4 text-lg font-bold text-gray-900">Agenda dr</h3>
-            <div className="space-y-3">
-              {upcomingEvents.slice(0, 2).map((item) => (
-                <div key={item.title} className="rounded-xl border border-gray-100 p-4">
-                  <p className="font-bold text-gray-900">{item.title}</p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {item.date} • {item.location}
-                  </p>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Próximos eventos</h3>
+              <Link href="/usuario/cultura" className="text-sm font-medium text-[#0264af] hover:underline">
+                Ver todos
+              </Link>
+            </div>
+            <div className="space-y-4">
+              {dashboardSummary?.upcomingEvents?.map((event: any, i: number) => (
+                <div key={i} className="flex gap-4">
+                  <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-blue-50 text-[#0264af]">
+                    <span className="text-xs font-bold uppercase">{new Date(event.startsAtIso).toLocaleString('pt-BR', { month: 'short' })}</span>
+                    <span className="text-lg font-black">{new Date(event.startsAtIso).getDate()}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold leading-snug text-gray-900">{event.title}</p>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                      <Clock3 size={12} />
+                      {new Date(event.startsAtIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {event.location}
+                    </p>
+                  </div>
                 </div>
               ))}
+              {!dashboardSummary && <p className="text-xs text-gray-500 text-center">Carregando...</p>}
             </div>
           </Card>
         </div>
