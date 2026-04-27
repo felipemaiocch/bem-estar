@@ -1,0 +1,383 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  USER
+  PROFESSIONAL
+  ADMIN
+}
+
+enum GoalType {
+  WEIGHT_LOSS
+  MENTAL_HEALTH
+  PERFORMANCE
+  HABITS
+}
+
+enum BookingStatus {
+  SCHEDULED
+  CONFIRMED
+  WAITLIST
+  COMPLETED
+  MISSED
+  CANCELED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  COMPLETED
+  CANCELED
+}
+
+enum EventKind {
+  EVENT
+  CULTURE
+  PARTY
+}
+
+enum NotificationType {
+  SESSION_REMINDER
+  SLOT_RELEASED
+  EVENT_PUBLISHED
+  PARTY_REMINDER
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum ContentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum ScoringAction {
+  SESSION
+  EVENT
+  CHECKIN
+  STREAK
+  FEED_ENGAGEMENT
+  TESTIMONIAL
+}
+
+enum NotificationPreferenceKey {
+  REMINDER_DAY_BEFORE
+  REMINDER_HOUR_BEFORE
+  SLOT_RELEASED
+  AGENDA_NEWS
+}
+
+model User {
+  id                        String                   @id @default(cuid())
+  name                      String
+  email                     String                   @unique
+  passwordHash              String
+  role                      UserRole                 @default(USER)
+  goal                      GoalType?
+  desiredWeeklyFrequency    Int?
+  company                   String?
+  avatarUrl                 String?
+  score                     Int                      @default(0)
+  currentGoal               String?
+  isActive                  Boolean                  @default(true)
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  professionalProfile       ProfessionalProfile?
+  bookings                  SessionBooking[]         @relation("UserBookings")
+  wellnessEntries           WellnessEntry[]
+  notifications             Notification[]
+  attendances               EventAttendance[]
+  careRecordsAsUser         CareRecord[]             @relation("CareRecordUser")
+  careRecordsAsProfessional CareRecord[]             @relation("CareRecordProfessional")
+  feedPosts                 FeedPost[]               @relation("FeedPostAuthor")
+  feedComments              FeedComment[]            @relation("FeedCommentAuthor")
+  feedLikes                 FeedLike[]               @relation("FeedLikeUser")
+  authoredTestimonials      Testimonial[]            @relation("TestimonialAuthor")
+  notificationPreferences   NotificationPreference[]
+  imageConsents             ImageConsent[]
+  reportsSent               ContentReport[]          @relation("ContentReportReporter")
+  auditLogs                 AuditLog[]               @relation("AuditLogActor")
+  publishedEvents           Event[]                  @relation("EventPublisher")
+  mediaAssets               MediaAsset[]             @relation("MediaAssetAuthor")
+}
+
+model ProfessionalProfile {
+  id                String           @id @default(cuid())
+  userId            String           @unique
+  specialty         String
+  licenseCode       String?
+  attendanceRate    Float            @default(0)
+  completedSessions Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patients          SessionBooking[] @relation("ProfessionalBookings")
+}
+
+model SessionBooking {
+  id                 String              @id @default(cuid())
+  userId             String
+  professionalId     String
+  startsAt           DateTime
+  endsAt             DateTime
+  specialty          String
+  status             BookingStatus       @default(SCHEDULED)
+  notes              String?
+  waitlistPosition   Int?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  completedAt        DateTime?
+  pointsAwarded      Int?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  user               User                @relation("UserBookings", fields: [userId], references: [id], onDelete: Cascade)
+  professional       ProfessionalProfile @relation("ProfessionalBookings", fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, startsAt])
+  @@index([userId, startsAt])
+}
+
+model Event {
+  id                   String            @id @default(cuid())
+  title                String
+  description          String
+  category             String
+  location             String
+  startsAt             DateTime
+  endsAt               DateTime
+  coverUrl             String?
+  points               Int               @default(0)
+  maxAttendees         Int?
+  kind                 EventKind         @default(EVENT)
+  registrationDeadline DateTime?
+  publishedBy          String?
+  status               EventStatus       @default(PUBLISHED)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  attendances          EventAttendance[]
+  publisher            User?             @relation("EventPublisher", fields: [publishedBy], references: [id], onDelete: SetNull)
+}
+
+model EventAttendance {
+  id          String    @id @default(cuid())
+  eventId     String
+  userId      String
+  confirmedAt DateTime?
+  checkedInAt DateTime?
+  createdAt   DateTime  @default(now())
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model WellnessEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  weightKg    Float?
+  moodScore   Int?
+  habitsScore Int?
+  moodLabel   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id             String              @id @default(cuid())
+  userId         String
+  title          String
+  message        String
+  type           NotificationType    @default(SYSTEM)
+  channel        NotificationChannel @default(IN_APP)
+  deliveryStatus DeliveryStatus      @default(PENDING)
+  isRead         Boolean             @default(false)
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime            @default(now())
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CareRecord {
+  id                 String   @id @default(cuid())
+  userId             String
+  professionalUserId String
+  professionalRole   String?
+  category           String
+  title              String
+  summary            String
+  delivery           String
+  nextStep           String?
+  metrics            Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  recordedAt         DateTime @default(now())
+  user               User     @relation("CareRecordUser", fields: [userId], references: [id], onDelete: Cascade)
+  professional       User     @relation("CareRecordProfessional", fields: [professionalUserId], references: [id], onDelete: Cascade)
+
+  @@index([userId, recordedAt])
+  @@index([professionalUserId, recordedAt])
+}
+
+model FeedPost {
+  id               String          @id @default(cuid())
+  authorId         String
+  professionalRole String?
+  activity         String
+  location         String?
+  imageUrl         String?
+  caption          String
+  status           ContentStatus   @default(PUBLISHED)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  author           User            @relation("FeedPostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  comments         FeedComment[]
+  likes            FeedLike[]
+  reports          ContentReport[] @relation("FeedPostReports")
+  mediaAssets      MediaAsset[]
+
+  @@index([status, createdAt])
+}
+
+model FeedComment {
+  id        String        @id @default(cuid())
+  postId    String
+  authorId  String
+  text      String
+  status    ContentStatus @default(PUBLISHED)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  post      FeedPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User          @relation("FeedCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model FeedLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation("FeedLikeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model MediaAsset {
+  id           String    @id @default(cuid())
+  postId       String?
+  uploadedById String?
+  kind         String
+  url          String
+  createdAt    DateTime  @default(now())
+  post         FeedPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  uploadedBy   User?     @relation("MediaAssetAuthor", fields: [uploadedById], references: [id], onDelete: SetNull)
+}
+
+model Testimonial {
+  id               String          @id @default(cuid())
+  authorId         String
+  professionalName String
+  activity         String
+  rating           Int
+  quote            String
+  impact           String?
+  status           ContentStatus   @default(PUBLISHED)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  author           User            @relation("TestimonialAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reports          ContentReport[] @relation("TestimonialReports")
+}
+
+model NotificationPreference {
+  id        String                    @id @default(cuid())
+  userId    String
+  key       NotificationPreferenceKey
+  enabled   Boolean                   @default(true)
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+  user      User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+}
+
+model ScoringRule {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  action    ScoringAction
+  points    Int
+  isActive  Boolean       @default(true)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model ContentReport {
+  id            String       @id @default(cuid())
+  reporterId    String
+  postId        String?
+  testimonialId String?
+  reason        String
+  status        ReportStatus @default(OPEN)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  reporter      User         @relation("ContentReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  post          FeedPost?    @relation("FeedPostReports", fields: [postId], references: [id], onDelete: Cascade)
+  testimonial   Testimonial? @relation("TestimonialReports", fields: [testimonialId], references: [id], onDelete: Cascade)
+}
+
+model ImageConsent {
+  id        String    @id @default(cuid())
+  userId    String
+  granted   Boolean   @default(false)
+  grantedAt DateTime?
+  revokedAt DateTime?
+  source    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  actor     User?    @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId, createdAt])
+}
