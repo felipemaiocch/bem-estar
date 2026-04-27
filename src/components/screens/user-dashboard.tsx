@@ -93,6 +93,7 @@ export function UserDashboardScreen() {
   const feedSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
+  const [summaryLoaded, setSummaryLoaded] = useState(false);
   const [missions, setMissions] = useState([
     { id: "mission_water", text: "💧 Beber 2L de água", done: false, points: 50 },
     { id: "mission_meditate", text: "🧘‍♂️ Meditar 5 minutos", done: false, points: 50 },
@@ -129,6 +130,8 @@ export function UserDashboardScreen() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setSummaryLoaded(true);
     }
   }, []);
 
@@ -426,9 +429,11 @@ export function UserDashboardScreen() {
                 <div className="flex items-center justify-between bg-white p-4">
                   <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
                     <Clock3 size={14} />
-                    {event.title === "Saúde e bem-estar" ? (dashboardSummary ? `${dashboardSummary.metrics.bookingsCount} agendamentos` : "Carregando...") :
-                     event.title === "Cultura" ? (dashboardSummary ? `${dashboardSummary.metrics.eventCount} eventos` : "Carregando...") :
-                     (nextSession ? `Próx. ${formatDateLabel(nextSession.startsAtIso)}` : "Disponível")}
+                    {event.title === "Saúde e bem-estar" ?
+                      (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.bookingsCount ?? 0} agendamentos`) :
+                     event.title === "Cultura" ?
+                      (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.eventCount ?? 0} eventos`) :
+                      (nextSession ? `Próx. ${formatDateLabel(nextSession.startsAtIso)}` : "Disponível")}
                   </span>
                   <span className="flex items-center gap-1 text-sm font-bold text-[#0264af] transition-transform group-hover:translate-x-1">
                     {event.cta}
@@ -628,7 +633,8 @@ export function UserDashboardScreen() {
                   <p className="font-bold text-[#0264af]">{user.points} pts</p>
                 </div>
               ))}
-              {!dashboardSummary && <p className="text-xs text-gray-500 text-center">Carregando...</p>}
+              {!summaryLoaded && <p className="text-xs text-gray-500 text-center">Carregando...</p>}
+              {summaryLoaded && (!dashboardSummary?.leaderboard?.length) && <p className="text-xs text-gray-500 text-center">Nenhum usuário ranqueado ainda.</p>}
             </div>
           </Card>
 
@@ -655,7 +661,8 @@ export function UserDashboardScreen() {
                   </div>
                 </div>
               ))}
-              {!dashboardSummary && <p className="text-xs text-gray-500 text-center">Carregando...</p>}
+              {!summaryLoaded && <p className="text-xs text-gray-500 text-center">Carregando...</p>}
+              {summaryLoaded && (!dashboardSummary?.upcomingEvents?.length) && <p className="text-xs text-gray-500 text-center">Nenhum evento próximo cadastrado.</p>}
             </div>
           </Card>
         </div>
