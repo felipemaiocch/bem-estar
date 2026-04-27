@@ -95,22 +95,6 @@ export function UserDashboardScreen() {
 
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
-    // Optimistic UI
-    setMissions(prev => prev.map((m, i) => (i === index ? { ...m, done: true } : m)));
-
-    try {
-      const response = await fetch("/api/user/gamification/missions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actionId: mission.id, points: mission.points }),
-      });
-      if (!response.ok) throw new Error();
-      void loadSummary(); // Reload ranking
-    } catch {
-       setMissions(prev => prev.map((m, i) => (i === index ? { ...m, done: false } : m)));
-       setCheckInFeedback("Falha ao salvar missão.");
-    }
-  };
 
   const loadSummary = useCallback(async () => {
     try {
