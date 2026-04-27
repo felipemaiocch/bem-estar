@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
+import { prisma } from "@/lib/prisma";
 import {
   createAdminProfessional,
   listAdminProfessionals,
