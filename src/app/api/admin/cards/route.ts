@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     data: {
       category: parsed.data.category,
       title: parsed.data.title,
-      date: parsed.data.date,
+      date: parsed.data.date || "",
       location: parsed.data.location,
       status: parsed.data.status,
       points: parsed.data.points,
