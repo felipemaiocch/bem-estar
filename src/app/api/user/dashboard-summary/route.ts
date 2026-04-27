@@ -67,8 +67,10 @@ export async function GET(request: NextRequest) {
     const latestCardsData = latestCards.map(c => {
         // Se o card tem uma data fixa no banco, tentar usar ela
         let cardDate = c.createdAt;
-        if (c.date && c.date.length > 5 && !isNaN(Date.parse(c.date))) {
-          cardDate = new Date(c.date);
+        if (c.date && c.date.length >= 10 && !isNaN(Date.parse(c.date))) {
+          // Add T12:00:00 to avoid timezone offset issues (e.g. 00:00 UTC showing as previous day)
+          const dateStr = c.date.includes('T') ? c.date : `${c.date}T12:00:00`;
+          cardDate = new Date(dateStr);
         }
 
         return {
