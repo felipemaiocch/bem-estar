@@ -11,7 +11,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { appMeta } from "@/lib/constants";
 import { userMainNav } from "@/lib/mock-data";
@@ -23,9 +23,10 @@ export function UserShell({ children }: { children: ReactNode }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeAlert, setActiveAlert] = useState<string | null>(null);
+  const [activeAlertId, setActiveAlertId] = useState<string | null>(null);
   const [alertDismissed, setAlertDismissed] = useState(true);
 
-  async function loadGlobalAlert() {
+  const loadGlobalAlert = useCallback(async () => {
     try {
       const resp = await fetch("/api/admin/global-alert");
       const data = await resp.json();
@@ -33,17 +34,16 @@ export function UserShell({ children }: { children: ReactNode }) {
         const seen = sessionStorage.getItem(`seen-alert-${data.alert.id}`);
         if (!seen) {
           setActiveAlert(data.alert.message);
+          setActiveAlertId(data.alert.id);
           setAlertDismissed(false);
         }
       }
     } catch {}
-  }
+  }, []);
 
-  useState(() => {
-    if (typeof window !== "undefined") {
-      void loadGlobalAlert();
-    }
-  });
+  useEffect(() => {
+    void loadGlobalAlert();
+  }, [loadGlobalAlert]);
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -63,8 +63,8 @@ export function UserShell({ children }: { children: ReactNode }) {
 
   const dismissAlert = () => {
     setAlertDismissed(true);
-    if (activeAlert) {
-      sessionStorage.setItem("seen-global-alert", "true");
+    if (activeAlertId) {
+      sessionStorage.setItem(`seen-alert-${activeAlertId}`, "true");
     }
   };
 

@@ -433,8 +433,8 @@ export function UserDashboardScreen() {
                     {event.title === "Saúde e bem-estar" ?
                       (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.bookingsCount ?? 0} agendamentos`) :
                      event.title === "Cultura" ?
-                      (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.eventCount ?? 0} eventos`) :
-                      (nextSession ? `Próx. ${formatDateLabel(nextSession.startsAtIso)}` : "Disponível")}
+                      (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.cultureCount ?? 0} eventos`) :
+                      (!summaryLoaded ? "Carregando..." : `${dashboardSummary?.metrics?.agendaCount ?? 0} eventos`)}
                   </span>
                   <span className="flex items-center gap-1 text-sm font-bold text-[#0264af] transition-transform group-hover:translate-x-1">
                     {event.cta}
@@ -569,44 +569,7 @@ export function UserDashboardScreen() {
               </Button>
             </Card>
 
-            <Card className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-700 p-5 text-white shadow-lg">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-amber-400">
-                  <Star className="h-4 w-4" />
-                  <p className="text-xs font-bold uppercase tracking-[0.18em]">Missões Diárias</p>
-                </div>
-                <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/30">
-                  +50 pts
-                </span>
-              </div>
 
-              <div className="mt-5 space-y-2.5">
-                {missions.map((missao, i) => (
-                  <button
-                    key={i}
-                    onClick={() => toggleMission(i)}
-                    className={cn(
-                      "group flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-sm font-medium transition-all",
-                      missao.done
-                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
-                        : "border-white/10 bg-white/5 text-white hover:border-white/20 hover:bg-white/10"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                      missao.done
-                        ? "border-emerald-400 bg-emerald-400 text-slate-900"
-                        : "border-white/30 group-hover:border-white/50"
-                    )}>
-                      {missao.done && <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                    </div>
-                    <span className={cn("text-left", missao.done && "line-through opacity-70")}>
-                      {missao.text}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </Card>
           </div>
         </div>
 

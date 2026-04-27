@@ -108,20 +108,39 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
   const [loadingCards, setLoadingCards] = useState(true);
 
   useEffect(() => {
-    async function loadCards() {
+    async function loadData() {
       try {
-        const res = await fetch(`/api/user/cards?category=${slug}`);
-        const data = await res.json();
-        if (data.ok) {
-          setDbCards(data.cards);
+        const [cardsRes, eventsRes] = await Promise.all([
+          fetch(`/api/user/cards?category=${slug}`),
+          fetch(`/api/user/events/list?category=${slug}`)
+        ]);
+        
+        const cardsData = await cardsRes.json();
+        const eventsData = await eventsRes.json();
+
+        let merged: any[] = [];
+        if (cardsData.ok) merged = [...merged, ...cardsData.cards];
+        if (eventsData.ok) {
+            const formattedEvents = eventsData.events.map((e: any) => ({
+                id: e.id,
+                title: e.title,
+                date: new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(new Date(e.startsAtIso)),
+                location: e.location,
+                status: e.status === "PUBLISHED" ? "Inscrições abertas" : e.status,
+                points: e.points,
+                gradient: "from-blue-600 to-indigo-700", // Default gradient for events
+            }));
+            merged = [...merged, ...formattedEvents];
         }
+        
+        setDbCards(merged);
       } catch (err) {
         console.error(err);
       } finally {
         setLoadingCards(false);
       }
     }
-    void loadCards();
+    void loadData();
   }, [slug]);
 
   const cardsToRender = dbCards.length > 0 ? dbCards : [];

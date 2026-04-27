@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-auth";
 
@@ -20,22 +21,26 @@ export async function GET(request: NextRequest) {
       take: 5,
     });
     
-    // 2. Upcoming events
+    // 2. Upcoming events (Categorized)
     const upcomingEvents = await prisma.event.findMany({
       where: { status: "PUBLISHED", startsAt: { gte: new Date() } },
       orderBy: { startsAt: "asc" },
-      take: 2,
+      take: 4,
     });
 
     // 3. User Engagement Metrics
-    // Quantos bookings esse usuario tem (Saude e bem-estar)
+    // Quantos agendamentos esse usuario tem (Saude e bem-estar)
     const bookingsCount = await prisma.sessionBooking.count({
-        where: { userId: sub }
+        where: { userId: sub, startsAt: { gte: new Date() } }
     });
     
-    // Quantos eventos esse usuario esta inscrito (Cultura/Eventos)
-    const eventCount = await prisma.eventAttendance.count({
-        where: { userId: sub }
+    // Contagem global de eventos publicados para os cards da home
+    const totalCultureEvents = await prisma.event.count({
+        where: { status: "PUBLISHED", category: "Cultura" }
+    });
+
+    const totalAgendaEvents = await prisma.event.count({
+        where: { status: "PUBLISHED", category: "Agenda dr" }
     });
 
     return NextResponse.json({
@@ -49,11 +54,13 @@ export async function GET(request: NextRequest) {
           id: e.id,
           title: e.title,
           location: e.location,
+          category: e.category,
           startsAtIso: e.startsAt.toISOString(),
       })),
       metrics: {
           bookingsCount,
-          eventCount
+          cultureCount: totalCultureEvents,
+          agendaCount: totalAgendaEvents
       }
     });
 
