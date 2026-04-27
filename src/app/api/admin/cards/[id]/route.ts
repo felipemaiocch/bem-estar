@@ -31,3 +31,39 @@ export async function DELETE(
     );
   }
 }
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireSession(request, "ADMIN");
+  if (auth.response) return auth.response;
+
+  const { id } = await params;
+  const body = await request.json();
+
+  try {
+    const updated = await prisma.engagementCard.update({
+      where: { id },
+      data: {
+        category: body.category,
+        title: body.title,
+        date: body.date,
+        location: body.location,
+        status: body.status,
+        points: Number(body.points),
+        imageUrl: body.imageUrl || null,
+        responsibleName: body.responsibleName || null,
+        responsibleId: body.responsibleId || null,
+        slots: body.slots || null,
+        availableDays: body.availableDays || null,
+      },
+    });
+
+    return NextResponse.json({ ok: true, card: updated });
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: "Falha ao atualizar o card." },
+      { status: 500 },
+    );
+  }
+}

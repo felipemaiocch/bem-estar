@@ -43,6 +43,7 @@ export function AdminCardsScreen() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [form, setForm] = useState(defaultCardForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function loadCards() {
     setLoading(true);
@@ -102,8 +103,11 @@ export function AdminCardsScreen() {
     setFeedback(null);
 
     try {
-      const response = await fetch("/api/admin/cards", {
-        method: "POST",
+      const url = editingId ? `/api/admin/cards/${editingId}` : "/api/admin/cards";
+      const method = editingId ? "PATCH" : "POST";
+
+      const response = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
@@ -123,13 +127,38 @@ export function AdminCardsScreen() {
       }
 
       setForm(defaultCardForm);
-      setFeedback("Card criado com sucesso.");
+      setEditingId(null);
+      setFeedback(editingId ? "Card atualizado com sucesso." : "Card criado com sucesso.");
       await loadCards();
     } catch {
-      setFeedback("Falha de conexão ao criar card.");
+      setFeedback("Falha de conexão ao salvar card.");
     } finally {
       setBusyAction(null);
     }
+  }
+
+  function handleStartEdit(card: any) {
+     setForm({
+        category: card.category,
+        title: card.title,
+        date: card.date,
+        location: card.location,
+        status: card.status,
+        points: card.points,
+        imageUrl: card.imageUrl || "",
+        responsibleName: card.responsibleName || "",
+        responsibleId: card.responsibleId || "",
+        slots: card.slots || "",
+        availableDays: card.availableDays || "",
+     });
+     setEditingId(card.id);
+     setFeedback(null);
+     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleCancelEdit() {
+     setForm(defaultCardForm);
+     setEditingId(null);
   }
 
   return (
@@ -149,7 +178,7 @@ export function AdminCardsScreen() {
           <Card className="p-6 h-fit">
             <h3 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
               <PlusCircle className="h-5 w-5 text-blue-600" />
-              Novo card
+              {editingId ? "Editar card" : "Novo card"}
             </h3>
             <form className="grid gap-3" onSubmit={(event) => void handleCreate(event)}>
                <select
@@ -264,8 +293,18 @@ export function AdminCardsScreen() {
               </div>
 
               <Button type="submit" disabled={busyAction === "create"} className="mt-2">
-                {busyAction === "create" ? "Salvando..." : "Publicar Card"}
+                {editingId ? "Atualizar Card" : "Publicar Card"}
               </Button>
+              {editingId && (
+                <Button 
+                   type="button" 
+                   variant="outline" 
+                   className="mt-1"
+                   onClick={handleCancelEdit}
+                >
+                   Cancelar Edição
+                </Button>
+              )}
             </form>
           </Card>
 
@@ -293,11 +332,14 @@ export function AdminCardsScreen() {
                         )}
                         <span className="absolute top-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] uppercase font-bold text-white tracking-widest">{card.category}</span>
                      </div>
-                     <div className="p-4">
+                      <div className="p-4">
                         <div className="flex justify-between items-start">
-                           <div>
-                             <p className="font-bold text-slate-900 leading-tight">{card.title}</p>
+                           <div className="cursor-pointer group flex-1" onClick={() => handleStartEdit(card)}>
+                             <p className="font-bold text-slate-900 leading-tight group-hover:text-[#0264af] transition-colors">{card.title}</p>
                              <p className="text-xs text-slate-500 mt-1">{card.status} · {card.points} pts</p>
+                             {card.slots && (
+                                <p className="text-[10px] text-amber-600 font-bold mt-1 uppercase">Grade Ativa</p>
+                             )}
                            </div>
                            <button
                              type="button"
@@ -309,7 +351,7 @@ export function AdminCardsScreen() {
                              <Trash2 className="h-4 w-4" />
                            </button>
                         </div>
-                     </div>
+                      </div>
                   </div>
                 ))}
                 {cards.length === 0 && !loading && (
