@@ -424,7 +424,7 @@ export async function listAgendaSlots(options: {
   }
 
   const userExists = await ensureUserExists(options.session.sub);
-  if (!userExists) return [];
+  if (!userExists) return { slots: [], events: [], cards: [] };
 
   // Fetch ALL active professionals from DB
   const professionals = await prisma.professionalProfile.findMany({
@@ -432,15 +432,16 @@ export async function listAgendaSlots(options: {
     include: { user: { select: { id: true, name: true } } },
   });
 
-  if (professionals.length === 0) return [];
+  if (professionals.length === 0) return { slots: [], events: [], cards: [] };
 
-  const { start, end } = buildDayRange(options.date);
+  const dayStart = start;
+  const dayEnd = end;
 
   // Fetch ALL existing bookings for that day among all professionals
   const existingBookings = await prisma.sessionBooking.findMany({
     where: {
       professionalId: { in: professionals.map(p => p.id) },
-      startsAt: { gte: start, lt: end },
+      startsAt: { gte: dayStart, lt: dayEnd },
       status: { in: activeStatuses },
     },
   });
