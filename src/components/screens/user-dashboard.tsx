@@ -25,9 +25,9 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/lib/utils";
 
 const engagementCards = [
-  { title: "Saúde e bem-estar", metric: "62% concluído", cta: "Continuar", href: "/usuario/treinos" },
-  { title: "Cultura", metric: "2 eventos inscritos", cta: "Ver ingressos", href: "/usuario/agenda" },
-  { title: "Agenda dr", metric: "Próx. amanhã 10h", cta: "Acessar link", href: "/usuario/telemedicina" },
+  { title: "Saúde e bem-estar", metric: "62% concluído", cta: "Continuar", href: "/usuario/saude-bem-estar" },
+  { title: "Cultura", metric: "2 eventos inscritos", cta: "Ver ingressos", href: "/usuario/cultura" },
+  { title: "Agenda dr", metric: "Próx. amanhã 10h", cta: "Acessar link", href: "/usuario/agenda-dr" },
 ];
 
 const upcomingEvents = [
