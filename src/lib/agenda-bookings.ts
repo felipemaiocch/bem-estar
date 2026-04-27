@@ -359,22 +359,6 @@ export async function listAgendaSlots(options: {
   session: SessionIdentity;
 }): Promise<AgendaDayContent> {
   const { start, end } = buildDayRange(options.date);
-  const dateStr = `${options.date.year}-${String(options.date.month).padStart(2, '0')}-${String(options.date.day).padStart(2, '0')}`;
-
-  // Fetch company events for the day
-  const companyEvents = await prisma.event.findMany({
-    where: { 
-        status: "PUBLISHED", 
-        startsAt: { gte: start, lt: end } 
-    }
-  });
-
-  // Fetch engagement cards (CMS) for the day
-  const engagementCards = await prisma.engagementCard.findMany({
-    where: {
-        date: dateStr
-    }
-  });
 
   if (isDemoMode()) {
     const demoBookings = getDemoBookingsStore();
@@ -416,10 +400,25 @@ export async function listAgendaSlots(options: {
           ),
     });
 
+    // For Demo mode, we still need these locally if they weren't fetched globally
+    const dateStr = `${options.date.year}-${String(options.date.month).padStart(2, '0')}-${String(options.date.day).padStart(2, '0')}`;
+    const [demoEvents, demoCards] = await Promise.all([
+      prisma.event.findMany({ where: { status: "PUBLISHED", startsAt: { gte: start, lt: end } } }),
+      prisma.engagementCard.findMany({ where: { date: dateStr } })
+    ]);
+
     return {
         slots,
-        events: companyEvents,
-        cards: engagementCards
+        events: demoEvents.map(e => ({
+          id: e.id,
+          title: e.title,
+          time: format(e.startsAt, "HH:mm"),
+          location: e.location,
+          type: e.category,
+          points: e.points,
+          isParticipating: false,
+        })),
+        cards: demoCards
     };
   }
 
