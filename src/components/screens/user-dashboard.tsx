@@ -484,7 +484,7 @@ export function UserDashboardScreen() {
             ) : null}
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-1">
             <Card className="p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Zap className="h-4 w-4 text-[#0264af]" />
