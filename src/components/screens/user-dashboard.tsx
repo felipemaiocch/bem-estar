@@ -615,10 +615,10 @@ export function UserDashboardScreen() {
                 <div key={i} className="flex gap-4">
                   <div className="flex w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-blue-50 text-[#0264af]">
                     <span className="text-xs font-bold uppercase">
-                        {event.isCard ? 'Card' : new Date(event.startsAtIso).toLocaleString('pt-BR', { month: 'short' })}
+                      {new Date(event.startsAtIso).toLocaleString('pt-BR', { month: 'short' })}
                     </span>
                     <span className="text-lg font-black">
-                        {event.isCard ? 'Rec' : new Date(event.startsAtIso).getDate()}
+                      {new Date(event.startsAtIso).getDate()}
                     </span>
                   </div>
                   <div className="flex-1">
