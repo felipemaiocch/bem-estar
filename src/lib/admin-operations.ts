@@ -88,6 +88,7 @@ interface AdminCreateEventInput {
   status?: EventStatus;
   maxAttendees?: number;
   publishedBy?: string;
+  responsibleName?: string;
 }
 
 interface AdminUpdateEventInput {
@@ -101,6 +102,7 @@ interface AdminUpdateEventInput {
   points?: number;
   status?: EventStatus;
   maxAttendees?: number;
+  responsibleName?: string;
 }
 
 type DemoUser = {
