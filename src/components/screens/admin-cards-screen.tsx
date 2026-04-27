@@ -17,6 +17,10 @@ interface EngagementCardItem {
   points: number;
   imageUrl: string | null;
   publishedBy: { name: string };
+  slots?: string | null;
+  availableDays?: string | null;
+  responsibleName?: string | null;
+  responsibleId?: string | null;
 }
 
 const defaultCardForm = {
