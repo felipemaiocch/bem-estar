@@ -87,3 +87,34 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const auth = await requireSession(request, "ADMIN");
+
+  if (auth.response) {
+    return auth.response;
+  }
+
+  const id = request.nextUrl.searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json(
+      { ok: false, error: "ID do usuário é obrigatório." },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.user.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: "Não foi possível excluir o usuário." },
+      { status: 500 },
+    );
+  }
+}

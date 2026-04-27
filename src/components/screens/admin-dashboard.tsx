@@ -315,6 +315,30 @@ export function AdminDashboardScreen() {
     }
   }
 
+  async function handleDeleteUser(id: string) {
+    if (!confirm("Tem certeza que deseja excluir este usuário/profissional?")) {
+      return;
+    }
+
+    setBusyAction(`delete-user-${id}`);
+    try {
+      const response = await fetch(`/api/admin/users?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setFeedback("Usuário excluído com sucesso.");
+        await loadAdminData();
+      } else {
+        setFeedback("Falha ao excluir.");
+      }
+    } catch {
+      setFeedback("Erro de conexão.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   async function handleDeleteEvent(id: string) {
     if (!confirm("Tem certeza que deseja excluir permanentemente este evento?")) {
       return;
@@ -758,12 +782,35 @@ export function AdminDashboardScreen() {
                   key={professional.id}
                   className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
                 >
-                  <p className="font-semibold text-slate-900">
-                    {professional.name} · {professional.specialty}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {professional.email} · Comparecimento {Math.round(professional.attendanceRate * 100)}%
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {professional.name} · {professional.specialty}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {professional.email} · Status: {professional.isActive ? "Ativo" : "Inativo"}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                       <Button 
+                         variant={professional.isActive ? "outline" : "secondary"}
+                         size="sm"
+                         onClick={() => void toggleUserStatus({ id: professional.userId, name: professional.name, isActive: professional.isActive } as AdminUserItem)}
+                         disabled={busyAction === `toggle-user-${professional.userId}`}
+                       >
+                         {professional.isActive ? "Desativar" : "Ativar"}
+                       </Button>
+                       <Button 
+                         variant="ghost"
+                         size="sm"
+                         className="text-rose-600 hover:bg-rose-50"
+                         onClick={() => void handleDeleteUser(professional.userId)}
+                         disabled={busyAction === `delete-user-${professional.userId}`}
+                       >
+                         <Trash2 size={16} />
+                       </Button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
