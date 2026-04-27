@@ -14,6 +14,8 @@ const cardSchema = z.object({
   imageUrl: z.string().url().optional().or(z.literal("")),
   responsibleName: z.string().optional(),
   responsibleId: z.string().optional(),
+  slots: z.string().optional(),
+  availableDays: z.string().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -78,6 +80,8 @@ export async function POST(request: NextRequest) {
       imageUrl: parsed.data.imageUrl || null,
       responsibleName: parsed.data.responsibleName || null,
       responsibleId: parsed.data.responsibleId || null,
+      slots: parsed.data.slots || null,
+      availableDays: parsed.data.availableDays || null,
       publishedById: auth.session.sub,
     },
   });

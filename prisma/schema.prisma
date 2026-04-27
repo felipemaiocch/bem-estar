@@ -402,6 +402,10 @@ model EngagementCard {
   responsibleId   String?
   responsible     ProfessionalProfile? @relation(fields: [responsibleId], references: [id])
 
+  // Custom scheduling for this card
+  slots           String?  // Ex: "09:00, 10:00, 15:00"
+  availableDays   String?  // Ex: "Monday, Wednesday" or "2026-04-27"
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

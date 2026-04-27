@@ -29,6 +29,8 @@ const defaultCardForm = {
   imageUrl: "",
   responsibleName: "",
   responsibleId: "",
+  slots: "",
+  availableDays: "",
 };
 
 const inputClassName =
@@ -108,6 +110,8 @@ export function AdminCardsScreen() {
           points: Number(form.points),
           responsibleName: form.responsibleName,
           responsibleId: form.responsibleId,
+          slots: form.slots,
+          availableDays: form.availableDays,
         }),
       });
 
@@ -237,6 +241,27 @@ export function AdminCardsScreen() {
                   onChange={(event) => setForm((f) => ({ ...f, responsibleName: event.target.value, responsibleId: "" }))}
                 />
               )}
+
+              <div className="grid gap-3 grid-cols-1">
+                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Horários Individuais (ex: 09:00, 10:00, 16:00)
+                    <input
+                      className={inputClassName}
+                      placeholder="09:00, 10:00..."
+                      value={form.slots}
+                      onChange={(event) => setForm((f) => ({ ...f, slots: event.target.value }))}
+                    />
+                 </label>
+                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Dias recorrentes (ex: Monday, Wednesday) ou Data fixa
+                    <input
+                      className={inputClassName}
+                      placeholder="Monday, Wednesday ou 2026-04-27"
+                      value={form.availableDays}
+                      onChange={(event) => setForm((f) => ({ ...f, availableDays: event.target.value }))}
+                    />
+                 </label>
+              </div>
 
               <Button type="submit" disabled={busyAction === "create"} className="mt-2">
                 {busyAction === "create" ? "Salvando..." : "Publicar Card"}

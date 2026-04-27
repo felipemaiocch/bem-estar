@@ -607,33 +607,6 @@ export function AdminDashboardScreen() {
             <p className="mt-4 text-[11px] text-slate-500 uppercase tracking-widest font-semibold text-center text-rose-500/80">Dados cruciais anonimizados</p>
           </Card>
 
-          {/* Configuração de Agenda (Novo) */}
-          <Card className="p-6 border-amber-100 shadow-sm bg-white">
-            <h3 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
-               <Calendar className="text-amber-500 h-5 w-5" />
-               Grade de Horários da Agenda
-            </h3>
-            <p className="text-sm text-slate-500 mb-4">
-              Defina os horários disponíveis (ex: 08:30, 09:30) para todos os especialistas.
-            </p>
-            <input
-              value={globalSlots}
-              onChange={(e) => setGlobalSlots(e.target.value)}
-              placeholder="Ex: 09:00, 10:30, 14:00"
-              className={inputClassName}
-            />
-            <div className="mt-4">
-              <Button 
-                variant="secondary"
-                className="w-full bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200" 
-                onClick={() => void handleSaveAgendaConfig()}
-                disabled={busyAction === "save-agenda"}
-              >
-                {busyAction === "save-agenda" ? "Salvando..." : "Salvar grade de horários"}
-              </Button>
-            </div>
-          </Card>
-
           {/* Notificações em Massa */}
           <Card id="notificacoes-massa" className="p-6 border-blue-100 shadow-sm bg-white">
             <h3 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">

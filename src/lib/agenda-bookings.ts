@@ -426,80 +426,91 @@ export async function listAgendaSlots(options: {
   const userExists = await ensureUserExists(options.session.sub);
   if (!userExists) return { slots: [], events: [], cards: [] };
 
-  // Fetch ALL active professionals from DB
-  const professionals = await prisma.professionalProfile.findMany({
-    where: { user: { isActive: true, role: "PROFESSIONAL" } },
-    include: { user: { select: { id: true, name: true } } },
-  });
+  // Fetch all Engagement Cards with custom scheduling for this day (Derived from CMS)
+  const dayNameEn = format(start, "EEEE"); // e.g. "Monday"
+  const dateStr = format(start, "yyyy-MM-dd");
 
-  if (professionals.length === 0) return { slots: [], events: [], cards: [] };
-
-  // Fetch Agenda Configuration (Virtual Slots)
-  const agendaConfig = await prisma.agendaSetting.findUnique({
-    where: { id: "global-config" },
-  });
-
-  const rawSlots = agendaConfig?.slots ?? "09:00, 10:00, 11:00, 14:00, 15:00, 16:00";
-  const virtualTimes = rawSlots.split(",").map(t => t.trim());
-
-  const dayStart = start;
-  const dayEnd = end;
-
-  // Fetch ALL existing bookings for that day among all professionals
-  const existingBookings = await prisma.sessionBooking.findMany({
+  const cardsWithSlots = await prisma.engagementCard.findMany({
     where: {
-      professionalId: { in: professionals.map(p => p.id) },
-      startsAt: { gte: dayStart, lt: dayEnd },
-      status: { in: activeStatuses },
+      OR: [
+        { availableDays: { contains: dayNameEn } },
+        { availableDays: { contains: dateStr } }
+      ],
+      NOT: { slots: null }
     },
+    include: {
+      responsible: {
+        include: { user: { select: { name: true } } }
+      }
+    }
   });
-
-  // Virtual time slots for every professional
-  const normalizedFilter = (options.filter ?? "Todos").trim().toLowerCase();
-  const normalizedFocus = (options.focusFilter ?? "Todos focos").trim().toLowerCase();
 
   const slots: AgendaSlotResponse[] = [];
 
-  for (const prof of professionals) {
-    // Filter by specialty if requested
-    if (normalizedFilter !== "todos" && !prof.specialty.toLowerCase().includes(normalizedFilter)) {
-      continue;
-    }
-    if (normalizedFocus !== "todos focos" && !prof.specialty.toLowerCase().includes(normalizedFocus)) {
-      continue;
-    }
+  for (const card of cardsWithSlots) {
+    if (!card.slots) continue;
+    const times = card.slots.split(",").map(t => t.trim());
+    
+    for (const time of times) {
+       const { startsAt } = buildSlotWindow(options.date, time);
+       // Skip past slots
+       if (startsAt <= new Date()) continue;
 
-    for (const time of virtualTimes) {
-      const { startsAt } = buildSlotWindow(options.date, time);
-      // Skip past slots
-      if (startsAt <= new Date()) continue;
+       // Check if already booked
+       const bookings = await prisma.sessionBooking.findMany({
+         where: {
+            professionalId: card.responsibleId || "no-prof",
+            startsAt: startsAt,
+            status: { not: "CANCELED" }
+         }
+       });
 
-      const slotId = `${prof.id}::${time}`;
-      const slotBookings = existingBookings.filter(
-        b => b.professionalId === prof.id && b.startsAt.getTime() === startsAt.getTime()
-      );
+       const hasConfirmed = bookings.some(b => confirmedStatuses.includes(b.status));
+       const mineBooked = bookings.some(b => b.userId === options.session.sub && confirmedStatuses.includes(b.status));
 
-      const hasConfirmed = slotBookings.some(b => confirmedStatuses.includes(b.status));
-      const mineBooked = slotBookings.some(
-        b => b.userId === options.session.sub && confirmedStatuses.includes(b.status)
-      );
-      const mineWaitlist = slotBookings.some(
-        b => b.userId === options.session.sub && b.status === "WAITLIST"
-      );
-
-      slots.push({
-        slotId,
-        time,
-        specialist: prof.user.name,
-        specialty: prof.specialty,
-        focus: prof.specialty,
-        mode: "presencial",
-        location: "Espaço Bem-estar",
-        status: hasConfirmed ? "occupied" : "available",
-        mineStatus: mineBooked ? "booked" : mineWaitlist ? "waitlist" : undefined,
-      });
+       slots.push({
+         slotId: `slot:${card.id}:${card.responsibleId || '0'}:${time}`,
+         time,
+         specialist: card.responsibleName || card.responsible?.user.name || "Especialista",
+         specialty: card.title,
+         focus: card.category,
+         mode: "presencial",
+         location: card.location,
+         status: hasConfirmed ? "occupied" : "available",
+         mineStatus: mineBooked ? "booked" : undefined,
+       });
     }
   }
+
+  // Fetch ALL published events for that day
+  const events = await prisma.event.findMany({
+    where: {
+      startsAt: { gte: start, lt: end },
+      status: "PUBLISHED",
+    },
+    include: {
+      attendances: {
+        where: { userId: options.session.sub },
+        select: { id: true },
+      },
+    },
+  });
+
+  const companyEvents = events.map(e => ({
+    id: e.id,
+    title: e.title,
+    time: format(e.startsAt, "HH:mm"),
+    location: e.location,
+    type: e.category,
+    points: e.points,
+    isParticipating: e.attendances.length > 0,
+  }));
+
+  const engagementCards = await prisma.engagementCard.findMany({
+    where: {
+       createdAt: { gte: start }, // Simplified day filter for cards display
+    }
+  });
 
   return {
     slots,
