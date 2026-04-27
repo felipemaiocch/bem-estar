@@ -468,7 +468,7 @@ export async function listAgendaSlots(options: {
        const mineBooked = bookings.some(b => b.userId === options.session.sub && confirmedStatuses.includes(b.status));
 
        slots.push({
-         slotId: `slot:${card.id}:${card.responsibleId || '0'}:${time}`,
+         slotId: `slot|${card.id}|${card.responsibleId || '0'}|${time}`,
          time,
          specialist: card.responsibleName || card.responsible?.user.name || "Especialista",
          specialty: card.title,
@@ -676,9 +676,9 @@ export async function createAgendaBooking(options: {
   let time: string | null = null;
   let specialtyOverdrive: string | null = null;
 
-  if (options.slotId.startsWith("slot:")) {
-    const parts = options.slotId.split(":");
-    // format: slot:cardId:professionalId:time
+  if (options.slotId.startsWith("slot|")) {
+    const parts = options.slotId.split("|");
+    // format: slot|cardId|professionalId|time
     professionalId = parts[2];
     time = parts[3];
     
