@@ -35,6 +35,12 @@ const upcomingEvents = [
   { title: "Palestra Saúde Mental", date: "Sex, 14h", location: "Auditório Principal" },
 ];
 
+const leaderboard = [
+  { name: "Amanda Costa", area: "Produto", points: 2430 },
+  { name: "Bruno Lima", area: "Financeiro", points: 2310 },
+  { name: "Carla Nunes", area: "Marketing", points: 2260 },
+];
+
 type FeedPost = {
   id: string;
   professional: string;
