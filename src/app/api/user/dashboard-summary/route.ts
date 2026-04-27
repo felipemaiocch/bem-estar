@@ -55,6 +55,28 @@ export async function GET(request: NextRequest) {
         prisma.engagementCard.count({ where: { category: "saude-bem-estar" } }),
     ]);
 
+    const upcomingEventsData = upcomingEvents.map(e => ({
+        id: e.id,
+        title: e.title,
+        location: e.location,
+        category: e.category,
+        startsAtIso: e.startsAt.toISOString(),
+    }));
+
+    const latestCardsData = latestCards.map(c => ({
+        id: c.id,
+        title: c.title,
+        location: c.location,
+        category: c.category.replace('saude-bem-estar', 'Saúde').replace('cultura', 'Cultura'),
+        startsAtIso: c.createdAt.toISOString(),
+    }));
+
+    // Combine and sort: we want Upcoming Events first, but we want the newest items to be visible
+    // To satisfy "Sala SP and Pilates appearing", we just merge and perhaps sort by startsAtIso
+    const unifiedEvents = [...upcomingEventsData, ...latestCardsData]
+        .sort((a, b) => new Date(a.startsAtIso).getTime() - new Date(b.startsAtIso).getTime())
+        .slice(0, 5);
+
     return NextResponse.json({
       ok: true,
       leaderboard: topUsers.map(u => ({
@@ -62,22 +84,7 @@ export async function GET(request: NextRequest) {
           area: u.company || "Geral",
           points: u.score,
       })),
-      upcomingEvents: [
-          ...upcomingEvents.map(e => ({
-              id: e.id,
-              title: e.title,
-              location: e.location,
-              category: e.category,
-              startsAtIso: e.startsAt.toISOString(),
-          })),
-          ...latestCards.map(c => ({
-              id: c.id,
-              title: c.title,
-              location: c.location,
-              category: c.category.replace('saude-bem-estar', 'Saúde').replace('cultura', 'Cultura'),
-              startsAtIso: c.createdAt.toISOString(),
-          }))
-      ].slice(0, 5),
+      upcomingEvents: unifiedEvents,
       metrics: {
           bookingsCount,
           cultureCount: totalCultureEvents + totalCultureCards,

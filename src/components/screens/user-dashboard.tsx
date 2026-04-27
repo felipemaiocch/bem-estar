@@ -95,16 +95,6 @@ export function UserDashboardScreen() {
 
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
-  const [missions, setMissions] = useState([
-    { id: "mission_water", text: "💧 Beber 2L de água", done: false, points: 50 },
-    { id: "mission_meditate", text: "🧘‍♂️ Meditar 5 minutos", done: false, points: 50 },
-    { id: "mission_walk", text: "🏃 Caminhada leve", done: false, points: 50 },
-  ]);
-
-  const toggleMission = async (index: number) => {
-    const mission = missions[index];
-    if (mission.done) return;
-
     // Optimistic UI
     setMissions(prev => prev.map((m, i) => (i === index ? { ...m, done: true } : m)));
 
