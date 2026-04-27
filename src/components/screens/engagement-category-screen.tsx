@@ -227,6 +227,11 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
                           Responsável: {item.responsibleName}
                         </p>
                       )}
+                      {item.slots && (
+                        <p className="mt-1 flex items-center gap-2 text-xs font-bold text-amber-600">
+                          Horários: {item.slots}
+                        </p>
+                      )}
                     </div>
                     <span
                       className={cn(
