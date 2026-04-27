@@ -426,7 +426,7 @@ export function AdminDashboardScreen() {
             },
             {
               title: "Avaliação de comparecimento",
-              value: `${Math.round(averageAttendance * 100)}%`,
+              value: `${Math.round(averageAttendance > 1 ? averageAttendance : averageAttendance * 100)}%`,
               detail: "Média dos profissionais",
               icon: Star,
               color: "border-l-amber-500 text-amber-500",
