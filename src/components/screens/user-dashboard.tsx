@@ -595,9 +595,6 @@ export function UserDashboardScreen() {
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Próximos eventos</h3>
-              <Link href="/usuario/cultura" className="text-sm font-medium text-[#0264af] hover:underline">
-                Ver todos
-              </Link>
             </div>
             <div className="space-y-4">
               {dashboardSummary?.upcomingEvents?.map((event: any, i: number) => (
