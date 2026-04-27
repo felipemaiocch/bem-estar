@@ -490,6 +490,8 @@ export async function listAgendaSlots(options: {
         status: hasConfirmed ? "occupied" : "available",
         mineStatus: mineBooked ? "booked" : mineWaitlist ? "waitlist" : undefined,
       });
+    }
+  }
 
   return {
     slots,
