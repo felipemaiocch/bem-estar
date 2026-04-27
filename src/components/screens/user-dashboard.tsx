@@ -110,6 +110,18 @@ export function UserDashboardScreen() {
     }
   }, []);
 
+  const [globalAlert, setGlobalAlert] = useState<string | null>(null);
+
+  const loadGlobalAlert = useCallback(async () => {
+    try {
+      const resp = await fetch("/api/admin/global-alert", { cache: "no-store" });
+      const data = await resp.json();
+      if (data.ok && data.alert) {
+        setGlobalAlert(data.alert.message);
+      }
+    } catch {}
+  }, []);
+
 
 
   const nextSession = bookings[0] ?? null;
@@ -227,8 +239,8 @@ export function UserDashboardScreen() {
   }, []);
 
   useEffect(() => {
-    void Promise.all([loadFeed(), loadBookings(), loadSummary()]);
-  }, [loadFeed, loadBookings, loadSummary]);
+    void Promise.all([loadFeed(), loadBookings(), loadSummary(), loadGlobalAlert()]);
+  }, [loadFeed, loadBookings, loadSummary, loadGlobalAlert]);
 
   useEffect(() => {
     if (feedCollapsed || !feedHasMore || feedNextOffset === null || feedLoading || feedLoadingMore) {
@@ -369,6 +381,24 @@ export function UserDashboardScreen() {
             🔥 12 dias seguidos
           </div>
         </div>
+
+        {globalAlert && (
+          <div className="mb-6 animate-in slide-in-from-top-4 duration-500">
+            <Card className="border-blue-100 bg-blue-50 p-4 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0264af] text-white">
+                  <Megaphone size={18} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#0264af]">Comunicado Importante</p>
+                  <p className="mt-0.5 text-sm font-medium text-slate-700 leading-relaxed">
+                    {globalAlert}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         <div className="no-scrollbar flex snap-x gap-4 overflow-x-auto pb-4 md:grid md:grid-cols-2 md:gap-6 lg:grid-cols-3">
           {baseEngagementCards.map((event) => {
