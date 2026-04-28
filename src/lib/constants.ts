@@ -4,7 +4,7 @@ export const appMeta = {
   name: "se.monitora",
   company: "dr.monitora",
   greetingName: "Felipe",
-  logoPath: "/logo%20se.drmonitora.png",
+  logoPath: "/logo-se.png",
 };
 
 export const roleRouteMap: Record<UserRole, string> = {

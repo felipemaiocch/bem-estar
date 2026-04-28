@@ -24,10 +24,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/logo%20se.drmonitora.png" },
+      { url: "/logo-se.png" },
     ],
     apple: [
-      { url: "/logo%20se.drmonitora.png" },
+      { url: "/logo-se.png" },
     ],
   },
 };
