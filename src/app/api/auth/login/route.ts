@@ -8,8 +8,8 @@ import { authCookieName, sessionCookieOptions } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
 const loginSchema = z.object({
-  email: z.email(),
-  password: z.string().min(6),
+  email: z.string().email(),
+  password: z.string().min(4).max(120),
   role: z.enum(["USER", "PROFESSIONAL", "ADMIN"]).optional(),
 });
 

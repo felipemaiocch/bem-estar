@@ -8,7 +8,7 @@ const createAdminUserSchema = z.object({
   name: z.string().min(2).max(160),
   email: z.email(),
   role: z.enum(["USER", "PROFESSIONAL", "ADMIN"]),
-  password: z.string().min(6).max(120).optional(),
+  password: z.string().min(4).max(120).optional(),
   company: z.string().max(160).optional(),
   specialty: z.string().max(160).optional(),
   licenseCode: z.string().max(120).optional(),
