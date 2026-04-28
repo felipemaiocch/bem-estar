@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
 import {
   BriefcaseMedical,
   CalendarPlus2,
@@ -19,6 +20,7 @@ import {
   SendHorizontal,
   Sparkles,
   ThumbsUp,
+  Trash2,
   Users,
 } from "lucide-react";
 
@@ -159,6 +161,10 @@ export function ProfessionalDashboardScreen() {
   });
   const [publishingFeed, setPublishingFeed] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [patientSearch, setPatientSearch] = useState("");
+  const [feedImageFile, setFeedImageFile] = useState<File | null>(null);
+  const [feedImagePreview, setFeedImagePreview] = useState<string | null>(null);
+  const feedFileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedUser =
     users.find((item) => item.id === form.userId) ?? users[0] ?? seedMonitoredUsers[0];
@@ -374,6 +380,18 @@ export function ProfessionalDashboardScreen() {
     setPublishingFeed(true);
     setFeedback(null);
 
+    let finalImageUrl = feedForm.imageUrl;
+
+    if (feedImageFile) {
+        // Converter para base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(feedImageFile);
+        });
+        finalImageUrl = await base64Promise;
+    }
+
     try {
       const response = await fetch("/api/professional/feed-posts", {
         method: "POST",
@@ -384,7 +402,7 @@ export function ProfessionalDashboardScreen() {
           activity: feedForm.activity,
           caption: feedForm.caption,
           location: feedForm.location || undefined,
-          imageUrl: feedForm.imageUrl || undefined,
+          imageUrl: finalImageUrl || undefined,
           professionalRole: "Profissional",
         }),
       });
@@ -407,6 +425,8 @@ export function ProfessionalDashboardScreen() {
         location: "",
         imageUrl: "",
       });
+      setFeedImageFile(null);
+      setFeedImagePreview(null);
       setFeedback("Post publicado no feed com sucesso.");
     } catch {
       setFeedback("Falha de conexão ao publicar no feed.");
@@ -415,11 +435,31 @@ export function ProfessionalDashboardScreen() {
     }
   }
 
+  async function handleDeleteFeedPost(id: string) {
+    if (!confirm("Deseja realmente excluir esta dica?")) return;
+    
+    setFeedback(null);
+    try {
+      const response = await fetch(`/api/professional/feed-posts/${id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setFeedPosts(prev => prev.filter(p => p.id !== id));
+        setFeedback("Dica removida!");
+      } else {
+        setFeedback(data.error || "Erro ao remover dica.");
+      }
+    } catch {
+      setFeedback("Erro de conexão ao remover dica.");
+    }
+  }
+
   return (
     <BackofficeShell
-      badge="Painel do profissional"
-      title="Agenda clínica e acompanhamento"
-      description="Lance atendimentos por usuário e alimente o histórico que aparece no perfil."
+      badge="Profissional"
+      title="Bem-vindo ao seu painel"
+      description="Gerencie seus atendimentos e compartilhe dicas com a comunidade."
     >
       <div className="space-y-6">
         <section className="grid gap-4 xl:grid-cols-4">
@@ -574,22 +614,99 @@ export function ProfessionalDashboardScreen() {
                 <input
                   type="text"
                   placeholder="Título (ex: Benefícios do alongamento matinal)"
+                  value={feedForm.activity}
+                  onChange={e => setFeedForm(prev => ({ ...prev, activity: e.target.value }))}
+                  required
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
                 <textarea
                   placeholder="Escreva sua dica ou artigo aqui..."
                   rows={3}
+                  value={feedForm.caption}
+                  onChange={e => setFeedForm(prev => ({ ...prev, caption: e.target.value }))}
+                  required
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors resize-none"
                 ></textarea>
-                <div className="flex justify-between items-center pt-1">
-                  <button className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-blue-600 transition-colors">
-                    <ImagePlus className="h-4 w-4" /> Anexar Mídia
-                  </button>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 font-bold px-6">
-                    Publicar <SendHorizontal className="h-4 w-4" />
-                  </Button>
+                <div className="flex flex-col gap-3 pt-1">
+                  {feedImagePreview && (
+                    <div className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-black/5">
+                      <img src={feedImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => {
+                          setFeedImageFile(null);
+                          setFeedImagePreview(null);
+                        }}
+                        className="absolute top-2 right-2 p-1 bg-white/80 hover:bg-white rounded-full shadow-md text-rose-500 transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <button 
+                      type="button"
+                      onClick={() => feedFileInputRef.current?.click()}
+                      className={cn(
+                        "flex items-center gap-1.5 text-sm font-semibold transition-colors",
+                        feedImageFile ? "text-emerald-600" : "text-slate-500 hover:text-blue-600"
+                      )}
+                    >
+                      <ImagePlus className="h-4 w-4" /> 
+                      {feedImageFile ? "Imagem selecionada" : "Anexar Mídia"}
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={feedFileInputRef} 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setFeedImageFile(file);
+                          setFeedImagePreview(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                    <Button 
+                      type="submit"
+                      disabled={publishingFeed}
+                      className="bg-blue-600 hover:bg-blue-700 text-white gap-2 font-bold px-6"
+                    >
+                      {publishingFeed ? "Publicando..." : "Publicar"} 
+                      <SendHorizontal className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
+            </Card>
+
+            {/* Minhas Dicas Publicadas */}
+            <Card className="p-6">
+               <h3 className="mb-4 text-lg font-bold text-slate-900">Minhas Dicas Publicadas</h3>
+               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {feedPosts.length === 0 && <p className="text-sm text-slate-400 italic">Você ainda não publicou nenhuma dica.</p>}
+                  {feedPosts.map(post => (
+                    <div key={post.id} className="flex gap-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 items-start">
+                      {post.image && (
+                        <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                          <img src={post.image} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-slate-900 truncate">{post.activity}</p>
+                        <p className="text-xs text-slate-500 line-clamp-2 mt-1">{post.caption}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button 
+                          onClick={() => handleDeleteFeedPost(post.id)}
+                          className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+               </div>
             </Card>
           </div>
 
@@ -603,8 +720,22 @@ export function ProfessionalDashboardScreen() {
             <CardContent>
               <form className="space-y-4" onSubmit={(event) => void handleSubmit(event)}>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Usuário</span>
+                  <label className="space-y-2 col-span-2 sm:col-span-1">
+                    <span className="text-sm font-medium text-slate-700">Buscar Paciente</span>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3.5 text-slate-400" size={16} />
+                      <input
+                        type="text"
+                        placeholder="Nome ou e-mail..."
+                        value={patientSearch}
+                        onChange={(e) => setPatientSearch(e.target.value)}
+                        className={cn(fieldClassName, "pl-10")}
+                      />
+                    </div>
+                  </label>
+
+                  <label className="space-y-2 col-span-2 sm:col-span-1 border-l-0 sm:border-l sm:pl-4 border-slate-100">
+                    <span className="text-sm font-medium text-slate-700">Selecionar da lista</span>
                     <select
                       value={form.userId}
                       onChange={(event) =>
@@ -612,11 +743,17 @@ export function ProfessionalDashboardScreen() {
                       }
                       className={fieldClassName}
                     >
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.name} · {user.area}
-                        </option>
-                      ))}
+                      {users
+                        .filter(u => 
+                          patientSearch === "" || 
+                          u.name.toLowerCase().includes(patientSearch.toLowerCase()) || 
+                          u.email.toLowerCase().includes(patientSearch.toLowerCase())
+                        )
+                        .map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.name} · {user.area}
+                          </option>
+                        ))}
                     </select>
                   </label>
 
