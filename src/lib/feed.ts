@@ -74,7 +74,7 @@ const fallbackImage =
 const defaultFeedPageLimit = 6;
 const maxFeedPageLimit = 20;
 
-function formatWhen(value: Date) {
+export function formatWhen(value: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",

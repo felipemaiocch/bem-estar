@@ -1131,13 +1131,30 @@ export async function updateProfessionalBooking(options: {
     where: { id: options.bookingId },
     select: {
       id: true,
+      userId: true,
       professionalId: true,
       startsAt: true,
+      status: true,
     },
   });
 
   if (!booking || booking.professionalId !== professionalId) {
     throw new Error("Agendamento não encontrado para este profissional.");
+  }
+
+  // Lógica de Pontuação Gamificada
+  let pointsChange = 0;
+  if (options.status === "COMPLETED" && booking.status !== "COMPLETED") {
+    pointsChange = 100; // Ganha 100 por concluir
+  } else if (options.status === "MISSED" && booking.status !== "MISSED") {
+    pointsChange = -50; // Perde 50 por faltar
+  } else if (options.status === "CANCELED" && booking.status !== "CANCELED") {
+    // Se cancelar com menos de 24h de antecedência
+    const now = new Date();
+    const twentyFourHoursBefore = new Date(booking.startsAt.getTime() - 24 * 60 * 60 * 1000);
+    if (now > twentyFourHoursBefore) {
+      pointsChange = -20; // Perde 20 por cancelamento em cima da hora
+    }
   }
 
   const updated = await prisma.sessionBooking.update({
@@ -1165,6 +1182,18 @@ export async function updateProfessionalBooking(options: {
       },
     },
   });
+
+  // Atualizar o score do usuário se houver mudança de pontos
+  if (pointsChange !== 0) {
+    await prisma.user.update({
+      where: { id: booking.userId },
+      data: {
+        score: {
+          increment: pointsChange,
+        },
+      },
+    });
+  }
 
   if (options.status === "CANCELED") {
     const firstWaitlisted = await prisma.sessionBooking.findFirst({
