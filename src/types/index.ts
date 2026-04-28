@@ -125,6 +125,7 @@ export interface CareRecordMetric {
 export interface MonitoredUser {
   id: string;
   name: string;
+  email: string;
   area: string;
   objective: string;
 }

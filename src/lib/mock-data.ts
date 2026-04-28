@@ -459,18 +459,21 @@ export const monitoredUsers: MonitoredUser[] = [
   {
     id: "user-felipe",
     name: "Felipe Santos",
+    email: "felipe@empresa.com",
     area: "Operações",
     objective: "Saúde mental e performance",
   },
   {
     id: "user-larissa",
     name: "Larissa Melo",
+    email: "larissa@empresa.com",
     area: "RH",
     objective: "Consistência alimentar e energia diária",
   },
   {
     id: "user-amanda",
     name: "Amanda Costa",
+    email: "amanda@empresa.com",
     area: "Produto",
     objective: "Rotina de bem-estar e prevenção",
   },
