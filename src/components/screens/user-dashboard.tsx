@@ -228,6 +228,19 @@ export function UserDashboardScreen() {
     await loadFeedPage(0, false);
   }, [loadFeedPage]);
 
+  useEffect(() => {
+    const handleOpenModal = () => {
+      setEditingPostId(null);
+      setMomentsForm({ activity: "", caption: "", location: "" });
+      setMomentImagePreview(null);
+      setMomentImageFile(null);
+      setIsPublishModalOpen(true);
+    };
+
+    window.addEventListener("open-publish-modal" as any, handleOpenModal);
+    return () => window.removeEventListener("open-publish-modal" as any, handleOpenModal);
+  }, []);
+
   const loadBookings = useCallback(async () => {
     setBookingsLoading(true);
     setBookingError(null);
