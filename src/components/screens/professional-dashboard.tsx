@@ -167,6 +167,7 @@ export function ProfessionalDashboardScreen() {
   const [feedImageFile, setFeedImageFile] = useState<File | null>(null);
   const [feedImagePreview, setFeedImagePreview] = useState<string | null>(null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const feedFileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedUser =
@@ -280,9 +281,7 @@ export function ProfessionalDashboardScreen() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (savingRecord) {
-      return;
-    }
+    if (savingRecord) return;
 
     const category =
       careRecordCategoryOptions.find((item) => item.value === form.category) ?? careRecordCategoryOptions[0];
@@ -291,41 +290,86 @@ export function ProfessionalDashboardScreen() {
     setFeedback(null);
 
     try {
-      const response = await fetch("/api/professional/care-records", {
-        method: "POST",
+      const isEditing = Boolean(editingRecordId);
+      const url = isEditing 
+        ? `/api/professional/care-records/${editingRecordId}` 
+        : "/api/professional/care-records";
+        
+      const response = await fetch(url, {
+        method: isEditing ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           userId: form.userId,
           category: category.value,
-          professionalRole: category.professionalRole,
+          professionalRole: form.professionalRole || category.professionalRole,
           title: form.title,
           summary: form.summary,
-          delivery: String(form.summary), // No modo simplificado, usamos o mesmo texto para ambos
+          delivery: String(form.summary),
           nextStep: "",
           metrics: [],
         }),
       });
 
-      const data = (await response.json()) as {
-        ok?: boolean;
-        error?: string;
-        record?: UserCareRecord;
-      };
+      const data = (await response.json()) as { ok?: boolean; error?: string; record?: UserCareRecord };
 
       if (!response.ok || !data.ok || !data.record) {
-        setFeedback(data.error ?? "Não foi possível salvar atendimento.");
+        setFeedback(data.error ?? "Não foi possível salvar o registro.");
         return;
       }
 
-      setRecords((current) => [data.record!, ...current]);
-      setFeedback(`Registro salvo no perfil de ${data.record.userName}.`);
-      setForm(buildFormState(users, category.value, form.userId));
+      if (isEditing) {
+        setRecords(prev => prev.map(r => r.id === data.record!.id ? data.record! : r));
+        setFeedback("Registro atualizado com sucesso!");
+      } else {
+        setRecords((current) => [data.record!, ...current]);
+        setFeedback(`Registro salvo no perfil de ${data.record.userName}.`);
+      }
+      
+      setForm(buildFormState(users, form.category, form.userId));
+      setEditingRecordId(null);
     } catch {
       setFeedback("Falha de conexão ao salvar atendimento.");
     } finally {
       setSavingRecord(false);
+    }
+  }
+
+  function handleEditRecord(record: UserCareRecord) {
+    setEditingRecordId(record.id);
+    setForm({
+      userId: record.userId,
+      category: record.category,
+      professional: record.professional,
+      professionalRole: record.professionalRole,
+      title: record.title,
+      summary: record.summary,
+      delivery: record.delivery,
+      nextStep: record.nextStep,
+      metrics: record.metrics || [],
+    });
+    setPatientSearch("");
+    window.scrollTo({ top: 400, behavior: "smooth" });
+  }
+
+  async function handleDeleteRecord(id: string) {
+    if (!confirm("Deseja realmente excluir este registro de atendimento?")) return;
+    
+    setFeedback(null);
+    try {
+      const response = await fetch(`/api/professional/care-records/${id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setRecords(prev => prev.filter(r => r.id !== id));
+        setFeedback("Registro removido com sucesso!");
+      } else {
+        setFeedback(data.error || "Erro ao remover registro.");
+      }
+    } catch {
+      setFeedback("Erro de conexão ao remover registro.");
     }
   }
 
@@ -870,34 +914,27 @@ export function ProfessionalDashboardScreen() {
                           {record.professional} · {record.professionalRole}
                         </p>
                       </div>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-                        {record.recordedAtLabel}
-                      </span>
+                      <div className="flex items-start gap-2">
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                          {record.recordedAtLabel}
+                        </span>
+                        <button 
+                          onClick={() => handleEditRecord(record)}
+                          className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
+                        >
+                          <NotebookPen size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteRecord(record.id)}
+                          className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">{record.delivery}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{record.summary}</p>
 
-                    {index === 0 && (
-                      <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/80 p-3 text-sm text-indigo-900 shadow-sm">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <Users className="h-4 w-4 text-indigo-600" />
-                          <strong className="font-semibold text-indigo-700">Anotação Multidisciplinar (Outra Área)</strong>
-                        </div>
-                        O paciente relatou oscilações fortes de humor ao iniciar o novo plano alimentar. Nutrição sugere acompanhamento reforçado deste quadro na próxima sessão de psicologia.
-                      </div>
-                    )}
-
-                    {record.metrics.length ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {record.metrics.map((metric) => (
-                          <span
-                            key={`${record.id}-${metric.label}`}
-                            className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200"
-                          >
-                            {metric.label}: {metric.value}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
+                    {/* Removidas as métricas genéricas que estavam confundindo (ex: 4: 200) */}
                   </div>
                 ))
               ) : (
