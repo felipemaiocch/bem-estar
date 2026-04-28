@@ -1033,7 +1033,7 @@ export function AdminDashboardScreen() {
               <Button 
                 onClick={() => void handleTogglePosting()}
                 disabled={busyAction === "toggle-posting"}
-                variant={allowUserPosting ? "destructive" : "default"}
+                variant={allowUserPosting ? "outline" : "primary"}
                 size="sm"
                 className="rounded-xl px-6"
               >
