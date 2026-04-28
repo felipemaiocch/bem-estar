@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Calendar, ChevronRight, Megaphone, Send, Star, Stethoscope, Trash2, Users } from "lucide-react";
+import { Activity, Calendar, ChevronRight, Megaphone, Search, Send, Star, Stethoscope, Trash2, Users } from "lucide-react";
 
 import Link from "next/link";
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
@@ -95,6 +95,8 @@ export function AdminDashboardScreen() {
   const [cardCount, setCardCount] = useState(0);
   const [globalSlots, setGlobalSlots] = useState("");
   const [moodStats, setMoodStats] = useState<any[]>([]);
+  const [activeUserTab, setActiveUserTab] = useState<"TODOS" | "USER" | "PROFESSIONAL" | "ADMIN">("TODOS");
+  const [userSearch, setUserSearch] = useState("");
 
   const activeUsers = users.filter((user) => user.isActive).length;
   const monthlyEngagement = useMemo(() => {
@@ -697,38 +699,101 @@ export function AdminDashboardScreen() {
               </Button>
             </form>
 
-            <div className="mt-4 space-y-3">
-              {loading ? (
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                  Carregando usuários...
+            <div className="mt-8 space-y-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 pt-6">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
+                  {(["TODOS", "USER", "PROFESSIONAL", "ADMIN"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveUserTab(tab)}
+                      className={cn(
+                        "whitespace-nowrap px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all rounded-lg",
+                        activeUserTab === tab
+                          ? "bg-[#0264af] text-white"
+                          : "text-slate-500 hover:bg-slate-100"
+                      )}
+                    >
+                      {tab === "TODOS" ? "Todos" : tab === "USER" ? "Pacientes" : tab === "PROFESSIONAL" ? "Pro" : "Admins"}
+                    </button>
+                  ))}
                 </div>
-              ) : null}
-              {users.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <p className="font-semibold text-slate-900">
-                      {user.name} · {user.role}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {user.email} {user.company ? `· ${user.company}` : ""}
-                    </p>
+                <div className="relative w-full sm:w-64">
+                  <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    className={cn(inputClassName, "pl-10 py-2")}
+                    placeholder="Buscar por nome ou e-mail..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="max-h-[500px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                {loading ? (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                    Carregando usuários...
                   </div>
-                  <Button
-                    variant={user.isActive ? "outline" : "secondary"}
-                    onClick={() => void toggleUserStatus(user)}
-                    disabled={busyAction === `toggle-user-${user.id}`}
-                  >
-                    {busyAction === `toggle-user-${user.id}`
-                      ? "Atualizando..."
-                      : user.isActive
-                        ? "Inativar"
-                        : "Ativar"}
-                  </Button>
-                </div>
-              ))}
+                ) : null}
+                
+                {users
+                  .filter((u) => activeUserTab === "TODOS" || u.role === activeUserTab)
+                  .filter((u) => 
+                    userSearch === "" || 
+                    u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
+                    u.email.toLowerCase().includes(userSearch.toLowerCase())
+                  )
+                  .map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between transition-all hover:border-slate-200 hover:bg-white"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-900">{user.name}</p>
+                          <span className={cn(
+                            "text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
+                            user.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
+                            user.role === "PROFESSIONAL" ? "bg-amber-100 text-amber-700" :
+                            "bg-blue-100 text-blue-700"
+                          )}>
+                            {user.role}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-500">
+                          {user.email} {user.company ? `· ${user.company}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <span className="text-xs font-bold text-slate-400 mr-2">{user.score} pts</span>
+                        <Button
+                          variant={user.isActive ? "outline" : "secondary"}
+                          size="sm"
+                          onClick={() => void toggleUserStatus(user)}
+                          disabled={busyAction === `toggle-user-${user.id}`}
+                          className="h-8 text-xs"
+                        >
+                          {busyAction === `toggle-user-${user.id}`
+                            ? "..."
+                            : user.isActive
+                              ? "Inativar"
+                              : "Ativar"}
+                        </Button>
+                        <button 
+                          onClick={() => void handleDeleteUser(user.id)}
+                          className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                {users.length > 0 && users.filter((u) => (activeUserTab === "TODOS" || u.role === activeUserTab) && (userSearch === "" || u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()))).length === 0 && (
+                  <div className="py-8 text-center text-slate-400 text-sm italic">
+                    Nenhum usuário encontrado com esses filtros.
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
 
