@@ -74,6 +74,16 @@ interface FeedPostItem {
   comments: { id: string; author: string; text: string }[];
 }
 
+interface TeamNote {
+  id: string;
+  author: string;
+  authorRole?: string;
+  content: string;
+  targetCategory?: string;
+  createdAt: string;
+  dateLabel: string;
+}
+
 function buildFormState(
   users: MonitoredUser[],
   category: CareRecordCategory = "geral",
@@ -168,6 +178,10 @@ export function ProfessionalDashboardScreen() {
   const [feedImagePreview, setFeedImagePreview] = useState<string | null>(null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [teamNotes, setTeamNotes] = useState<TeamNote[]>([]);
+  const [loadingTeamNotes, setLoadingTeamNotes] = useState(false);
+  const [newTeamNote, setNewTeamNote] = useState({ content: "", targetCategory: "" });
+  const [savingTeamNote, setSavingTeamNote] = useState(false);
   const feedFileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedUser =
@@ -259,6 +273,26 @@ export function ProfessionalDashboardScreen() {
 
     void loadProfessionalData();
   }, []);
+
+  useEffect(() => {
+    async function loadTeamNotes() {
+      if (!form.userId) return;
+      setLoadingTeamNotes(true);
+      try {
+        const response = await fetch(`/api/professional/team-notes?userId=${form.userId}`);
+        const data = await response.json();
+        if (data.ok) {
+          setTeamNotes(data.notes);
+        }
+      } catch (error) {
+        console.error("Error loading team notes:", error);
+      } finally {
+        setLoadingTeamNotes(false);
+      }
+    }
+
+    void loadTeamNotes();
+  }, [form.userId]);
 
   const handleCategoryChange = (nextCategory: CareRecordCategory) => {
     setForm(buildFormState(users, nextCategory, form.userId));
@@ -370,6 +404,33 @@ export function ProfessionalDashboardScreen() {
       }
     } catch {
       setFeedback("Erro de conexão ao remover registro.");
+    }
+  }
+
+  async function handleSaveTeamNote(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newTeamNote.content || savingTeamNote) return;
+    setSavingTeamNote(true);
+    try {
+      const response = await fetch("/api/professional/team-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: form.userId,
+          content: newTeamNote.content,
+          targetCategory: newTeamNote.targetCategory || null,
+          authorRole: selectedCategory.professionalRole
+        }),
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setTeamNotes(prev => [data.note, ...prev]);
+        setNewTeamNote({ content: "", targetCategory: "" });
+      }
+    } catch (error) {
+      console.error("Error saving team note:", error);
+    } finally {
+      setSavingTeamNote(false);
     }
   }
 
@@ -948,6 +1009,78 @@ export function ProfessionalDashboardScreen() {
             </CardContent>
           </Card>
 
+          <Card className="border-indigo-100 bg-indigo-50/10">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-indigo-600" />
+                <CardTitle>Central de Alinhamento Multidisciplinar</CardTitle>
+              </div>
+              <CardDescription>
+                Notas internas compartilhadas apenas entre profissionais sobre {selectedUser.name}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form onSubmit={(e) => void handleSaveTeamNote(e)} className="space-y-3">
+                <textarea
+                  value={newTeamNote.content}
+                  onChange={(e) => setNewTeamNote(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="Compartilhe uma observação ou recomendação para outros profissionais..."
+                  className={cn(fieldClassName, "min-h-[100px] bg-white border-indigo-100 focus:border-indigo-500")}
+                  required
+                />
+                <div className="flex gap-3">
+                  <select
+                    value={newTeamNote.targetCategory}
+                    onChange={(e) => setNewTeamNote(prev => ({ ...prev, targetCategory: e.target.value }))}
+                    className={cn(fieldClassName, "h-10 bg-white border-indigo-100 text-xs")}
+                  >
+                    <option value="">Para todos (Geral)</option>
+                    <option value="nutricao">Encaminhar para Nutrição</option>
+                    <option value="fisioterapia">Encaminhar para Fisioterapia</option>
+                    <option value="psicologia">Encaminhar para Psicologia</option>
+                  </select>
+                  <Button 
+                    type="submit" 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-6 shrink-0"
+                    disabled={savingTeamNote}
+                  >
+                    {savingTeamNote ? "Postando..." : "Postar no Mural"}
+                    <SendHorizontal className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </form>
+
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {loadingTeamNotes ? (
+                  <p className="text-center py-4 text-slate-400 text-sm">Carregando mural...</p>
+                ) : teamNotes.length > 0 ? (
+                  teamNotes.map((note) => (
+                    <div key={note.id} className="bg-white p-3 rounded-2xl border border-indigo-50 shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{note.author}</p>
+                          <p className="text-[10px] text-indigo-600 font-medium">{note.authorRole}</p>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-medium">{note.dateLabel}</span>
+                      </div>
+                      <p className="text-sm text-slate-600 leading-relaxed italic">"{note.content}"</p>
+                      {note.targetCategory && (
+                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                          <Sparkles className="h-3 w-3" />
+                          RECOMENDAÇÃO: {note.targetCategory.toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 opacity-60">
+                    <MessageCircleMore className="h-8 w-8 mx-auto text-indigo-200 mb-2" />
+                    <p className="text-xs text-slate-500 font-medium">Nenhuma nota interna registrada para este paciente.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </section>
       </div>
     </BackofficeShell>

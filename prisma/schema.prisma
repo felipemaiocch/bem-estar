@@ -125,6 +125,8 @@ model User {
   publishedEvents           Event[]                  @relation("EventPublisher")
   mediaAssets               MediaAsset[]             @relation("MediaAssetAuthor")
   publishedCards            EngagementCard[]         @relation("CardPublisher")
+  teamNotesAbout            TeamNote[]               @relation("TeamNoteUser")
+  teamNotesAuthored          TeamNote[]               @relation("TeamNoteAuthor")
 }
 
 model ProfessionalProfile {
@@ -423,4 +425,19 @@ model AgendaSetting {
   id        String   @id @default("global-config")
   slots     String   @default("09:00, 10:00, 11:00, 14:00, 15:00, 16:00")
   updatedAt DateTime @updatedAt
+}
+model TeamNote {
+  id                 String   @id @default(cuid())
+  userId             String   // O paciente alvo da nota
+  authorId           String   // O profissional que escreveu
+  authorRole         String?
+  targetCategory     String?  // Se for uma recomendação específica (ex: Nutrição)
+  content            String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user               User     @relation("TeamNoteUser", fields: [userId], references: [id], onDelete: Cascade)
+  author             User     @relation("TeamNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
