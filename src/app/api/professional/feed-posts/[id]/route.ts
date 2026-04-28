@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/api-auth";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireSession(request, "PROFESSIONAL");
 
@@ -12,7 +12,7 @@ export async function DELETE(
     return auth.response;
   }
 
-  const { id } = params;
+  const { id } = await params;
 
   try {
     // Verificar se o post pertence ao profissional (ou se é ADMIN)
