@@ -23,8 +23,12 @@ export const metadata: Metadata = {
     title: appMeta.name,
   },
   icons: {
-    icon: appMeta.logoPath,
-    apple: appMeta.logoPath,
+    icon: [
+      { url: "/logo%20se.drmonitora.png" },
+    ],
+    apple: [
+      { url: "/logo%20se.drmonitora.png" },
+    ],
   },
 };
 

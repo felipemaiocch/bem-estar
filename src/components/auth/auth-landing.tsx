@@ -39,8 +39,8 @@ export function AuthLanding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    email: "felipe@empresa.com",
-    password: "demo1234",
+    email: "",
+    password: "",
   });
 
   const progress = step === 1 ? 33 : step === 2 ? 66 : 100;
