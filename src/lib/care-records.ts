@@ -21,6 +21,7 @@ export interface CareRecordInput {
 export interface MonitoredUserItem {
   id: string;
   name: string;
+  email: string;
   area: string;
   objective: string;
 }
@@ -139,6 +140,7 @@ export async function listMonitoredUsers(): Promise<MonitoredUserItem[]> {
     select: {
       id: true,
       name: true,
+      email: true,
       company: true,
       currentGoal: true,
     },
@@ -147,6 +149,7 @@ export async function listMonitoredUsers(): Promise<MonitoredUserItem[]> {
   return users.map((user) => ({
     id: user.id,
     name: user.name,
+    email: user.email,
     area: user.company ?? "Operações",
     objective: user.currentGoal ?? "Bem-estar contínuo",
   }));
