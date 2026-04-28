@@ -60,7 +60,9 @@ export function UserShell({ children }: { children: ReactNode }) {
 
   const loadSettings = useCallback(async () => {
     try {
-      const resp = await fetch("/api/admin/platform-settings");
+      const resp = await fetch("/api/admin/platform-settings?t=" + Date.now(), {
+        cache: "no-store"
+      });
       const data = await resp.json();
       if (data.ok) setAllowUserPosting(data.settings.allowUserPosting);
     } catch {}
