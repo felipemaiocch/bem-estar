@@ -1,6 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { writeFile } from "fs/promises";
-import { join } from "path";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-auth";
 
@@ -19,15 +17,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Nenhum arquivo enviado" }, { status: 400 });
     }
 
+    // Validar tamanho (max 2MB para não sobrecarregar o DB)
+    if (file.size > 2 * 1024 * 1024) {
+      return NextResponse.json({ ok: false, error: "Imagem muito grande (máx 2MB)" }, { status: 400 });
+    }
+
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Gerar nome único
-    const filename = `${auth.session.sub}-${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
-    const path = join(process.cwd(), "public", "uploads", filename);
-
-    await writeFile(path, buffer);
-    const avatarUrl = `/uploads/${filename}`;
+    const base64 = Buffer.from(bytes).toString("base64");
+    const avatarUrl = `data:${file.type};base64,${base64}`;
 
     // Salvar no banco
     await prisma.user.update({
@@ -41,6 +38,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Avatar upload error:", error);
-    return NextResponse.json({ ok: false, error: "Erro ao processar imagem" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Erro ao processar imagem (Base64)" }, { status: 500 });
   }
 }
