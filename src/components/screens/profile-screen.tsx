@@ -22,7 +22,6 @@ export function ProfileScreen() {
   useEffect(() => {
     async function loadProfileData() {
       setLoadingRecords(true);
-      setLoadingPreferences(true);
       setApiFeedback(null);
 
       try {
