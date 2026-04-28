@@ -15,6 +15,8 @@ import {
   MessageCircleMore,
   SendHorizontal,
   Star,
+  Trophy,
+  Medal,
   User,
   Users,
   Zap,
@@ -584,20 +586,48 @@ export function UserDashboardScreen() {
           <Card className="p-6">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Ranking rápido</h3>
             <div className="space-y-3">
-              {dashboardSummary?.leaderboard?.slice(0, 3).map((user: any, index: number) => (
-                <div
-                  key={user.name}
-                  className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3"
-                >
-                  <div>
-                    <p className="font-bold text-gray-900">
-                      #{index + 1} {user.name}
-                    </p>
-                    <p className="text-sm text-gray-500">{user.area}</p>
+              {dashboardSummary?.leaderboard?.slice(0, 3).map((user: any, index: number) => {
+                const isFirst = index === 0;
+                const isSecond = index === 1;
+                const isThird = index === 2;
+
+                return (
+                  <div
+                    key={user.name}
+                    className={cn(
+                      "flex items-center justify-between rounded-2xl px-4 py-3 transition-all",
+                      isFirst ? "bg-amber-50 ring-1 ring-amber-200" : 
+                      isSecond ? "bg-slate-50 ring-1 ring-slate-200" :
+                      isThird ? "bg-orange-50/50 ring-1 ring-orange-200/50" : "bg-gray-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-full shadow-sm",
+                        isFirst ? "bg-amber-100 text-amber-600" :
+                        isSecond ? "bg-slate-200 text-slate-600" :
+                        isThird ? "bg-orange-100 text-orange-600" : "bg-gray-200 text-gray-500"
+                      )}>
+                        {isFirst ? <Trophy size={20} /> : 
+                         (isSecond || isThird) ? <Medal size={20} /> : 
+                         <span className="text-xs font-bold">#{index + 1}</span>}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{user.name}</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">{user.area}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={cn(
+                        "text-sm font-black",
+                        isFirst ? "text-amber-600" : "text-[#0264af]"
+                      )}>
+                        {user.points} <span className="text-[10px] font-bold uppercase opacity-70">pts</span>
+                      </p>
+                    </div>
                   </div>
-                  <p className="font-bold text-[#0264af]">{user.points} pts</p>
-                </div>
-              ))}
+                );
+              })}
               {!summaryLoaded && <p className="text-xs text-gray-500 text-center">Carregando...</p>}
               {summaryLoaded && (!dashboardSummary?.leaderboard?.length) && <p className="text-xs text-gray-500 text-center">Nenhum usuário ranqueado ainda.</p>}
             </div>
