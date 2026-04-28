@@ -60,7 +60,7 @@ export async function PATCH(
         activity: body.activity,
         caption: body.caption,
         location: body.location,
-        image: body.imageUrl,
+        imageUrl: body.imageUrl,
       },
     });
 
