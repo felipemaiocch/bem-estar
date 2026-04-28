@@ -431,7 +431,7 @@ export function ProfessionalDashboardScreen() {
       const data = await response.json();
       if (data.ok) {
         setTeamNotes(prev => [data.note, ...prev]);
-        setNewTeamNote({ content: "", targetCategory: "" });
+        setNewTeamNote({ content: "", targetCategory: "", targetProfessionalId: "" });
       }
     } catch (error) {
       console.error("Error saving team note:", error);
