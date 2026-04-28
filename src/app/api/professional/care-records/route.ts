@@ -11,7 +11,7 @@ import { requireSession } from "@/lib/api-auth";
 
 const careRecordBodySchema = z.object({
   userId: z.string().min(1),
-  category: z.enum(["psicologia", "fisioterapia", "nutricao", "enfermagem"]),
+  category: z.enum(["psicologia", "fisioterapia", "nutricao", "enfermagem", "geral"]).default("geral"),
   professionalRole: z.string().min(2).max(120).optional(),
   title: z.string().min(2).max(180),
   summary: z.string().min(5).max(4000),
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       professionalUserId: auth.session.sub,
       professionalName: auth.session.name,
       professionalRole: parsed.data.professionalRole,
-      category: parsed.data.category,
+      category: parsed.data.category || "geral",
       title: parsed.data.title,
       summary: parsed.data.summary,
       delivery: parsed.data.delivery,

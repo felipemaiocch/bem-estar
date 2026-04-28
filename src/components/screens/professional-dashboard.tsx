@@ -76,7 +76,7 @@ interface FeedPostItem {
 
 function buildFormState(
   users: MonitoredUser[],
-  category: CareRecordCategory = careRecordCategoryOptions[0].value,
+  category: CareRecordCategory = "geral",
   userId?: string,
 ): RecordFormState {
   const selectedCategory =
@@ -808,37 +808,7 @@ export function ProfessionalDashboardScreen() {
                   </label>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Área / Categoria</span>
-                    <select
-                      value={form.category}
-                      onChange={(event) => handleCategoryChange(event.target.value as CareRecordCategory)}
-                      className={cn(fieldClassName, "h-11")}
-                    >
-                      {careRecordCategoryOptions.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Papel exibido</p>
-                    {form.category === "geral" ? (
-                      <input
-                        value={form.professionalRole ?? ""}
-                        onChange={(e) => setForm(f => ({ ...f, professionalRole: e.target.value }))}
-                        placeholder="Ex: Prof. de Luta"
-                        className="w-full bg-transparent text-sm font-bold text-slate-900 outline-none border-b border-slate-200 mt-1"
-                        required
-                      />
-                    ) : (
-                      <p className="text-sm font-bold text-slate-900 mt-1">{selectedCategory.professionalRole}</p>
-                    )}
-                  </div>
-                </div>
+                {/* Removidos campos de Área e Papel conforme solicitação */}
 
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-slate-700">Título do Atendimento</span>
