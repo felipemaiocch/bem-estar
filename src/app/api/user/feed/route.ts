@@ -86,6 +86,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Verificar se a postagem está habilitada globalmente
+    const settings = await prisma.platformSettings.findUnique({
+      where: { id: "global-settings" }
+    });
+
+    if (settings && !settings.allowUserPosting) {
+      return NextResponse.json(
+        { ok: false, error: "A publicação no feed está temporariamente desativada pela administração." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const parsed = createFeedPostSchema.safeParse(body);
 

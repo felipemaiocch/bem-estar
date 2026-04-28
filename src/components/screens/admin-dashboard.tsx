@@ -530,8 +530,14 @@ export function AdminDashboardScreen() {
       });
       const data = await resp.json();
       if (data.ok) {
-        setAllowUserPosting(data.settings.allowUserPosting);
-        setFeedback(`Publicação no feed ${data.settings.allowUserPosting ? "ativada" : "desativada"} com sucesso.`);
+        const nextValue = data.settings.allowUserPosting;
+        setAllowUserPosting(nextValue);
+        setFeedback(`Publicação no feed ${nextValue ? "ativada" : "desativada"} com sucesso.`);
+        
+        // Notificar outras abas instantaneamente
+        const channel = new BroadcastChannel("platform-settings");
+        channel.postMessage({ type: "SETTINGS_UPDATED", allowUserPosting: nextValue });
+        channel.close();
       }
     } catch {
       setFeedback("Falha ao atualizar permissão de postagem.");

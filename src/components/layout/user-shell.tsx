@@ -71,10 +71,25 @@ export function UserShell({ children }: { children: ReactNode }) {
     void loadUser();
     void loadSettings();
 
+    // Sincronização em tempo real entre abas no mesmo navegador
+    const channel = new BroadcastChannel("platform-settings");
+    channel.onmessage = (event) => {
+      if (event.data.type === "SETTINGS_UPDATED") {
+        setAllowUserPosting(event.data.allowUserPosting);
+      }
+    };
+
+    // Fallback: Atualiza a cada 10 segundos caso mude em outro computador/navegador
+    const interval = setInterval(loadSettings, 10000);
+
     // Ouvir mudanças de dados do usuário (ex: upload de avatar)
     window.addEventListener("user-data-changed", loadUser);
-    return () => window.removeEventListener("user-data-changed", loadUser);
-  }, [loadGlobalAlert, loadUser]);
+    return () => {
+      window.removeEventListener("user-data-changed", loadUser);
+      channel.close();
+      clearInterval(interval);
+    };
+  }, [loadGlobalAlert, loadUser, loadSettings]);
 
   async function handleSignOut() {
     if (isSigningOut) {
