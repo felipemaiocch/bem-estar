@@ -6,10 +6,12 @@ import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef
 import {
   Activity,
   ArrowRight,
+  Camera,
   ChevronDown,
   ChevronUp,
   Clock3,
   Heart,
+  ImagePlus,
   MapPin,
   Megaphone,
   MessageCircleMore,
@@ -93,6 +95,14 @@ export function UserDashboardScreen() {
   const [checkInEnergy, setCheckInEnergy] = useState(72);
   const [checkInSaving, setCheckInSaving] = useState(false);
   const [checkInFeedback, setCheckInFeedback] = useState<string | null>(null);
+  
+  // Novos estados para publicação de momentos
+  const [momentsForm, setMomentsForm] = useState({ activity: "", caption: "", location: "" });
+  const [momentImageFile, setMomentImageFile] = useState<File | null>(null);
+  const [momentImagePreview, setMomentImagePreview] = useState<string | null>(null);
+  const [publishingMoment, setPublishingMoment] = useState(false);
+  const momentFileInputRef = useRef<HTMLInputElement>(null);
+
   const feedSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const [dashboardSummary, setDashboardSummary] = useState<any>(null);
@@ -374,9 +384,155 @@ export function UserDashboardScreen() {
     }
   }
 
+  async function handlePublishMoment() {
+    if (!momentsForm.activity || !momentsForm.caption) {
+      setFeedError("Preencha a atividade e a legenda.");
+      return;
+    }
+
+    setPublishingMoment(true);
+    setFeedError(null);
+
+    let finalImageUrl = "";
+
+    if (momentImageFile) {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(momentImageFile);
+        });
+        finalImageUrl = await base64Promise;
+    }
+
+    try {
+      const response = await fetch("/api/user/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...momentsForm,
+          imageUrl: finalImageUrl || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedError(data.error ?? "Não foi possível publicar.");
+        return;
+      }
+
+      setPosts((current) => [data.post, ...current]);
+      setMomentsForm({ activity: "", caption: "", location: "" });
+      setMomentImageFile(null);
+      setMomentImagePreview(null);
+      setCheckInFeedback("Momento publicado com sucesso!");
+    } catch {
+      setFeedError("Falha de conexão ao publicar.");
+    } finally {
+      setPublishingMoment(false);
+    }
+  }
+
+  function handleMomentImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMomentImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMomentImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
   return (
     <div className="relative animate-in fade-in flex flex-col gap-6 pb-24 md:pb-8">
       <section>
+        <Card className="mb-8 overflow-hidden border-indigo-100 bg-white p-0 shadow-lg shadow-indigo-500/5">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <Camera className="h-4 w-4 text-indigo-600" />
+              <h3 className="text-sm font-bold text-slate-800">Compartilhar Momento</h3>
+            </div>
+          </div>
+          <div className="p-5">
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">O que você está fazendo?</label>
+                  <input
+                    type="text"
+                    value={momentsForm.activity}
+                    onChange={(e) => setMomentsForm(prev => ({ ...prev, activity: e.target.value }))}
+                    placeholder="Ex: Treino funcional, Almoço saudável..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Onde? (Opcional)</label>
+                  <input
+                    type="text"
+                    value={momentsForm.location}
+                    onChange={(e) => setMomentsForm(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="Ex: Academia, Em casa..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Legenda</label>
+                <textarea
+                  value={momentsForm.caption}
+                  onChange={(e) => setMomentsForm(prev => ({ ...prev, caption: e.target.value }))}
+                  placeholder="Conte um pouco sobre esse momento..."
+                  className="min-h-[80px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white"
+                />
+              </div>
+
+              {momentImagePreview && (
+                <div className="relative h-48 w-full overflow-hidden rounded-2xl border border-slate-200">
+                  <img src={momentImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                  <button 
+                    onClick={() => { setMomentImageFile(null); setMomentImagePreview(null); }}
+                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm hover:bg-black/70"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  ref={momentFileInputRef}
+                  onChange={handleMomentImageChange}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => momentFileInputRef.current?.click()}
+                  className="rounded-full border-indigo-100 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100"
+                >
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                  {momentImagePreview ? "Trocar foto" : "Adicionar foto"}
+                </Button>
+
+                <Button
+                  onClick={() => void handlePublishMoment()}
+                  disabled={publishingMoment}
+                  className="rounded-full bg-indigo-600 px-8 hover:bg-indigo-700 shadow-lg shadow-indigo-200"
+                >
+                  {publishingMoment ? "Publicando..." : "Publicar no Feed"}
+                  <SendHorizontal className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <div className="mb-4 mt-2 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Para você</h2>
         </div>
