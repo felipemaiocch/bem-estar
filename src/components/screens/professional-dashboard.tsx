@@ -302,9 +302,9 @@ export function ProfessionalDashboardScreen() {
           professionalRole: category.professionalRole,
           title: form.title,
           summary: form.summary,
-          delivery: form.delivery,
-          nextStep: form.nextStep,
-          metrics: form.metrics,
+          delivery: String(form.summary), // No modo simplificado, usamos o mesmo texto para ambos
+          nextStep: "",
+          metrics: [],
         }),
       });
 
@@ -769,29 +769,29 @@ export function ProfessionalDashboardScreen() {
             </CardHeader>
             <CardContent>
               <form className="space-y-4" onSubmit={(event) => void handleSubmit(event)}>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="space-y-2 col-span-2 sm:col-span-1">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
                     <span className="text-sm font-medium text-slate-700">Buscar Paciente</span>
                     <div className="relative">
-                      <Search className="absolute left-3 top-3.5 text-slate-400" size={16} />
+                      <Search className="absolute left-3 top-3 text-slate-400" size={16} />
                       <input
                         type="text"
                         placeholder="Nome ou e-mail..."
                         value={patientSearch}
                         onChange={(e) => setPatientSearch(e.target.value)}
-                        className={cn(fieldClassName, "pl-10")}
+                        className={cn(fieldClassName, "pl-10 h-11")}
                       />
                     </div>
                   </label>
 
-                  <label className="space-y-2 col-span-2 sm:col-span-1 border-l-0 sm:border-l sm:pl-4 border-slate-100">
+                  <label className="space-y-2">
                     <span className="text-sm font-medium text-slate-700">Selecionar da lista</span>
                     <select
                       value={form.userId}
                       onChange={(event) =>
                         setForm((current) => ({ ...current, userId: event.target.value }))
                       }
-                      className={fieldClassName}
+                      className={cn(fieldClassName, "h-11")}
                     >
                       {users
                         .filter(u => 
@@ -806,13 +806,15 @@ export function ProfessionalDashboardScreen() {
                         ))}
                     </select>
                   </label>
+                </div>
 
+                <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Área do atendimento</span>
+                    <span className="text-sm font-medium text-slate-700">Área / Categoria</span>
                     <select
                       value={form.category}
                       onChange={(event) => handleCategoryChange(event.target.value as CareRecordCategory)}
-                      className={fieldClassName}
+                      className={cn(fieldClassName, "h-11")}
                     >
                       {careRecordCategoryOptions.map((item) => (
                         <option key={item.value} value={item.value}>
@@ -821,122 +823,54 @@ export function ProfessionalDashboardScreen() {
                       ))}
                     </select>
                   </label>
-                </div>
 
-                <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                  <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Profissional responsável</span>
-                    <select
-                      value={form.professional}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, professional: event.target.value }))
-                      }
-                      className={fieldClassName}
-                    >
-                      {selectedCategory.professionals.map((professional) => (
-                        <option key={professional} value={professional}>
-                          {professional}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3 min-w-[140px]">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                      Papel
-                    </p>
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Papel exibido</p>
                     {form.category === "geral" ? (
                       <input
                         value={form.professionalRole ?? ""}
                         onChange={(e) => setForm(f => ({ ...f, professionalRole: e.target.value }))}
-                        placeholder="Ex: Prof. Defesa"
-                        className="mt-1 w-full bg-transparent text-sm font-semibold text-slate-950 outline-none border-b border-slate-200 focus:border-blue-500"
+                        placeholder="Ex: Prof. de Luta"
+                        className="w-full bg-transparent text-sm font-bold text-slate-900 outline-none border-b border-slate-200 mt-1"
                         required
                       />
                     ) : (
-                      <p className="mt-2 text-sm font-semibold text-slate-950">
-                        {selectedCategory.professionalRole}
-                      </p>
+                      <p className="text-sm font-bold text-slate-900 mt-1">{selectedCategory.professionalRole}</p>
                     )}
                   </div>
                 </div>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Título do atendimento</span>
+                  <span className="text-sm font-medium text-slate-700">Título do Atendimento</span>
                   <input
                     value={form.title}
                     onChange={(event) =>
                       setForm((current) => ({ ...current, title: event.target.value }))
                     }
-                    className={fieldClassName}
+                    className={cn(fieldClassName, "h-11")}
+                    placeholder="Ex: Evolução Semanal"
                     required
                   />
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Resumo do que foi feito</span>
+                  <span className="text-sm font-medium text-slate-700">Comentários e Evolução</span>
                   <textarea
                     value={form.summary}
                     onChange={(event) =>
                       setForm((current) => ({ ...current, summary: event.target.value }))
                     }
-                    className={cn(fieldClassName, "min-h-28 resize-none")}
+                    placeholder="Descreva aqui o que foi conversado ou realizado com o usuário..."
+                    className={cn(fieldClassName, "min-h-[160px] resize-none py-4")}
                     required
                   />
                 </label>
 
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Entrega para o usuário</span>
-                  <textarea
-                    value={form.delivery}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, delivery: event.target.value }))
-                    }
-                    className={cn(fieldClassName, "min-h-24 resize-none")}
-                    required
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Próximo passo</span>
-                  <input
-                    value={form.nextStep}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, nextStep: event.target.value }))
-                    }
-                    className={fieldClassName}
-                  />
-                </label>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  {form.metrics.map((metric, index) => (
-                    <div key={`${metric.label}-${index}`} className="rounded-[24px] border border-slate-100 bg-slate-50 p-4">
-                      <label className="space-y-2">
-                        <span className="text-sm font-medium text-slate-700">Métrica</span>
-                        <input
-                          value={metric.label}
-                          onChange={(event) => handleMetricChange(index, "label", event.target.value)}
-                          className={fieldClassName}
-                        />
-                      </label>
-                      <label className="mt-3 block space-y-2">
-                        <span className="text-sm font-medium text-slate-700">Valor</span>
-                        <input
-                          value={metric.value}
-                          onChange={(event) => handleMetricChange(index, "value", event.target.value)}
-                          className={fieldClassName}
-                          placeholder="Ex.: 79,1 kg"
-                        />
-                      </label>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  {feedback ? <p className="text-sm font-medium text-emerald-700">{feedback}</p> : <span />}
-                  <Button className="w-full sm:w-auto" type="submit" disabled={savingRecord}>
-                    <Save className="h-4 w-4" />
+                <div className="flex items-center justify-between pt-2">
+                  {feedback ? <p className="text-sm font-medium text-emerald-600">{feedback}</p> : <span />}
+                  <Button className="bg-[#0264af] hover:bg-[#02548f] text-white px-8" type="submit" disabled={savingRecord}>
                     {savingRecord ? "Salvando..." : "Salvar no perfil"}
+                    <Save className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
               </form>
