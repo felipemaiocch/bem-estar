@@ -139,33 +139,11 @@ export function AuthLanding() {
                 </div>
               </div>
 
-              <div>
-                <p className="mb-2 text-sm font-medium text-gray-700">Entrar como</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    ["USER", "Usuário"],
-                    ["PROFESSIONAL", "Profissional"],
-                    ["ADMIN", "Admin"],
-                  ] as const).map(([role, label]) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setSelectedRole(role)}
-                      className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-all ${selectedRole === role
-                          ? "border-[#0264af] bg-[#0264af]/8 text-[#0264af]"
-                          : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                        }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               <div className="flex justify-end">
-                <Link href="#" className="text-sm font-medium text-[#0264af] hover:underline">
-                  Esqueci minha senha
-                </Link>
+                <span className="text-xs font-medium text-gray-400 italic">
+                  Esqueceu a senha? Contate o administrador.
+                </span>
               </div>
 
               {loginError ? (
