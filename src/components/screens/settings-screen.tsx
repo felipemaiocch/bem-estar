@@ -84,6 +84,8 @@ export function SettingsScreen() {
       if (data.ok) {
         setUser(prev => prev ? { ...prev, avatarUrl: data.avatarUrl } : null);
         setApiFeedback({ type: "success", message: "Foto de perfil atualizada!" });
+        // Notificar o shell para atualizar o sidebar
+        window.dispatchEvent(new CustomEvent("user-data-changed"));
       } else {
         setApiFeedback({ type: "error", message: data.error || "Erro ao subir foto." });
       }

@@ -59,6 +59,10 @@ export function UserShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     void loadGlobalAlert();
     void loadUser();
+
+    // Ouvir mudanças de dados do usuário (ex: upload de avatar)
+    window.addEventListener("user-data-changed", loadUser);
+    return () => window.removeEventListener("user-data-changed", loadUser);
   }, [loadGlobalAlert, loadUser]);
 
   async function handleSignOut() {
