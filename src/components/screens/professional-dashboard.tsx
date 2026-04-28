@@ -40,6 +40,7 @@ interface RecordFormState {
   userId: string;
   category: CareRecordCategory;
   professional: string;
+  professionalRole?: string;
   title: string;
   summary: string;
   delivery: string;
@@ -87,6 +88,7 @@ function buildFormState(
     userId: fallbackUserId,
     category: selectedCategory.value,
     professional: selectedCategory.professionals[0],
+    professionalRole: selectedCategory.professionalRole,
     title: selectedCategory.defaultTitle,
     summary: selectedCategory.defaultSummary,
     delivery: selectedCategory.defaultDelivery,
