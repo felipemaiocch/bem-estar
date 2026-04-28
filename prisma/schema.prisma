@@ -444,3 +444,8 @@ model TeamNote {
 
   @@index([userId, createdAt])
 }
+model PlatformSettings {
+  id               String   @id @default("global-settings")
+  allowUserPosting Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
+}

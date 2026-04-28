@@ -26,10 +26,12 @@ import {
   Users,
   X,
   Zap,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/lib/utils";
 
@@ -847,12 +849,22 @@ export function UserDashboardScreen() {
             {!feedLoading && posts.length > 0 ? (
               <div className="space-y-4">
                 {visiblePosts.map((post) => (
-                  <div key={post.id} className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                  <div key={post.id} className={cn(
+                    "mx-auto w-full max-w-3xl rounded-2xl border p-4 transition-all",
+                    post.professionalRole !== "Usuário" 
+                      ? "border-indigo-100 bg-white shadow-md shadow-indigo-500/5 ring-1 ring-indigo-50" 
+                      : "border-slate-100 bg-slate-50/60"
+                  )}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-slate-950">{post.activity}</p>
-                          {post.professionalRole === "Usuário" && (
+                          {post.professionalRole !== "Usuário" ? (
+                            <span className="flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider">
+                              <CheckCircle2 size={10} />
+                              Especialista
+                            </span>
+                          ) : (
                             <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
                               Usuário
                             </span>
@@ -991,8 +1003,8 @@ export function UserDashboardScreen() {
       {/* Modal de Publicação/Edição */}
       {isPublishModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className="w-full max-w-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden rounded-[32px] border border-indigo-100 bg-white shadow-2xl">
-            <div className="bg-indigo-600 p-6 text-white">
+          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden rounded-[32px] border border-indigo-100 bg-white shadow-2xl">
+            <div className="bg-indigo-600 p-6 text-white shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
@@ -1012,7 +1024,7 @@ export function UserDashboardScreen() {
               </div>
             </div>
 
-            <div className="p-6 md:p-8">
+            <div className="p-6 md:p-8 overflow-y-auto no-scrollbar">
               <div className="space-y-6">
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Calendar, ChevronRight, Megaphone, Search, Send, Star, Stethoscope, Trash2, Users } from "lucide-react";
+import { Activity, Calendar, ChevronRight, Lock, Megaphone, Search, Send, Settings, Star, Stethoscope, Trash2, Users } from "lucide-react";
 
 import Link from "next/link";
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
@@ -97,6 +97,9 @@ export function AdminDashboardScreen() {
   const [moodStats, setMoodStats] = useState<any[]>([]);
   const [activeUserTab, setActiveUserTab] = useState<"TODOS" | "USER" | "PROFESSIONAL" | "ADMIN">("TODOS");
   const [userSearch, setUserSearch] = useState("");
+  const [allowUserPosting, setAllowUserPosting] = useState(true);
+  const [feedModerationPosts, setFeedModerationPosts] = useState<any[]>([]);
+  const [loadingModeration, setLoadingModeration] = useState(false);
 
   const activeUsers = users.filter((user) => user.isActive).length;
   const monthlyEngagement = useMemo(() => {
@@ -121,22 +124,26 @@ export function AdminDashboardScreen() {
     setFeedback(null);
 
     try {
-      const [usersResponse, professionalsResponse, eventsResponse, cardsResponse, agendaConfigResponse, moodStatsResponse] = await Promise.all([
+      const [usersResponse, professionalsResponse, eventsResponse, cardsResponse, agendaConfigResponse, moodStatsResponse, settingsResponse, feedResponse] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/admin/professionals"),
         fetch("/api/admin/events"),
         fetch("/api/admin/cards"),
         fetch("/api/admin/agenda-config"),
         fetch("/api/admin/stats/moods"),
+        fetch("/api/admin/platform-settings"),
+        fetch("/api/admin/feed-moderation"),
       ]);
 
-      const [usersData, professionalsData, eventsData, cardsData, agendaData, moodData] = await Promise.all([
+      const [usersData, professionalsData, eventsData, cardsData, agendaData, moodData, settingsData, feedData] = await Promise.all([
         usersResponse.json(),
         professionalsResponse.json(),
         eventsResponse.json(),
         cardsResponse.json(),
         agendaConfigResponse.json(),
         moodStatsResponse.json(),
+        settingsResponse.json(),
+        feedResponse.json(),
       ]);
 
       if (usersData.ok) setUsers(usersData.users ?? []);
@@ -145,6 +152,8 @@ export function AdminDashboardScreen() {
       if (cardsData.ok) setCardCount(cardsData.cards?.length ?? 0);
       if (agendaData.ok) setGlobalSlots(agendaData.slots || "");
       if (moodData.ok) setMoodStats(moodData.stats ?? []);
+      if (settingsData.ok) setAllowUserPosting(settingsData.settings.allowUserPosting);
+      if (feedData.ok) setFeedModerationPosts(feedData.posts ?? []);
 
       if (!usersData.ok) setFeedback(usersData.error || "Falha ao carregar usuários.");
     } catch (error) {
@@ -503,10 +512,50 @@ export function AdminDashboardScreen() {
       case "Disparar comunicado":
         document.getElementById("notificacoes-massa")?.scrollIntoView({ behavior: "smooth" });
         break;
+      case "Moderar feed":
+        document.getElementById("moderacao-feed")?.scrollIntoView({ behavior: "smooth" });
+        break;
       default:
         break;
     }
   };
+
+  async function handleTogglePosting() {
+    setBusyAction("toggle-posting");
+    try {
+      const resp = await fetch("/api/admin/platform-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowUserPosting: !allowUserPosting }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        setAllowUserPosting(data.settings.allowUserPosting);
+        setFeedback(`Publicação no feed ${data.settings.allowUserPosting ? "ativada" : "desativada"} com sucesso.`);
+      }
+    } catch {
+      setFeedback("Falha ao atualizar permissão de postagem.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleAdminDeletePost(id: string) {
+    if (!confirm("Deseja realmente excluir este post permanentemente?")) return;
+    setBusyAction(`delete-post-${id}`);
+    try {
+      const resp = await fetch(`/api/admin/feed-moderation?id=${id}`, { method: "DELETE" });
+      const data = await resp.json();
+      if (data.ok) {
+        setFeedModerationPosts(prev => prev.filter(p => p.id !== id));
+        setFeedback("Post removido com sucesso.");
+      }
+    } catch {
+      setFeedback("Erro ao remover post.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
 
   return (
     <BackofficeShell
@@ -799,7 +848,34 @@ export function AdminDashboardScreen() {
 
           <Card className="p-6">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Ações rápidas</h3>
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              {[
+                "Gerenciar prestadores",
+                "Aprovar profissionais",
+                "Disparar comunicado",
+                "Configurar gamificação",
+                "Relatórios mensais",
+                "Moderar feed",
+              ].map((action) => (
+                <button
+                  key={action}
+                  onClick={() => handleQuickAction(action)}
+                  className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-white p-4 text-center transition-all hover:border-[#0264af]/20 hover:bg-[#0264af]/5 hover:shadow-sm"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition-colors">
+                    {action === "Gerenciar prestadores" && <Users size={18} />}
+                    {action === "Aprovar profissionais" && <Stethoscope size={18} />}
+                    {action === "Disparar comunicado" && <Megaphone size={18} />}
+                    {action === "Configurar gamificação" && <Star size={18} />}
+                    {action === "Relatórios mensais" && <Activity size={18} />}
+                    {action === "Moderar feed" && <Settings size={18} />}
+                  </div>
+                  <span className="text-xs font-bold text-slate-700">{action}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-3 mt-6">
               <Link href="/admin/conteudos" className="block cursor-pointer p-5 transition-all hover:border-blue-300 hover:shadow-md rounded-xl border bg-card text-card-foreground shadow">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-[#0264af]">
@@ -808,29 +884,6 @@ export function AdminDashboardScreen() {
                   <ChevronRight size={20} className="text-[#0264af]" />
                 </div>
               </Link>
-              {[
-                "Gerenciar prestadores",
-                "Aprovar profissionais",
-                "Configurar gamificação",
-                "Relatórios mensais",
-                "Disparar comunicado",
-              ].map((action) => (
-                <Card
-                  key={action}
-                  onClick={() => handleQuickAction(action)}
-                  className="group cursor-pointer p-5 transition-all hover:border-blue-300 hover:shadow-md"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-gray-700 group-hover:text-[#0264af]">
-                      {action}
-                    </span>
-                    <ChevronRight
-                      size={20}
-                      className="text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-[#0264af]"
-                    />
-                  </div>
-                </Card>
-              ))}
             </div>
           </Card>
         </div>
@@ -952,7 +1005,92 @@ export function AdminDashboardScreen() {
           </Card>
         </div>
 
+        <div id="moderacao-feed" className="grid grid-cols-1 gap-6 lg:grid-cols-[0.7fr_1.3fr] mt-2 mb-12">
+          {/* Controle Global */}
+          <Card className="p-6 border-indigo-100 shadow-sm bg-indigo-50/20">
+            <h3 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Settings className="text-indigo-600 h-5 w-5" />
+              Configurações do Feed
+            </h3>
+            <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+              Ative ou desative a capacidade dos usuários (pacientes) de criarem novas publicações no feed da plataforma.
+            </p>
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-white border border-indigo-100">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-xl",
+                  allowUserPosting ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                )}>
+                  {allowUserPosting ? <Send size={18} /> : <Lock size={18} />}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Postagem de Usuários</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {allowUserPosting ? "Liberado" : "Bloqueado"}
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => void handleTogglePosting()}
+                disabled={busyAction === "toggle-posting"}
+                variant={allowUserPosting ? "destructive" : "default"}
+                size="sm"
+                className="rounded-xl px-6"
+              >
+                {busyAction === "toggle-posting" ? "..." : allowUserPosting ? "Desativar" : "Ativar"}
+              </Button>
+            </div>
+          </Card>
 
+          {/* Moderação de Posts */}
+          <Card className="p-6 border-slate-100 shadow-sm bg-white">
+             <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <Activity className="text-slate-500 h-5 w-5" />
+                  Moderação do Feed
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  {feedModerationPosts.length} posts recentes
+                </span>
+             </div>
+
+             <div className="space-y-4 max-h-[400px] overflow-y-auto no-scrollbar pr-2">
+                {feedModerationPosts.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-slate-400 italic">
+                    Nenhum post para moderar no momento.
+                  </div>
+                ) : (
+                  feedModerationPosts.map((post) => (
+                    <div key={post.id} className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:bg-white transition-all">
+                       <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                             <p className="text-sm font-bold text-slate-900 truncate">{post.author.name}</p>
+                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">
+                                {post.author.email}
+                             </span>
+                          </div>
+                          <p className="text-xs text-slate-600 line-clamp-2">{post.caption || "Sem legenda"}</p>
+                          <div className="mt-2 flex items-center gap-2">
+                             <span className="text-[10px] font-medium text-slate-400">
+                                {new Date(post.createdAt).toLocaleDateString("pt-BR")}
+                             </span>
+                          </div>
+                       </div>
+                       <Button 
+                          onClick={() => void handleAdminDeletePost(post.id)}
+                          disabled={busyAction === `delete-post-${post.id}`}
+                          variant="outline" 
+                          size="sm" 
+                          className="h-9 w-9 p-0 rounded-xl border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-600"
+                        >
+                          <Trash2 size={16} />
+                       </Button>
+                    </div>
+                  ))
+                )}
+             </div>
+          </Card>
+        </div>
       </div>
     </BackofficeShell>
   );

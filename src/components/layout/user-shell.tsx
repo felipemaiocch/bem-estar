@@ -28,6 +28,7 @@ export function UserShell({ children }: { children: ReactNode }) {
   const [modalDismissed, setModalDismissed] = useState(true);
   const [hasUnreadAlert, setHasUnreadAlert] = useState(false);
   const [user, setUser] = useState<{ name: string; avatarUrl: string | null; score: number } | null>(null);
+  const [allowUserPosting, setAllowUserPosting] = useState(true);
 
   const loadGlobalAlert = useCallback(async () => {
     try {
@@ -57,9 +58,18 @@ export function UserShell({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  const loadSettings = useCallback(async () => {
+    try {
+      const resp = await fetch("/api/admin/platform-settings");
+      const data = await resp.json();
+      if (data.ok) setAllowUserPosting(data.settings.allowUserPosting);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     void loadGlobalAlert();
     void loadUser();
+    void loadSettings();
 
     // Ouvir mudanças de dados do usuário (ex: upload de avatar)
     window.addEventListener("user-data-changed", loadUser);
@@ -231,13 +241,15 @@ export function UserShell({ children }: { children: ReactNode }) {
                 className="w-48 bg-transparent text-sm outline-none"
               />
             </div>
-            <button 
-              onClick={() => document.dispatchEvent(new Event("open-publish-modal"))}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 hover:scale-110 active:scale-95 md:h-12 md:w-12"
-              title="Publicar Momento"
-            >
-              <Plus size={24} />
-            </button>
+            {allowUserPosting && (
+              <button 
+                onClick={() => document.dispatchEvent(new Event("open-publish-modal"))}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 hover:scale-110 active:scale-95 md:h-12 md:w-12"
+                title="Publicar Momento"
+              >
+                <Plus size={24} />
+              </button>
+            )}
 
             <div className="relative">
               <button 
