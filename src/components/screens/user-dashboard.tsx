@@ -24,6 +24,7 @@ import {
   Medal,
   User,
   Users,
+  X,
   Zap,
 } from "lucide-react";
 
