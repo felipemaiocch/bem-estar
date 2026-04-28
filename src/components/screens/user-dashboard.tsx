@@ -237,8 +237,8 @@ export function UserDashboardScreen() {
       setIsPublishModalOpen(true);
     };
 
-    window.addEventListener("open-publish-modal" as any, handleOpenModal);
-    return () => window.removeEventListener("open-publish-modal" as any, handleOpenModal);
+    document.addEventListener("open-publish-modal", handleOpenModal);
+    return () => document.removeEventListener("open-publish-modal", handleOpenModal);
   }, []);
 
   const loadBookings = useCallback(async () => {
