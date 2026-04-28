@@ -280,6 +280,7 @@ export function ProfessionalDashboardScreen() {
     async function loadTeamNotes() {
       if (!form.userId) return;
       setLoadingTeamNotes(true);
+      try {
         const [notesRes, prosRes] = await Promise.all([
           fetch(`/api/professional/team-notes?userId=${form.userId}`),
           fetch("/api/professional/list-pros")
