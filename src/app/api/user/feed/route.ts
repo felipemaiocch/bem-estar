@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
 import { listFeedPosts } from "@/lib/feed";
+import { prisma } from "@/lib/prisma";
 
 const feedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(6),
@@ -45,9 +46,21 @@ export async function GET(request: NextRequest) {
       offset: parsed.data.offset,
     });
 
+    // Enriquecer com isOwner se o autor for o usuário atual
+    const postsWithOwner = await Promise.all(result.posts.map(async (p) => {
+      const dbPost = await prisma.feedPost.findUnique({
+        where: { id: p.id },
+        select: { authorId: true }
+      });
+      return {
+        ...p,
+        isOwner: dbPost?.authorId === auth.session.sub
+      };
+    }));
+
     return NextResponse.json({
       ok: true,
-      posts: result.posts,
+      posts: postsWithOwner,
       hasMore: result.hasMore,
       nextOffset: result.nextOffset,
     });
@@ -100,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      post,
+      post: { ...post, isOwner: true },
     });
   } catch (error) {
     return NextResponse.json(
@@ -113,5 +126,90 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 },
     );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const auth = await requireSession(request, "USER");
+  if (auth.response) return auth.response;
+
+  try {
+    const body = await request.json();
+    const { id, activity, caption, location, imageUrl } = body;
+
+    const post = await prisma.feedPost.findUnique({
+      where: { id },
+      select: { authorId: true }
+    });
+
+    if (!post || post.authorId !== auth.session.sub) {
+      return NextResponse.json({ ok: false, error: "Não autorizado." }, { status: 403 });
+    }
+
+    const updated = await prisma.feedPost.update({
+      where: { id },
+      data: {
+        activity,
+        caption,
+        location: location || null,
+        imageUrl: imageUrl || null,
+      },
+      include: {
+        author: { select: { id: true, name: true } },
+        likes: { select: { userId: true } },
+        comments: {
+          include: { author: { select: { id: true, name: true } } },
+          orderBy: { createdAt: "asc" }
+        }
+      }
+    });
+
+    const { formatWhen } = await import("@/lib/feed");
+    return NextResponse.json({
+      ok: true,
+      post: {
+        id: updated.id,
+        professional: updated.author.name,
+        professionalRole: updated.professionalRole ?? "Usuário",
+        activity: updated.activity,
+        time: formatWhen(updated.createdAt),
+        location: updated.location ?? "se.monitora",
+        image: updated.imageUrl ?? "",
+        caption: updated.caption,
+        likes: updated.likes.length,
+        likedByUser: updated.likes.some(l => l.userId === auth.session.sub),
+        isOwner: true,
+        comments: updated.comments.map(c => ({ id: c.id, author: c.author.name, text: c.text }))
+      }
+    });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: "Erro ao atualizar post." }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const auth = await requireSession(request, "USER");
+  if (auth.response) return auth.response;
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) return NextResponse.json({ ok: false, error: "ID não informado." }, { status: 400 });
+
+    const post = await prisma.feedPost.findUnique({
+      where: { id },
+      select: { authorId: true }
+    });
+
+    if (!post || post.authorId !== auth.session.sub) {
+      return NextResponse.json({ ok: false, error: "Não autorizado." }, { status: 403 });
+    }
+
+    await prisma.feedPost.delete({ where: { id } });
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: "Erro ao excluir post." }, { status: 500 });
   }
 }

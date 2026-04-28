@@ -7,6 +7,7 @@ import {
   Bell,
   LogOut,
   Megaphone,
+  Plus,
   Search,
   Settings,
   X,
@@ -230,6 +231,14 @@ export function UserShell({ children }: { children: ReactNode }) {
                 className="w-48 bg-transparent text-sm outline-none"
               />
             </div>
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent("open-publish-modal"))}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700 hover:scale-110 active:scale-95 md:h-12 md:w-12"
+              title="Publicar Momento"
+            >
+              <Plus size={24} />
+            </button>
+
             <div className="relative">
               <button 
                 onClick={openNotifications}

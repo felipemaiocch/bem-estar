@@ -10,13 +10,16 @@ import {
   ChevronDown,
   ChevronUp,
   Clock3,
+  Edit2,
   Heart,
   ImagePlus,
   MapPin,
   Megaphone,
   MessageCircleMore,
+  Plus,
   SendHorizontal,
   Star,
+  Trash2,
   Trophy,
   Medal,
   User,
@@ -46,6 +49,7 @@ type FeedPost = {
   caption: string;
   likes: number;
   likedByUser: boolean;
+  isOwner?: boolean;
   comments: { id: string; author: string; text: string }[];
 };
 
@@ -101,6 +105,8 @@ export function UserDashboardScreen() {
   const [momentImageFile, setMomentImageFile] = useState<File | null>(null);
   const [momentImagePreview, setMomentImagePreview] = useState<string | null>(null);
   const [publishingMoment, setPublishingMoment] = useState(false);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const momentFileInputRef = useRef<HTMLInputElement>(null);
 
   const feedSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -393,7 +399,7 @@ export function UserDashboardScreen() {
     setPublishingMoment(true);
     setFeedError(null);
 
-    let finalImageUrl = "";
+    let finalImageUrl = momentImagePreview;
 
     if (momentImageFile) {
         const reader = new FileReader();
@@ -406,9 +412,10 @@ export function UserDashboardScreen() {
 
     try {
       const response = await fetch("/api/user/feed", {
-        method: "POST",
+        method: editingPostId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: editingPostId || undefined,
           ...momentsForm,
           imageUrl: finalImageUrl || undefined,
         }),
@@ -421,15 +428,54 @@ export function UserDashboardScreen() {
         return;
       }
 
-      setPosts((current) => [data.post, ...current]);
+      if (editingPostId) {
+        setPosts((current) => current.map(p => p.id === editingPostId ? data.post : p));
+        setCheckInFeedback("Momento atualizado com sucesso!");
+      } else {
+        setPosts((current) => [data.post, ...current]);
+        setCheckInFeedback("Momento publicado com sucesso!");
+      }
+
       setMomentsForm({ activity: "", caption: "", location: "" });
       setMomentImageFile(null);
       setMomentImagePreview(null);
-      setCheckInFeedback("Momento publicado com sucesso!");
+      setEditingPostId(null);
+      setIsPublishModalOpen(false);
     } catch {
       setFeedError("Falha de conexão ao publicar.");
     } finally {
       setPublishingMoment(false);
+    }
+  }
+
+  function handleEditMoment(post: FeedPost) {
+    setEditingPostId(post.id);
+    setMomentsForm({
+      activity: post.activity,
+      caption: post.caption,
+      location: post.location || "",
+    });
+    setMomentImagePreview(post.image || null);
+    setIsPublishModalOpen(true);
+  }
+
+  async function handleDeleteMoment(postId: string) {
+    if (!confirm("Deseja realmente excluir este momento?")) return;
+
+    try {
+      const response = await fetch(`/api/user/feed?id=${postId}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+
+      if (data.ok) {
+        setPosts(prev => prev.filter(p => p.id !== postId));
+        setCheckInFeedback("Momento excluído com sucesso.");
+      } else {
+        setFeedError(data.error || "Erro ao excluir.");
+      }
+    } catch {
+      setFeedError("Falha de conexão ao excluir.");
     }
   }
 
@@ -448,91 +494,6 @@ export function UserDashboardScreen() {
   return (
     <div className="relative animate-in fade-in flex flex-col gap-6 pb-24 md:pb-8">
       <section>
-        <Card className="mb-8 overflow-hidden border-indigo-100 bg-white p-0 shadow-lg shadow-indigo-500/5">
-          <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-4">
-            <div className="flex items-center gap-2">
-              <Camera className="h-4 w-4 text-indigo-600" />
-              <h3 className="text-sm font-bold text-slate-800">Compartilhar Momento</h3>
-            </div>
-          </div>
-          <div className="p-5">
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">O que você está fazendo?</label>
-                  <input
-                    type="text"
-                    value={momentsForm.activity}
-                    onChange={(e) => setMomentsForm(prev => ({ ...prev, activity: e.target.value }))}
-                    placeholder="Ex: Treino funcional, Almoço saudável..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Onde? (Opcional)</label>
-                  <input
-                    type="text"
-                    value={momentsForm.location}
-                    onChange={(e) => setMomentsForm(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="Ex: Academia, Em casa..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Legenda</label>
-                <textarea
-                  value={momentsForm.caption}
-                  onChange={(e) => setMomentsForm(prev => ({ ...prev, caption: e.target.value }))}
-                  placeholder="Conte um pouco sobre esse momento..."
-                  className="min-h-[80px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white"
-                />
-              </div>
-
-              {momentImagePreview && (
-                <div className="relative h-48 w-full overflow-hidden rounded-2xl border border-slate-200">
-                  <img src={momentImagePreview} alt="Preview" className="h-full w-full object-cover" />
-                  <button 
-                    onClick={() => { setMomentImageFile(null); setMomentImagePreview(null); }}
-                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm hover:bg-black/70"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  ref={momentFileInputRef}
-                  onChange={handleMomentImageChange}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => momentFileInputRef.current?.click()}
-                  className="rounded-full border-indigo-100 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100"
-                >
-                  <ImagePlus className="mr-2 h-4 w-4" />
-                  {momentImagePreview ? "Trocar foto" : "Adicionar foto"}
-                </Button>
-
-                <Button
-                  onClick={() => void handlePublishMoment()}
-                  disabled={publishingMoment}
-                  className="rounded-full bg-indigo-600 px-8 hover:bg-indigo-700 shadow-lg shadow-indigo-200"
-                >
-                  {publishingMoment ? "Publicando..." : "Publicar no Feed"}
-                  <SendHorizontal className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-
         <div className="mb-4 mt-2 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Para você</h2>
         </div>
@@ -875,11 +836,37 @@ export function UserDashboardScreen() {
                   <div key={post.id} className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-slate-950">{post.activity}</p>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-slate-950">{post.activity}</p>
+                          {post.professionalRole === "Usuário" && (
+                            <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
+                              Usuário
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-500">
                           {post.professional} · {post.time} · {post.location}
                         </p>
                       </div>
+
+                      {post.isOwner && (
+                        <div className="flex items-center gap-1">
+                          <button 
+                            onClick={() => handleEditMoment(post)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button 
+                            onClick={() => void handleDeleteMoment(post.id)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <p className="mt-3 text-sm leading-6 text-slate-600">{post.caption}</p>
@@ -986,6 +973,121 @@ export function UserDashboardScreen() {
           </div>
         </Card>
       </section>
+
+      {/* Modal de Publicação/Edição */}
+      {isPublishModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden rounded-[32px] border border-indigo-100 bg-white shadow-2xl">
+            <div className="bg-indigo-600 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+                    <Camera className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">{editingPostId ? "Editar Momento" : "Compartilhar Momento"}</h2>
+                    <p className="text-xs text-white/70 uppercase tracking-widest font-semibold">Feed da Comunidade</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsPublishModalOpen(false)}
+                  className="rounded-xl p-2 hover:bg-white/10 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 md:p-8">
+              <div className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">O que você está fazendo?</label>
+                    <input
+                      type="text"
+                      value={momentsForm.activity}
+                      onChange={(e) => setMomentsForm(prev => ({ ...prev, activity: e.target.value }))}
+                      placeholder="Ex: Treino funcional, Almoço saudável..."
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">Onde?</label>
+                    <input
+                      type="text"
+                      value={momentsForm.location}
+                      onChange={(e) => setMomentsForm(prev => ({ ...prev, location: e.target.value }))}
+                      placeholder="Ex: Academia, Em casa..."
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/5"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 ml-1">Sua Legenda</label>
+                  <textarea
+                    value={momentsForm.caption}
+                    onChange={(e) => setMomentsForm(prev => ({ ...prev, caption: e.target.value }))}
+                    placeholder="Conte os detalhes desse momento..."
+                    className="min-h-[120px] w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/5"
+                  />
+                </div>
+
+                <div className="relative group">
+                  {momentImagePreview ? (
+                    <div className="relative h-56 w-full overflow-hidden rounded-[24px] border-2 border-dashed border-indigo-100 bg-indigo-50/30 transition-all hover:border-indigo-300">
+                      <img src={momentImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <button 
+                        onClick={() => { setMomentImageFile(null); setMomentImagePreview(null); }}
+                        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white text-rose-600 shadow-xl transition-transform hover:scale-110 active:scale-95"
+                        title="Remover foto"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => momentFileInputRef.current?.click()}
+                      className="flex h-40 w-full flex-col items-center justify-center gap-3 rounded-[24px] border-2 border-dashed border-indigo-100 bg-indigo-50/20 text-indigo-400 transition-all hover:bg-indigo-50/40 hover:text-indigo-600"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-indigo-50">
+                        <ImagePlus size={24} />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-widest">Clique para adicionar uma foto</span>
+                    </button>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    ref={momentFileInputRef}
+                    onChange={handleMomentImageChange}
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setIsPublishModalOpen(false)}
+                    className="flex-1 rounded-2xl h-14 font-bold text-slate-500"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={() => void handlePublishMoment()}
+                    disabled={publishingMoment}
+                    className="flex-[2] rounded-2xl h-14 bg-indigo-600 text-base font-bold hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    {publishingMoment ? (editingPostId ? "Salvando..." : "Publicando...") : (editingPostId ? "Salvar Alterações" : "Publicar no Feed")}
+                    {!publishingMoment && <SendHorizontal className="ml-2 h-5 w-5" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
