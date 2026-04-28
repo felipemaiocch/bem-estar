@@ -22,9 +22,10 @@ export async function GET(request: NextRequest) {
       where: { userId },
       include: {
         author: {
-          select: {
-            name: true,
-          },
+          select: { name: true },
+        },
+        targetProfessional: {
+          select: { name: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
       authorRole: n.authorRole,
       content: n.content,
       targetCategory: n.targetCategory,
+      targetProfessionalName: n.targetProfessional?.name,
       createdAt: n.createdAt.toISOString(),
       dateLabel: new Intl.DateTimeFormat("pt-BR", {
         day: "2-digit",
@@ -72,13 +74,15 @@ export async function POST(request: NextRequest) {
         authorId: auth.session.sub,
         authorRole: body.authorRole,
         targetCategory: body.targetCategory,
+        targetProfessionalId: body.targetProfessionalId || null,
         content: body.content,
       },
       include: {
         author: {
-          select: {
-            name: true,
-          },
+          select: { name: true },
+        },
+        targetProfessional: {
+          select: { name: true },
         },
       },
     });
@@ -89,6 +93,7 @@ export async function POST(request: NextRequest) {
       authorRole: note.authorRole,
       content: note.content,
       targetCategory: note.targetCategory,
+      targetProfessionalName: note.targetProfessional?.name,
       createdAt: note.createdAt.toISOString(),
       dateLabel: new Intl.DateTimeFormat("pt-BR", {
         day: "2-digit",

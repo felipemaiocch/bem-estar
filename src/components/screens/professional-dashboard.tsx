@@ -80,6 +80,7 @@ interface TeamNote {
   authorRole?: string;
   content: string;
   targetCategory?: string;
+  targetProfessionalName?: string;
   createdAt: string;
   dateLabel: string;
 }
@@ -179,8 +180,9 @@ export function ProfessionalDashboardScreen() {
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [teamNotes, setTeamNotes] = useState<TeamNote[]>([]);
+  const [allProfessionals, setAllProfessionals] = useState<{ id: string; name: string; specialty: string }[]>([]);
   const [loadingTeamNotes, setLoadingTeamNotes] = useState(false);
-  const [newTeamNote, setNewTeamNote] = useState({ content: "", targetCategory: "" });
+  const [newTeamNote, setNewTeamNote] = useState({ content: "", targetCategory: "", targetProfessionalId: "" });
   const [savingTeamNote, setSavingTeamNote] = useState(false);
   const feedFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -278,12 +280,14 @@ export function ProfessionalDashboardScreen() {
     async function loadTeamNotes() {
       if (!form.userId) return;
       setLoadingTeamNotes(true);
-      try {
-        const response = await fetch(`/api/professional/team-notes?userId=${form.userId}`);
-        const data = await response.json();
-        if (data.ok) {
-          setTeamNotes(data.notes);
-        }
+        const [notesRes, prosRes] = await Promise.all([
+          fetch(`/api/professional/team-notes?userId=${form.userId}`),
+          fetch("/api/professional/list-pros")
+        ]);
+        const notesData = await notesRes.json();
+        const prosData = await prosRes.json();
+        if (notesData.ok) setTeamNotes(notesData.notes);
+        if (prosData.ok) setAllProfessionals(prosData.professionals);
       } catch (error) {
         console.error("Error loading team notes:", error);
       } finally {
@@ -419,6 +423,7 @@ export function ProfessionalDashboardScreen() {
           userId: form.userId,
           content: newTeamNote.content,
           targetCategory: newTeamNote.targetCategory || null,
+          targetProfessionalId: newTeamNote.targetProfessionalId || null,
           authorRole: selectedCategory.professionalRole
         }),
       });
@@ -1020,34 +1025,59 @@ export function ProfessionalDashboardScreen() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <label className="space-y-2 block">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Trocar Paciente no Mural</span>
+                  <select
+                    value={form.userId}
+                    onChange={(e) => setForm(prev => ({ ...prev, userId: e.target.value }))}
+                    className={cn(fieldClassName, "h-10 bg-white border-indigo-100 text-sm")}
+                  >
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} · {u.area}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <form onSubmit={(e) => void handleSaveTeamNote(e)} className="space-y-3">
                 <textarea
                   value={newTeamNote.content}
                   onChange={(e) => setNewTeamNote(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="Compartilhe uma observação ou recomendação para outros profissionais..."
+                  placeholder="Compartilhe uma observação ou recomendação interna..."
                   className={cn(fieldClassName, "min-h-[100px] bg-white border-indigo-100 focus:border-indigo-500")}
                   required
                 />
-                <div className="flex gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <select
                     value={newTeamNote.targetCategory}
                     onChange={(e) => setNewTeamNote(prev => ({ ...prev, targetCategory: e.target.value }))}
-                    className={cn(fieldClassName, "h-10 bg-white border-indigo-100 text-xs")}
+                    className={cn(fieldClassName, "h-10 bg-white border-indigo-100 text-[10px]")}
                   >
-                    <option value="">Para todos (Geral)</option>
-                    <option value="nutricao">Encaminhar para Nutrição</option>
-                    <option value="fisioterapia">Encaminhar para Fisioterapia</option>
-                    <option value="psicologia">Encaminhar para Psicologia</option>
+                    <option value="">Área (Todas)</option>
+                    <option value="nutricao">Nutrição</option>
+                    <option value="fisioterapia">Fisioterapia</option>
+                    <option value="psicologia">Psicologia</option>
                   </select>
-                  <Button 
-                    type="submit" 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-6 shrink-0"
-                    disabled={savingTeamNote}
+                  <select
+                    value={newTeamNote.targetProfessionalId}
+                    onChange={(e) => setNewTeamNote(prev => ({ ...prev, targetProfessionalId: e.target.value }))}
+                    className={cn(fieldClassName, "h-10 bg-white border-indigo-100 text-[10px]")}
                   >
-                    {savingTeamNote ? "Postando..." : "Postar no Mural"}
-                    <SendHorizontal className="ml-2 h-4 w-4" />
-                  </Button>
+                    <option value="">Para: Qualquer Profissional</option>
+                    {allProfessionals.map(p => (
+                      <option key={p.id} value={p.id}>Para: {p.name}</option>
+                    ))}
+                  </select>
                 </div>
+                <Button 
+                  type="submit" 
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white w-full h-11"
+                  disabled={savingTeamNote}
+                >
+                  {savingTeamNote ? "Postando..." : "Postar no Mural"}
+                  <SendHorizontal className="ml-2 h-4 w-4" />
+                </Button>
               </form>
 
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
@@ -1065,9 +1095,14 @@ export function ProfessionalDashboardScreen() {
                       </div>
                       <p className="text-sm text-slate-600 leading-relaxed italic">"{note.content}"</p>
                       {note.targetCategory && (
-                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20 mr-2">
                           <Sparkles className="h-3 w-3" />
                           RECOMENDAÇÃO: {note.targetCategory.toUpperCase()}
+                        </div>
+                      )}
+                      {note.targetProfessionalName && (
+                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                          PARA: {note.targetProfessionalName.toUpperCase()}
                         </div>
                       )}
                     </div>

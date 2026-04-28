@@ -127,6 +127,7 @@ model User {
   publishedCards            EngagementCard[]         @relation("CardPublisher")
   teamNotesAbout            TeamNote[]               @relation("TeamNoteUser")
   teamNotesAuthored          TeamNote[]               @relation("TeamNoteAuthor")
+  teamNotesTargeted         TeamNote[]               @relation("TeamNoteTarget")
 }
 
 model ProfessionalProfile {
@@ -427,17 +428,19 @@ model AgendaSetting {
   updatedAt DateTime @updatedAt
 }
 model TeamNote {
-  id                 String   @id @default(cuid())
-  userId             String   // O paciente alvo da nota
-  authorId           String   // O profissional que escreveu
-  authorRole         String?
-  targetCategory     String?  // Se for uma recomendação específica (ex: Nutrição)
-  content            String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  userId               String   // O paciente alvo da nota
+  authorId             String   // O profissional que escreveu
+  authorRole           String?
+  targetCategory       String?  // Se for uma recomendação específica (ex: Nutrição)
+  targetProfessionalId String?  // Se for para um profissional específico
+  content              String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  user               User     @relation("TeamNoteUser", fields: [userId], references: [id], onDelete: Cascade)
-  author             User     @relation("TeamNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  user                 User     @relation("TeamNoteUser", fields: [userId], references: [id], onDelete: Cascade)
+  author               User     @relation("TeamNoteAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  targetProfessional   User?    @relation("TeamNoteTarget", fields: [targetProfessionalId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
 }
