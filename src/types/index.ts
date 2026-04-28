@@ -115,7 +115,8 @@ export type CareRecordCategory =
   | "psicologia"
   | "fisioterapia"
   | "nutricao"
-  | "enfermagem";
+  | "enfermagem"
+  | "geral";
 
 export interface CareRecordMetric {
   label: string;

@@ -658,7 +658,7 @@ export function UserDashboardScreen() {
             </Button>
           </div>
 
-          <div className="px-5 py-4">
+          <div className="px-5 py-4 max-h-[1000px] overflow-y-auto no-scrollbar">
             {feedError ? (
               <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {feedError}

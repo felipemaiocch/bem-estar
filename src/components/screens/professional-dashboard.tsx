@@ -839,13 +839,23 @@ export function ProfessionalDashboardScreen() {
                     </select>
                   </label>
 
-                  <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3">
+                  <div className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-3 min-w-[140px]">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                       Papel
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-slate-950">
-                      {selectedCategory.professionalRole}
-                    </p>
+                    {form.category === "geral" ? (
+                      <input
+                        value={form.professionalRole ?? ""}
+                        onChange={(e) => setForm(f => ({ ...f, professionalRole: e.target.value }))}
+                        placeholder="Ex: Prof. Defesa"
+                        className="mt-1 w-full bg-transparent text-sm font-semibold text-slate-950 outline-none border-b border-slate-200 focus:border-blue-500"
+                        required
+                      />
+                    ) : (
+                      <p className="mt-2 text-sm font-semibold text-slate-950">
+                        {selectedCategory.professionalRole}
+                      </p>
+                    )}
                   </div>
                 </div>
 

@@ -528,6 +528,18 @@ export const careRecordCategoryOptions: CareRecordCategoryOption[] = [
     defaultNextStep: "Repetir medição em 15 dias para comparação.",
     metricSuggestions: ["Peso", "Bioimpedância"],
   },
+  {
+    value: "geral",
+    label: "Comentário Geral",
+    professionalRole: "Profissional",
+    professionals: ["Qualquer Profissional"],
+    accent: "bg-slate-50 text-slate-700",
+    defaultTitle: "Anotação de acompanhamento",
+    defaultSummary: "Registro geral sobre o bem-estar ou atividade personalizada.",
+    defaultDelivery: "Observação compartilhada com o perfil do usuário.",
+    defaultNextStep: "Acompanhar evolução conforme fluxo da área.",
+    metricSuggestions: ["Adesão", "Nível de presença"],
+  },
 ];
 
 export const seedCareRecords: UserCareRecord[] = [
