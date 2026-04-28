@@ -33,7 +33,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { cn } from "@/lib/utils";
 
 const baseEngagementCards = [
   { title: "Saúde e bem-estar", cta: "Continuar", href: "/usuario/saude-bem-estar" },
