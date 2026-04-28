@@ -154,7 +154,7 @@ function formatBookingHour(startsAtIso: string) {
 }
 
 const fieldClassName =
-  "w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-colors focus:border-[#0264af] focus:bg-white";
+  "w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#0264af] focus:bg-white flex items-center";
 
 export function ProfessionalDashboardScreen() {
   const [records, setRecords] = useState<UserCareRecord[]>([]);
@@ -1032,7 +1032,7 @@ export function ProfessionalDashboardScreen() {
                   <select
                     value={form.userId}
                     onChange={(e) => setForm(prev => ({ ...prev, userId: e.target.value }))}
-                    className={cn(fieldClassName, "h-10 bg-white border-indigo-100 text-sm")}
+                    className={cn(fieldClassName, "h-11 bg-white border-indigo-100 text-sm")}
                   >
                     {users.map(u => (
                       <option key={u.id} value={u.id}>{u.name} · {u.area}</option>
@@ -1053,7 +1053,7 @@ export function ProfessionalDashboardScreen() {
                   <select
                     value={newTeamNote.targetCategory}
                     onChange={(e) => setNewTeamNote(prev => ({ ...prev, targetCategory: e.target.value }))}
-                    className={cn(fieldClassName, "h-10 bg-white border-indigo-100 text-[10px]")}
+                    className={cn(fieldClassName, "h-11 bg-white border-indigo-100 text-[11px]")}
                   >
                     <option value="">Área (Todas)</option>
                     <option value="nutricao">Nutrição</option>
@@ -1063,7 +1063,7 @@ export function ProfessionalDashboardScreen() {
                   <select
                     value={newTeamNote.targetProfessionalId}
                     onChange={(e) => setNewTeamNote(prev => ({ ...prev, targetProfessionalId: e.target.value }))}
-                    className={cn(fieldClassName, "h-10 bg-white border-indigo-100 text-[10px]")}
+                    className={cn(fieldClassName, "h-11 bg-white border-indigo-100 text-[11px]")}
                   >
                     <option value="">Para: Qualquer Profissional</option>
                     {allProfessionals.map(p => (
