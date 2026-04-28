@@ -39,3 +39,33 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: "Erro ao excluir post" }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await requireSession(request, "PROFESSIONAL");
+
+  if (auth.response) {
+    return auth.response;
+  }
+
+  const { id } = await params;
+  const body = await request.json();
+
+  try {
+    const post = await prisma.feedPost.update({
+      where: { id },
+      data: {
+        activity: body.activity,
+        caption: body.caption,
+        location: body.location,
+        image: body.imageUrl,
+      },
+    });
+
+    return NextResponse.json({ ok: true, post });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: "Erro ao atualizar post" }, { status: 500 });
+  }
+}

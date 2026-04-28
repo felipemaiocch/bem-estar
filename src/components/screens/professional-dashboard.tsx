@@ -164,6 +164,7 @@ export function ProfessionalDashboardScreen() {
   const [patientSearch, setPatientSearch] = useState("");
   const [feedImageFile, setFeedImageFile] = useState<File | null>(null);
   const [feedImagePreview, setFeedImagePreview] = useState<string | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const feedFileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedUser =
@@ -393,8 +394,12 @@ export function ProfessionalDashboardScreen() {
     }
 
     try {
-      const response = await fetch("/api/professional/feed-posts", {
-        method: "POST",
+      const url = editingPostId 
+        ? `/api/professional/feed-posts/${editingPostId}`
+        : "/api/professional/feed-posts";
+      
+      const response = await fetch(url, {
+        method: editingPostId ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -418,7 +423,14 @@ export function ProfessionalDashboardScreen() {
         return;
       }
 
-      setFeedPosts((current) => [data.post!, ...current]);
+      if (editingPostId) {
+        setFeedPosts((current) => current.map(p => p.id === editingPostId ? data.post! : p));
+        setFeedback("Publicação atualizada com sucesso.");
+      } else {
+        setFeedPosts((current) => [data.post!, ...current]);
+        setFeedback("Post publicado no feed com sucesso.");
+      }
+
       setFeedForm({
         activity: "",
         caption: "",
@@ -427,12 +439,24 @@ export function ProfessionalDashboardScreen() {
       });
       setFeedImageFile(null);
       setFeedImagePreview(null);
-      setFeedback("Post publicado no feed com sucesso.");
+      setEditingPostId(null);
     } catch {
-      setFeedback("Falha de conexão ao publicar no feed.");
+      setFeedback("Falha de conexão.");
     } finally {
       setPublishingFeed(false);
     }
+  }
+
+  function handleEditPost(post: FeedPostItem) {
+    setEditingPostId(post.id);
+    setFeedForm({
+      activity: post.activity,
+      caption: post.caption,
+      location: post.location || "",
+      imageUrl: post.image || "",
+    });
+    setFeedImagePreview(post.image || null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleDeleteFeedPost(id: string) {
@@ -610,7 +634,7 @@ export function ProfessionalDashboardScreen() {
                 Publicar Dica no Feed dos Colaboradores
               </h3>
               <p className="text-sm text-slate-500 mb-5">Compartilhe insights em formato de pílulas diárias. Eles aparecerão no app do paciente (User Dashboard).</p>
-              <div className="space-y-3">
+              <form onSubmit={(e) => void handlePublishFeedPost(e)} className="space-y-3">
                 <input
                   type="text"
                   placeholder="Título (ex: Benefícios do alongamento matinal)"
@@ -632,9 +656,11 @@ export function ProfessionalDashboardScreen() {
                     <div className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-black/5">
                       <img src={feedImagePreview} alt="Preview" className="w-full h-full object-cover" />
                       <button 
+                        type="button"
                         onClick={() => {
                           setFeedImageFile(null);
                           setFeedImagePreview(null);
+                          setFeedForm(prev => ({ ...prev, imageUrl: "" }));
                         }}
                         className="absolute top-2 right-2 p-1 bg-white/80 hover:bg-white rounded-full shadow-md text-rose-500 transition-all"
                       >
@@ -643,17 +669,33 @@ export function ProfessionalDashboardScreen() {
                     </div>
                   )}
                   <div className="flex justify-between items-center">
-                    <button 
-                      type="button"
-                      onClick={() => feedFileInputRef.current?.click()}
-                      className={cn(
-                        "flex items-center gap-1.5 text-sm font-semibold transition-colors",
-                        feedImageFile ? "text-emerald-600" : "text-slate-500 hover:text-blue-600"
+                    <div className="flex items-center gap-3">
+                      <button 
+                        type="button"
+                        onClick={() => feedFileInputRef.current?.click()}
+                        className={cn(
+                          "flex items-center gap-1.5 text-sm font-semibold transition-colors",
+                          feedImageFile ? "text-emerald-600" : "text-slate-500 hover:text-blue-600"
+                        )}
+                      >
+                        <ImagePlus className="h-4 w-4" /> 
+                        {feedImageFile ? "Imagem selecionada" : "Anexar Mídia"}
+                      </button>
+                      {editingPostId && (
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setEditingPostId(null);
+                            setFeedForm({ activity: "", caption: "", location: "", imageUrl: "" });
+                            setFeedImageFile(null);
+                            setFeedImagePreview(null);
+                          }}
+                          className="text-sm font-semibold text-rose-500 hover:underline"
+                        >
+                          Cancelar Edição
+                        </button>
                       )}
-                    >
-                      <ImagePlus className="h-4 w-4" /> 
-                      {feedImageFile ? "Imagem selecionada" : "Anexar Mídia"}
-                    </button>
+                    </div>
                     <input 
                       type="file" 
                       ref={feedFileInputRef} 
@@ -672,21 +714,21 @@ export function ProfessionalDashboardScreen() {
                       disabled={publishingFeed}
                       className="bg-blue-600 hover:bg-blue-700 text-white gap-2 font-bold px-6"
                     >
-                      {publishingFeed ? "Publicando..." : "Publicar"} 
+                      {publishingFeed ? "Salvando..." : editingPostId ? "Salvar Alterações" : "Publicar"} 
                       <SendHorizontal className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-              </div>
+              </form>
             </Card>
 
-            {/* Minhas Dicas Publicadas */}
-            <Card className="p-6">
-               <h3 className="mb-4 text-lg font-bold text-slate-900">Minhas Dicas Publicadas</h3>
-               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            {/* Minhas publicações */}
+            <Card className="p-6 h-[450px] flex flex-col">
+               <h3 className="mb-4 text-lg font-bold text-slate-900">Minhas publicações</h3>
+               <div className="space-y-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                   {feedPosts.length === 0 && <p className="text-sm text-slate-400 italic">Você ainda não publicou nenhuma dica.</p>}
                   {feedPosts.map(post => (
-                    <div key={post.id} className="flex gap-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 items-start">
+                    <div key={post.id} className="flex gap-4 p-3 rounded-2xl bg-slate-50 border border-slate-100 items-start hover:bg-white transition-colors">
                       {post.image && (
                         <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-slate-200">
                           <img src={post.image} alt="" className="w-full h-full object-cover" />
@@ -697,6 +739,12 @@ export function ProfessionalDashboardScreen() {
                         <p className="text-xs text-slate-500 line-clamp-2 mt-1">{post.caption}</p>
                       </div>
                       <div className="flex gap-1">
+                        <button 
+                          onClick={() => handleEditPost(post)}
+                          className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+                        >
+                          <NotebookPen size={16} />
+                        </button>
                         <button 
                           onClick={() => handleDeleteFeedPost(post.id)}
                           className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
@@ -947,124 +995,6 @@ export function ProfessionalDashboardScreen() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Métricas do profissional</CardTitle>
-              <CardDescription>Volume, evolução e aderência ao plano de cuidado.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid gap-3 md:grid-cols-3">
-                {careRecordCategoryOptions.map((item) => {
-                  const total = records.filter((record) => record.category === item.value).length;
-                  return (
-                    <div key={item.value} className="rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-4">
-                      <p className="text-sm font-medium text-slate-500">{item.label}</p>
-                      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{total}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="rounded-[28px] border border-slate-100 bg-white p-2">
-                <GoalAreaChart data={goalEvolution} />
-              </div>
-
-              <div className="rounded-[24px] border border-dashed border-[#0264af]/25 bg-[#0264af]/5 px-4 py-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#0264af]">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-950">Fluxo ativo em backend</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">
-                      Agenda, confirmações e registros já trafegam por API, mantendo sincronismo com o perfil do usuário.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Publicar momento do dia</CardTitle>
-              <CardDescription>
-                Compartilhe atividade com foto e descrição para aparecer no feed do usuário.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-3" onSubmit={(event) => void handlePublishFeedPost(event)}>
-                <input
-                  className={fieldClassName}
-                  placeholder="Título da atividade"
-                  value={feedForm.activity}
-                  onChange={(event) =>
-                    setFeedForm((current) => ({ ...current, activity: event.target.value }))
-                  }
-                  required
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Local (opcional)"
-                  value={feedForm.location}
-                  onChange={(event) =>
-                    setFeedForm((current) => ({ ...current, location: event.target.value }))
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="URL da imagem"
-                  value={feedForm.imageUrl}
-                  onChange={(event) =>
-                    setFeedForm((current) => ({ ...current, imageUrl: event.target.value }))
-                  }
-                />
-                <textarea
-                  className={cn(fieldClassName, "min-h-28 resize-none")}
-                  placeholder="Descrição do que aconteceu no dia"
-                  value={feedForm.caption}
-                  onChange={(event) =>
-                    setFeedForm((current) => ({ ...current, caption: event.target.value }))
-                  }
-                  required
-                />
-                <Button type="submit" disabled={publishingFeed}>
-                  {publishingFeed ? "Publicando..." : "Publicar no feed"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Últimas publicações</CardTitle>
-              <CardDescription>
-                Prévia do feed que os usuários vão visualizar na Home.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {!feedPosts.length ? (
-                <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
-                  <p className="font-medium text-slate-950">Nenhuma publicação por enquanto.</p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Assim que publicar um momento do dia, ele aparece aqui.
-                  </p>
-                </div>
-              ) : null}
-
-              {feedPosts.slice(0, 4).map((post) => (
-                <div key={post.id} className="rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-4">
-                  <p className="text-base font-semibold text-slate-950">{post.activity}</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {post.time} · {post.location}
-                  </p>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{post.caption}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
         </section>
       </div>
     </BackofficeShell>
