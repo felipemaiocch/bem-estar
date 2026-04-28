@@ -187,19 +187,6 @@ export function AuthLanding() {
               </div>
             </form>
 
-            <p className="mt-8 text-center text-sm text-gray-600">
-              Primeiro acesso?{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOnboarding(true);
-                  setStep(1);
-                }}
-                className="font-bold text-[#0264af] hover:underline"
-              >
-                Criar conta
-              </button>
-            </p>
           </>
         ) : (
           <div className="mx-auto w-full max-w-md">

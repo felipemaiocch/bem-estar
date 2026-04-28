@@ -636,7 +636,7 @@ export function AdminDashboardScreen() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <Card className="p-6">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Gestão de usuários</h3>
-            <form className="grid gap-3 md:grid-cols-5" onSubmit={(event) => void handleCreateUser(event)}>
+            <form className="grid gap-3 md:grid-cols-6" onSubmit={(event) => void handleCreateUser(event)}>
               <input
                 className={inputClassName}
                 placeholder="Nome"
@@ -681,6 +681,16 @@ export function AdminDashboardScreen() {
                       : { ...current, company: event.target.value },
                   )
                 }
+              />
+              <input
+                className={inputClassName}
+                placeholder="Senha inicial"
+                type="password"
+                value={userForm.password}
+                onChange={(event) =>
+                  setUserForm((current) => ({ ...current, password: event.target.value }))
+                }
+                required
               />
               <Button type="submit" disabled={busyAction === "create-user"}>
                 {busyAction === "create-user" ? "Salvando..." : "Criar"}
