@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { requireSession } from "@/lib/api-auth";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 const prisma = new PrismaClient();
 
@@ -39,7 +37,12 @@ export async function GET(request: NextRequest) {
       content: n.content,
       targetCategory: n.targetCategory,
       createdAt: n.createdAt.toISOString(),
-      dateLabel: format(n.createdAt, "dd 'de' MMM '·' HH:mm", { locale: ptBR }),
+      dateLabel: new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(n.createdAt).replace(".", ""),
     }));
 
     return NextResponse.json({ ok: true, notes: formattedNotes });
@@ -87,7 +90,12 @@ export async function POST(request: NextRequest) {
       content: note.content,
       targetCategory: note.targetCategory,
       createdAt: note.createdAt.toISOString(),
-      dateLabel: format(note.createdAt, "dd 'de' MMM '·' HH:mm", { locale: ptBR }),
+      dateLabel: new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(note.createdAt).replace(".", ""),
     };
 
     return NextResponse.json({ ok: true, note: formattedNote });
