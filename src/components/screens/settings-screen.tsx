@@ -20,6 +20,9 @@ export function SettingsScreen() {
   const [loadingUser, setLoadingUser] = useState(false);
   const [user, setUser] = useState<{ name: string; avatarUrl: string | null; email: string } | null>(null);
   const [apiFeedback, setApiFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: "", new: "", confirm: "" });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -93,6 +96,40 @@ export function SettingsScreen() {
       setApiFeedback({ type: "error", message: "Falha de conexão ao subir foto." });
     } finally {
       setLoadingUser(false);
+    }
+  }
+
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    if (passwordForm.new !== passwordForm.confirm) {
+      setApiFeedback({ type: "error", message: "As novas senhas não coincidem." });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setApiFeedback(null);
+
+    try {
+      const response = await fetch("/api/user/profile/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: passwordForm.current,
+          newPassword: passwordForm.new,
+        }),
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setApiFeedback({ type: "success", message: "Senha alterada com sucesso!" });
+        setShowPasswordForm(false);
+        setPasswordForm({ current: "", new: "", confirm: "" });
+      } else {
+        setApiFeedback({ type: "error", message: data.error || "Erro ao alterar senha." });
+      }
+    } catch {
+      setApiFeedback({ type: "error", message: "Erro de conexão." });
+    } finally {
+      setIsChangingPassword(false);
     }
   }
 
@@ -202,10 +239,66 @@ export function SettingsScreen() {
           />
         </CardHeader>
         <CardContent>
-          <button className="flex items-center justify-between w-full p-5 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all group">
-            <span className="font-bold text-slate-700">Alterar senha</span>
-            <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
-          </button>
+          {!showPasswordForm ? (
+            <button 
+              onClick={() => setShowPasswordForm(true)}
+              className="flex items-center justify-between w-full p-5 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all group"
+            >
+              <span className="font-bold text-slate-700">Alterar senha</span>
+              <ChevronRight size={18} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
+            </button>
+          ) : (
+            <form onSubmit={handlePasswordChange} className="space-y-4 animate-in fade-in zoom-in duration-300">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Senha Atual</label>
+                <input 
+                  type="password" 
+                  required
+                  value={passwordForm.current}
+                  onChange={e => setPasswordForm(p => ({ ...p, current: e.target.value }))}
+                  className="w-full h-12 px-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-[#0264af] outline-none transition-all"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Nova Senha</label>
+                  <input 
+                    type="password" 
+                    required
+                    value={passwordForm.new}
+                    onChange={e => setPasswordForm(p => ({ ...p, new: e.target.value }))}
+                    className="w-full h-12 px-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-[#0264af] outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Confirmar Nova Senha</label>
+                  <input 
+                    type="password" 
+                    required
+                    value={passwordForm.confirm}
+                    onChange={e => setPasswordForm(p => ({ ...p, confirm: e.target.value }))}
+                    className="w-full h-12 px-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-[#0264af] outline-none transition-all"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setShowPasswordForm(false)}
+                  className="flex-1 h-12 rounded-2xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="flex-[2] h-12 rounded-2xl font-bold text-white bg-slate-900 hover:bg-black transition-all disabled:opacity-50"
+                >
+                  {isChangingPassword ? "Salvando..." : "Salvar nova senha"}
+                </button>
+              </div>
+            </form>
+          )}
           <p className="mt-4 text-xs text-center text-slate-400">ID da sessão atual: {user?.email ? btoa(user.email).substring(0, 16) : '...'}</p>
         </CardContent>
       </Card>
