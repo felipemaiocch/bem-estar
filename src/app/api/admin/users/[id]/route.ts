@@ -9,8 +9,11 @@ const updateUserSchema = z.object({
   email: z.email().optional(),
   role: z.enum(["USER", "PROFESSIONAL", "ADMIN"]).optional(),
   isActive: z.boolean().optional(),
+  approvalStatus: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+  approvalNote: z.string().max(500).optional(),
   company: z.string().max(160).optional(),
   score: z.number().int().min(0).max(100000).optional(),
+  groupIds: z.array(z.string().min(1)).optional(),
 });
 
 function getUserId(pathname: string) {

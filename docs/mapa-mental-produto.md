@@ -26,8 +26,8 @@ mindmap
       Login email e senha [OK]
       Cadastro publico [PARCIAL]
       RBAC por papel [OK]
-      Aprovacao de cadastro [FALTA]
-      Grupos e turmas [FALTA]
+      Aprovacao de cadastro [PARCIAL]
+      Grupos e turmas [PARCIAL]
       Primeiro aceite [FALTA]
     Colaborador
       Home [PARCIAL]
@@ -96,7 +96,7 @@ mindmap
 - `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`. `[OK]`
 - JWT + cookie `pulsehub.session`. `[OK]`
 - RBAC por `src/proxy.ts`. `[OK]`
-- Cadastro pendente/aprovacao. `[FALTA]`
+- Cadastro pendente/aprovacao. `[PARCIAL]`
 - Recuperacao de senha. `[FALTA]`
 - Termo obrigatorio no primeiro login. `[FALTA]`
 
@@ -145,11 +145,11 @@ Status: `[OK]`
 
 ### 1. Usuarios, aprovacao e grupos
 
-Status: `[FALTA]`
+Status: `[PARCIAL]`
 
-- Cadastro pendente/aprovacao.
-- Grupos/tags/turmas.
-- Restricao por convite ou aprovacao manual.
+- Cadastro pendente/aprovacao. `[OK]`
+- Grupos/tags/turmas. `[PARCIAL]`
+- Restricao por convite ou aprovacao manual. `[FALTA]`
 
 ### 2. Compliance e aceites
 

@@ -55,6 +55,27 @@ export async function POST(request: Request) {
       );
     }
 
+    if (user.approvalStatus === "PENDING") {
+      return NextResponse.json(
+        { ok: false, error: "Seu cadastro está aguardando aprovação do administrador." },
+        { status: 403 },
+      );
+    }
+
+    if (user.approvalStatus === "REJECTED") {
+      return NextResponse.json(
+        { ok: false, error: "Seu cadastro não foi aprovado. Contate o administrador." },
+        { status: 403 },
+      );
+    }
+
+    if (!user.isActive) {
+      return NextResponse.json(
+        { ok: false, error: "Usuário inativo. Contate o administrador." },
+        { status: 403 },
+      );
+    }
+
     const validPassword = await bcrypt.compare(password, user.passwordHash);
 
     if (!validPassword) {

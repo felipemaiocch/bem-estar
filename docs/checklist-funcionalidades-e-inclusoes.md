@@ -89,27 +89,33 @@ Commit sugerido:
 
 Objetivo: controlar quem entra, quem precisa aprovacao e quem pertence a turmas/grupos especificos.
 
+Status: `Parcial implementado em 2026-05-11`.
+
 ### Estado atual
 
 - Login e cadastro existem. `Implementado`
 - Admin cria, edita, ativa/inativa e exclui usuarios. `Parcial`
 - RBAC por papel existe em tela e API. `Implementado`
-- Cadastro publico cria usuario `USER` diretamente quando fora do modo demo. `Implementado`
-- Nao existe status de cadastro pendente/aprovado/rejeitado. `Falta banco`, `Falta API`, `Falta tela`
-- Nao existe convite ou cadastro restrito por turma. `Falta regra`, `Falta banco`, `Falta API`, `Falta tela`
-- Nao existe modelo de grupo/turma/tag de participante. `Falta banco`, `Falta API`, `Falta tela`
+- Cadastro publico cria usuario `USER` como `PENDING` e `isActive=false` quando fora do modo demo. `Implementado`
+- Login bloqueia usuario `PENDING`, `REJECTED` ou inativo. `Implementado`
+- Admin aprova/rejeita cadastros pendentes. `Implementado`
+- Modelo de grupo/turma/tag de participante existe com `AccessGroup` e `UserGroupMembership`. `Implementado`
+- Admin lista/cria/ativa/inativa grupos e turmas. `Parcial`
+- Admin pode vincular grupos/turmas ao criar usuario manualmente. `Parcial`
+- Convite, dominio liberado e cadastro restrito por turma ainda nao existem. `Falta regra`, `Falta API`, `Falta tela`
+- Uso dos grupos para esconder/exibir aulas e conteudos ainda fica para os modulos de turmas/conteudos. `Falta regra`, `Falta API`, `Falta tela`
 
 ### Entraria no modulo
 
-- Criar status de cadastro: `PENDING`, `APPROVED`, `REJECTED`.
-- Criar fluxo admin para aprovar/rejeitar cadastro.
+- Criar status de cadastro: `PENDING`, `APPROVED`, `REJECTED`. `Implementado`
+- Criar fluxo admin para aprovar/rejeitar cadastro. `Implementado`
 - Definir se cadastro publico fica aberto ou vira solicitacao pendente.
-- Criar base para grupos/tags: Ingles, Maisa, Clube do Livro, turma fechada, profissional por categoria.
-- Preparar vinculo usuario-grupo sem ainda implementar todos os fluxos de aula.
+- Criar base para grupos/tags: Ingles, Maisa, Clube do Livro, turma fechada, profissional por categoria. `Implementado`
+- Preparar vinculo usuario-grupo sem ainda implementar todos os fluxos de aula. `Parcial`
 
 ### Decisoes antes de implementar
 
-- Usuario externo pode se cadastrar sozinho ou sempre precisa aprovacao?
+- Usuario externo pode se cadastrar sozinho ou sempre precisa aprovacao? `Decidido: cadastro novo fica pendente por padrao.`
 - Quais dominios/emails podem entrar sem aprovacao?
 - Turmas fechadas usam convite, aprovacao manual ou lista cadastrada pelo admin?
 

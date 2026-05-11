@@ -13,6 +13,8 @@ async function main() {
   await prisma.eventAttendance.deleteMany();
   await prisma.event.deleteMany();
   await prisma.sessionBooking.deleteMany();
+  await prisma.userGroupMembership.deleteMany();
+  await prisma.accessGroup.deleteMany();
   await prisma.professionalProfile.deleteMany();
   await prisma.user.deleteMany();
 
@@ -104,6 +106,33 @@ async function main() {
     },
   });
   console.log(`Usuários criados`);
+
+  await prisma.accessGroup.createMany({
+    data: [
+      {
+        name: "Turma de inglês",
+        slug: "turma-de-ingles",
+        description: "Grupo fechado para alunos da turma de inglês.",
+        kind: "CLASS",
+        isRestricted: true,
+      },
+      {
+        name: "Turma da Maísa",
+        slug: "turma-da-maisa",
+        description: "Participantes selecionados para as ações da Maísa.",
+        kind: "COHORT",
+        isRestricted: true,
+      },
+      {
+        name: "Clube do livro",
+        slug: "clube-do-livro",
+        description: "Grupo do clube do livro.",
+        kind: "CLASS",
+        isRestricted: true,
+      },
+    ],
+  });
+  console.log(`Grupos iniciais criados`);
 
   // 4. Criar Agendamentos de Sessão (Bookings)
   const amanhã = new Date();

@@ -12,6 +12,7 @@ const createAdminUserSchema = z.object({
   company: z.string().max(160).optional(),
   specialty: z.string().max(160).optional(),
   licenseCode: z.string().max(120).optional(),
+  groupIds: z.array(z.string().min(1)).optional(),
 });
 
 const usersQuerySchema = z.object({

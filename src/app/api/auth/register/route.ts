@@ -73,24 +73,22 @@ export async function POST(request: Request) {
       goal,
       desiredWeeklyFrequency,
       currentGoal: goal,
+      isActive: false,
+      approvalStatus: "PENDING",
     },
   });
 
-  const sessionPayload = {
-    sub: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-  } as const;
-
-  const token = await signToken(sessionPayload);
   const response = NextResponse.json({
     ok: true,
     mode: "database",
-    redirectTo: redirectForRole(user.role),
-    user: sessionPayload,
+    pendingApproval: true,
+    message: "Cadastro enviado para aprovação. Você poderá entrar assim que o administrador liberar seu acesso.",
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      approvalStatus: user.approvalStatus,
+    },
   });
-
-  response.cookies.set(authCookieName, token, sessionCookieOptions());
   return response;
 }

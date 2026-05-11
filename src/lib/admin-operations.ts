@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import type { EventKind, EventStatus, UserRole } from "@prisma/client";
+import type { EventKind, EventStatus, GroupKind, UserApprovalStatus, UserRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { isDemoMode } from "@/lib/runtime-mode";
@@ -10,9 +10,14 @@ export interface AdminUserView {
   email: string;
   role: UserRole;
   isActive: boolean;
+  approvalStatus: UserApprovalStatus;
+  approvedAtIso: string | null;
+  rejectedAtIso: string | null;
   company: string | null;
   score: number;
   createdAtIso: string;
+  groupIds: string[];
+  groupNames: string[];
 }
 
 export interface AdminProfessionalView {
@@ -40,6 +45,17 @@ export interface AdminEventView {
   maxAttendees: number | null;
 }
 
+export interface AdminGroupView {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  kind: GroupKind;
+  isRestricted: boolean;
+  isActive: boolean;
+  memberCount: number;
+}
+
 interface AdminCreateUserInput {
   name: string;
   email: string;
@@ -48,6 +64,7 @@ interface AdminCreateUserInput {
   company?: string;
   specialty?: string;
   licenseCode?: string;
+  groupIds?: string[];
 }
 
 interface AdminUpdateUserInput {
@@ -55,8 +72,11 @@ interface AdminUpdateUserInput {
   email?: string;
   role?: UserRole;
   isActive?: boolean;
+  approvalStatus?: UserApprovalStatus;
+  approvalNote?: string;
   company?: string;
   score?: number;
+  groupIds?: string[];
 }
 
 interface AdminCreateProfessionalInput {
@@ -105,6 +125,23 @@ interface AdminUpdateEventInput {
   responsibleName?: string;
 }
 
+interface AdminCreateGroupInput {
+  name: string;
+  slug?: string;
+  description?: string;
+  kind?: GroupKind;
+  isRestricted?: boolean;
+}
+
+interface AdminUpdateGroupInput {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  kind?: GroupKind;
+  isRestricted?: boolean;
+  isActive?: boolean;
+}
+
 type DemoUser = {
   id: string;
   name: string;
@@ -113,10 +150,25 @@ type DemoUser = {
   company: string | null;
   score: number;
   isActive: boolean;
+  approvalStatus: UserApprovalStatus;
+  approvedAtIso?: string | null;
+  rejectedAtIso?: string | null;
+  approvalNote?: string | null;
+  groupIds?: string[];
   specialty?: string;
   licenseCode?: string | null;
   attendanceRate?: number;
   createdAtIso: string;
+};
+
+type DemoGroup = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  kind: GroupKind;
+  isRestricted: boolean;
+  isActive: boolean;
 };
 
 type DemoEvent = {
@@ -136,6 +188,7 @@ type DemoEvent = {
 declare global {
   var semonitoraDemoAdminUsers: DemoUser[] | undefined;
   var semonitoraDemoAdminEvents: DemoEvent[] | undefined;
+  var semonitoraDemoAccessGroups: DemoGroup[] | undefined;
 }
 
 function nowIso() {
@@ -144,6 +197,56 @@ function nowIso() {
 
 function generateId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+}
+
+function normalizeSlug(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function uniqueStrings(values: string[] = []) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function getDemoGroups() {
+  if (!global.semonitoraDemoAccessGroups) {
+    global.semonitoraDemoAccessGroups = [
+      {
+        id: "group-ingles",
+        name: "Turma de inglês",
+        slug: "turma-de-ingles",
+        description: "Grupo fechado para alunos da turma de inglês.",
+        kind: "CLASS",
+        isRestricted: true,
+        isActive: true,
+      },
+      {
+        id: "group-maisa",
+        name: "Turma da Maísa",
+        slug: "turma-da-maisa",
+        description: "Participantes selecionados para as ações da Maísa.",
+        kind: "COHORT",
+        isRestricted: true,
+        isActive: true,
+      },
+      {
+        id: "group-clube-livro",
+        name: "Clube do livro",
+        slug: "clube-do-livro",
+        description: "Grupo do clube do livro.",
+        kind: "CLASS",
+        isRestricted: true,
+        isActive: true,
+      },
+    ];
+  }
+
+  return global.semonitoraDemoAccessGroups;
 }
 
 function getDemoUsers() {
@@ -157,6 +260,9 @@ function getDemoUsers() {
         company: "Operações",
         score: 1990,
         isActive: true,
+        approvalStatus: "APPROVED",
+        approvedAtIso: "2026-04-01T09:00:00.000Z",
+        groupIds: ["group-maisa"],
         createdAtIso: "2026-04-01T09:00:00.000Z",
       },
       {
@@ -167,6 +273,9 @@ function getDemoUsers() {
         company: "RH",
         score: 1890,
         isActive: true,
+        approvalStatus: "APPROVED",
+        approvedAtIso: "2026-04-01T09:00:00.000Z",
+        groupIds: ["group-clube-livro"],
         createdAtIso: "2026-04-01T09:00:00.000Z",
       },
       {
@@ -177,6 +286,9 @@ function getDemoUsers() {
         company: "Produto",
         score: 2430,
         isActive: true,
+        approvalStatus: "APPROVED",
+        approvedAtIso: "2026-04-01T09:00:00.000Z",
+        groupIds: ["group-ingles"],
         createdAtIso: "2026-04-01T09:00:00.000Z",
       },
       {
@@ -187,6 +299,8 @@ function getDemoUsers() {
         company: "Saúde e bem-estar",
         score: 0,
         isActive: true,
+        approvalStatus: "APPROVED",
+        approvedAtIso: "2026-04-01T09:00:00.000Z",
         specialty: "Nutrição",
         licenseCode: "CRN-001",
         attendanceRate: 0.94,
@@ -200,6 +314,8 @@ function getDemoUsers() {
         company: "Operações",
         score: 0,
         isActive: true,
+        approvalStatus: "APPROVED",
+        approvedAtIso: "2026-04-01T09:00:00.000Z",
         createdAtIso: "2026-04-01T09:00:00.000Z",
       },
     ];
@@ -244,15 +360,23 @@ function getDemoEvents() {
 }
 
 function toAdminUserView(user: DemoUser): AdminUserView {
+  const groupMap = new Map(getDemoGroups().map((group) => [group.id, group.name]));
+  const groupIds = user.groupIds ?? [];
+
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
     isActive: user.isActive,
+    approvalStatus: user.approvalStatus,
+    approvedAtIso: user.approvedAtIso ?? null,
+    rejectedAtIso: user.rejectedAtIso ?? null,
     company: user.company,
     score: user.score,
     createdAtIso: user.createdAtIso,
+    groupIds,
+    groupNames: groupIds.map((groupId) => groupMap.get(groupId)).filter((name): name is string => Boolean(name)),
   };
 }
 
@@ -283,6 +407,41 @@ function toAdminEventView(event: DemoEvent): AdminEventView {
     status: event.status,
     maxAttendees: event.maxAttendees,
   };
+}
+
+function toAdminGroupView(group: DemoGroup): AdminGroupView {
+  const memberCount = getDemoUsers().filter((user) => user.groupIds?.includes(group.id)).length;
+
+  return {
+    id: group.id,
+    name: group.name,
+    slug: group.slug,
+    description: group.description,
+    kind: group.kind,
+    isRestricted: group.isRestricted,
+    isActive: group.isActive,
+    memberCount,
+  };
+}
+
+async function syncUserGroups(userId: string, groupIds: string[] = []) {
+  const uniqueGroupIds = uniqueStrings(groupIds);
+
+  await prisma.userGroupMembership.deleteMany({
+    where: { userId },
+  });
+
+  if (!uniqueGroupIds.length) {
+    return;
+  }
+
+  await prisma.userGroupMembership.createMany({
+    data: uniqueGroupIds.map((groupId) => ({
+      userId,
+      groupId,
+    })),
+    skipDuplicates: true,
+  });
 }
 
 async function writeAuditLog(
@@ -344,6 +503,18 @@ export async function listAdminUsers(filters?: { search?: string; role?: UserRol
           }
         : {}),
     },
+    include: {
+      groupMemberships: {
+        include: {
+          group: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -353,9 +524,14 @@ export async function listAdminUsers(filters?: { search?: string; role?: UserRol
     email: user.email,
     role: user.role,
     isActive: user.isActive,
+    approvalStatus: user.approvalStatus,
+    approvedAtIso: user.approvedAt?.toISOString() ?? null,
+    rejectedAtIso: user.rejectedAt?.toISOString() ?? null,
     company: user.company,
     score: user.score,
     createdAtIso: user.createdAt.toISOString(),
+    groupIds: user.groupMemberships.map((membership) => membership.group.id),
+    groupNames: user.groupMemberships.map((membership) => membership.group.name),
   }));
 }
 
@@ -380,6 +556,9 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
       company: input.company?.trim() || null,
       score: 0,
       isActive: true,
+      approvalStatus: "APPROVED",
+      approvedAtIso: nowIso(),
+      groupIds: uniqueStrings(input.groupIds),
       specialty: input.specialty,
       licenseCode: input.licenseCode ?? null,
       attendanceRate: 0,
@@ -408,6 +587,16 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
       passwordHash,
       role: input.role,
       company: input.company?.trim() || null,
+      approvalStatus: "APPROVED",
+      approvedAt: new Date(),
+      approvedById: actorId,
+      groupMemberships: input.groupIds?.length
+        ? {
+            create: uniqueStrings(input.groupIds).map((groupId) => ({
+              groupId,
+            })),
+          }
+        : undefined,
     },
   });
 
@@ -434,9 +623,14 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
     email: created.email,
     role: created.role,
     isActive: created.isActive,
+    approvalStatus: created.approvalStatus,
+    approvedAtIso: created.approvedAt?.toISOString() ?? null,
+    rejectedAtIso: created.rejectedAt?.toISOString() ?? null,
     company: created.company,
     score: created.score,
     createdAtIso: created.createdAt.toISOString(),
+    groupIds: uniqueStrings(input.groupIds),
+    groupNames: [],
   };
 }
 
@@ -468,10 +662,53 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
       ...(input.company !== undefined ? { company: input.company?.trim() || null } : {}),
       ...(input.score !== undefined ? { score: input.score } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(input.approvalStatus
+        ? {
+            approvalStatus: input.approvalStatus,
+            approvedAtIso: input.approvalStatus === "APPROVED" ? nowIso() : target.approvedAtIso,
+            rejectedAtIso: input.approvalStatus === "REJECTED" ? nowIso() : null,
+            approvalNote: input.approvalNote ?? target.approvalNote ?? null,
+            isActive:
+              input.approvalStatus === "APPROVED"
+                ? true
+                : input.approvalStatus === "REJECTED"
+                  ? false
+                  : target.isActive,
+          }
+        : {}),
+      ...(input.groupIds ? { groupIds: uniqueStrings(input.groupIds) } : {}),
     });
 
     return toAdminUserView(target);
   }
+
+  const approvalData =
+    input.approvalStatus === "APPROVED"
+      ? {
+          approvalStatus: input.approvalStatus,
+          approvedAt: new Date(),
+          approvedById: actorId,
+          rejectedAt: null,
+          approvalNote: input.approvalNote?.trim() || null,
+          isActive: true,
+        }
+      : input.approvalStatus === "REJECTED"
+        ? {
+            approvalStatus: input.approvalStatus,
+            rejectedAt: new Date(),
+            approvalNote: input.approvalNote?.trim() || null,
+            isActive: false,
+          }
+        : input.approvalStatus === "PENDING"
+          ? {
+              approvalStatus: input.approvalStatus,
+              approvedAt: null,
+              approvedById: null,
+              rejectedAt: null,
+              approvalNote: input.approvalNote?.trim() || null,
+              isActive: false,
+            }
+          : {};
 
   const updated = await prisma.user.update({
     where: { id: userId },
@@ -482,8 +719,25 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
       ...(input.company !== undefined ? { company: input.company?.trim() || null } : {}),
       ...(input.score !== undefined ? { score: input.score } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...approvalData,
+    },
+    include: {
+      groupMemberships: {
+        include: {
+          group: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
     },
   });
+
+  if (input.groupIds) {
+    await syncUserGroups(updated.id, input.groupIds);
+  }
 
   if (input.role === "PROFESSIONAL") {
     await prisma.professionalProfile.upsert({
@@ -504,9 +758,222 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
     email: updated.email,
     role: updated.role,
     isActive: updated.isActive,
+    approvalStatus: updated.approvalStatus,
+    approvedAtIso: updated.approvedAt?.toISOString() ?? null,
+    rejectedAtIso: updated.rejectedAt?.toISOString() ?? null,
     company: updated.company,
     score: updated.score,
     createdAtIso: updated.createdAt.toISOString(),
+    groupIds: input.groupIds ?? updated.groupMemberships.map((membership) => membership.group.id),
+    groupNames: input.groupIds ? [] : updated.groupMemberships.map((membership) => membership.group.name),
+  };
+}
+
+async function ensureDefaultGroups() {
+  const defaults: AdminCreateGroupInput[] = [
+    {
+      name: "Turma de inglês",
+      slug: "turma-de-ingles",
+      description: "Grupo fechado para alunos da turma de inglês.",
+      kind: "CLASS",
+      isRestricted: true,
+    },
+    {
+      name: "Turma da Maísa",
+      slug: "turma-da-maisa",
+      description: "Participantes selecionados para as ações da Maísa.",
+      kind: "COHORT",
+      isRestricted: true,
+    },
+    {
+      name: "Clube do livro",
+      slug: "clube-do-livro",
+      description: "Grupo do clube do livro.",
+      kind: "CLASS",
+      isRestricted: true,
+    },
+  ];
+
+  await prisma.accessGroup.createMany({
+    data: defaults.map((group) => ({
+      name: group.name,
+      slug: group.slug ?? normalizeSlug(group.name),
+      description: group.description,
+      kind: group.kind ?? "COHORT",
+      isRestricted: group.isRestricted ?? true,
+    })),
+    skipDuplicates: true,
+  });
+}
+
+export async function listAdminGroups() {
+  if (isDemoMode()) {
+    return getDemoGroups().map(toAdminGroupView);
+  }
+
+  const count = await prisma.accessGroup.count();
+
+  if (count === 0) {
+    await ensureDefaultGroups();
+  }
+
+  const groups = await prisma.accessGroup.findMany({
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    include: {
+      _count: {
+        select: {
+          memberships: true,
+        },
+      },
+    },
+  });
+
+  return groups.map((group) => ({
+    id: group.id,
+    name: group.name,
+    slug: group.slug,
+    description: group.description,
+    kind: group.kind,
+    isRestricted: group.isRestricted,
+    isActive: group.isActive,
+    memberCount: group._count.memberships,
+  }));
+}
+
+export async function createAdminGroup(actorId: string, input: AdminCreateGroupInput) {
+  const slug = normalizeSlug(input.slug || input.name);
+
+  if (!slug) {
+    throw new Error("Informe um nome válido para o grupo.");
+  }
+
+  if (isDemoMode()) {
+    const groups = getDemoGroups();
+
+    if (groups.some((group) => group.slug === slug)) {
+      throw new Error("Já existe um grupo com este slug.");
+    }
+
+    const created: DemoGroup = {
+      id: generateId("group"),
+      name: input.name.trim(),
+      slug,
+      description: input.description?.trim() || null,
+      kind: input.kind ?? "COHORT",
+      isRestricted: input.isRestricted ?? true,
+      isActive: true,
+    };
+
+    groups.push(created);
+    return toAdminGroupView(created);
+  }
+
+  const existing = await prisma.accessGroup.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new Error("Já existe um grupo com este slug.");
+  }
+
+  const created = await prisma.accessGroup.create({
+    data: {
+      name: input.name.trim(),
+      slug,
+      description: input.description?.trim() || null,
+      kind: input.kind ?? "COHORT",
+      isRestricted: input.isRestricted ?? true,
+    },
+  });
+
+  await writeAuditLog(actorId, "CREATE", "ACCESS_GROUP", created.id, {
+    name: created.name,
+    kind: created.kind,
+  });
+
+  return {
+    id: created.id,
+    name: created.name,
+    slug: created.slug,
+    description: created.description,
+    kind: created.kind,
+    isRestricted: created.isRestricted,
+    isActive: created.isActive,
+    memberCount: 0,
+  };
+}
+
+export async function updateAdminGroup(actorId: string, groupId: string, input: AdminUpdateGroupInput) {
+  if (isDemoMode()) {
+    const groups = getDemoGroups();
+    const target = groups.find((group) => group.id === groupId);
+
+    if (!target) {
+      throw new Error("Grupo não encontrado.");
+    }
+
+    const nextSlug = input.slug ? normalizeSlug(input.slug) : undefined;
+
+    if (nextSlug && groups.some((group) => group.id !== groupId && group.slug === nextSlug)) {
+      throw new Error("Já existe outro grupo com este slug.");
+    }
+
+    Object.assign(target, {
+      ...(input.name ? { name: input.name.trim() } : {}),
+      ...(nextSlug ? { slug: nextSlug } : {}),
+      ...(input.description !== undefined ? { description: input.description?.trim() || null } : {}),
+      ...(input.kind ? { kind: input.kind } : {}),
+      ...(input.isRestricted !== undefined ? { isRestricted: input.isRestricted } : {}),
+      ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+    });
+
+    return toAdminGroupView(target);
+  }
+
+  const nextSlug = input.slug ? normalizeSlug(input.slug) : undefined;
+
+  if (nextSlug) {
+    const conflicting = await prisma.accessGroup.findUnique({
+      where: { slug: nextSlug },
+      select: { id: true },
+    });
+
+    if (conflicting && conflicting.id !== groupId) {
+      throw new Error("Já existe outro grupo com este slug.");
+    }
+  }
+
+  const updated = await prisma.accessGroup.update({
+    where: { id: groupId },
+    data: {
+      ...(input.name ? { name: input.name.trim() } : {}),
+      ...(nextSlug ? { slug: nextSlug } : {}),
+      ...(input.description !== undefined ? { description: input.description?.trim() || null } : {}),
+      ...(input.kind ? { kind: input.kind } : {}),
+      ...(input.isRestricted !== undefined ? { isRestricted: input.isRestricted } : {}),
+      ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+    },
+    include: {
+      _count: {
+        select: {
+          memberships: true,
+        },
+      },
+    },
+  });
+
+  await writeAuditLog(actorId, "UPDATE", "ACCESS_GROUP", updated.id, input);
+
+  return {
+    id: updated.id,
+    name: updated.name,
+    slug: updated.slug,
+    description: updated.description,
+    kind: updated.kind,
+    isRestricted: updated.isRestricted,
+    isActive: updated.isActive,
+    memberCount: updated._count.memberships,
   };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Calendar, ChevronRight, Lock, Megaphone, Search, Send, Settings, Star, Stethoscope, Trash2, Users } from "lucide-react";
+import { Activity, Calendar, ChevronRight, Lock, Megaphone, Search, Send, Settings, Star, Tags, Trash2, UserCheck, UserX, Users } from "lucide-react";
 
 import Link from "next/link";
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
@@ -15,9 +15,14 @@ interface AdminUserItem {
   email: string;
   role: "USER" | "PROFESSIONAL" | "ADMIN";
   isActive: boolean;
+  approvalStatus: "PENDING" | "APPROVED" | "REJECTED";
+  approvedAtIso: string | null;
+  rejectedAtIso: string | null;
   company: string | null;
   score: number;
   createdAtIso: string;
+  groupIds: string[];
+  groupNames: string[];
 }
 
 interface AdminProfessionalItem {
@@ -45,6 +50,17 @@ interface AdminEventItem {
   maxAttendees: number | null;
 }
 
+interface AdminGroupItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  kind: "COHORT" | "CLASS" | "TAG" | "PROJECT";
+  isRestricted: boolean;
+  isActive: boolean;
+  memberCount: number;
+}
+
 const defaultUserForm = {
   name: "",
   email: "",
@@ -52,6 +68,7 @@ const defaultUserForm = {
   company: "",
   specialty: "",
   password: "",
+  groupIds: [] as string[],
 };
 
 const defaultProfessionalForm = {
@@ -75,6 +92,13 @@ const defaultEventForm = {
   responsibleName: "",
 };
 
+const defaultGroupForm = {
+  name: "",
+  description: "",
+  kind: "COHORT" as AdminGroupItem["kind"],
+  isRestricted: true,
+};
+
 const inputClassName =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#0264af] focus:bg-white";
 
@@ -82,6 +106,7 @@ export function AdminDashboardScreen() {
   const [users, setUsers] = useState<AdminUserItem[]>([]);
   const [professionals, setProfessionals] = useState<AdminProfessionalItem[]>([]);
   const [events, setEvents] = useState<AdminEventItem[]>([]);
+  const [groups, setGroups] = useState<AdminGroupItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingProfessionalId, setEditingProfessionalId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -92,16 +117,18 @@ export function AdminDashboardScreen() {
   const [userForm, setUserForm] = useState(defaultUserForm);
   const [professionalForm, setProfessionalForm] = useState(defaultProfessionalForm);
   const [eventForm, setEventForm] = useState(defaultEventForm);
+  const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [cardCount, setCardCount] = useState(0);
   const [globalSlots, setGlobalSlots] = useState("");
   const [moodStats, setMoodStats] = useState<any[]>([]);
-  const [activeUserTab, setActiveUserTab] = useState<"TODOS" | "USER" | "PROFESSIONAL" | "ADMIN">("TODOS");
+  const [activeUserTab, setActiveUserTab] = useState<"TODOS" | "PENDING" | "USER" | "PROFESSIONAL" | "ADMIN">("TODOS");
   const [userSearch, setUserSearch] = useState("");
   const [allowUserPosting, setAllowUserPosting] = useState(true);
   const [feedModerationPosts, setFeedModerationPosts] = useState<any[]>([]);
   const [loadingModeration, setLoadingModeration] = useState(false);
 
-  const activeUsers = users.filter((user) => user.isActive).length;
+  const activeUsers = users.filter((user) => user.isActive && user.approvalStatus === "APPROVED").length;
+  const pendingUsers = users.filter((user) => user.approvalStatus === "PENDING").length;
   const monthlyEngagement = useMemo(() => {
     if (!users.length) {
       return 0;
@@ -124,10 +151,11 @@ export function AdminDashboardScreen() {
     setFeedback(null);
 
     try {
-      const [usersResponse, professionalsResponse, eventsResponse, cardsResponse, agendaConfigResponse, moodStatsResponse, settingsResponse, feedResponse] = await Promise.all([
+      const [usersResponse, professionalsResponse, eventsResponse, groupsResponse, cardsResponse, agendaConfigResponse, moodStatsResponse, settingsResponse, feedResponse] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/admin/professionals"),
         fetch("/api/admin/events"),
+        fetch("/api/admin/groups"),
         fetch("/api/admin/cards"),
         fetch("/api/admin/agenda-config"),
         fetch("/api/admin/stats/moods"),
@@ -135,10 +163,11 @@ export function AdminDashboardScreen() {
         fetch("/api/admin/feed-moderation"),
       ]);
 
-      const [usersData, professionalsData, eventsData, cardsData, agendaData, moodData, settingsData, feedData] = await Promise.all([
+      const [usersData, professionalsData, eventsData, groupsData, cardsData, agendaData, moodData, settingsData, feedData] = await Promise.all([
         usersResponse.json(),
         professionalsResponse.json(),
         eventsResponse.json(),
+        groupsResponse.json(),
         cardsResponse.json(),
         agendaConfigResponse.json(),
         moodStatsResponse.json(),
@@ -149,6 +178,7 @@ export function AdminDashboardScreen() {
       if (usersData.ok) setUsers(usersData.users ?? []);
       if (professionalsData.ok) setProfessionals(professionalsData.professionals ?? []);
       if (eventsData.ok) setEvents(eventsData.events ?? []);
+      if (groupsData.ok) setGroups(groupsData.groups ?? []);
       if (cardsData.ok) setCardCount(cardsData.cards?.length ?? 0);
       if (agendaData.ok) setGlobalSlots(agendaData.slots || "");
       if (moodData.ok) setMoodStats(moodData.stats ?? []);
@@ -191,6 +221,7 @@ export function AdminDashboardScreen() {
           company: userForm.company || undefined,
           specialty: userForm.role === "PROFESSIONAL" ? userForm.specialty || undefined : undefined,
           password: userForm.password || undefined,
+          groupIds: userForm.groupIds,
         }),
       });
 
@@ -413,6 +444,130 @@ export function AdminDashboardScreen() {
     }
   }
 
+  async function updateUserApproval(user: AdminUserItem, approvalStatus: "APPROVED" | "REJECTED") {
+    if (busyAction) {
+      return;
+    }
+
+    setBusyAction(`${approvalStatus.toLowerCase()}-user-${user.id}`);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          approvalStatus,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível atualizar a aprovação.");
+        return;
+      }
+
+      setFeedback(
+        approvalStatus === "APPROVED"
+          ? `Cadastro de ${user.name} aprovado.`
+          : `Cadastro de ${user.name} rejeitado.`,
+      );
+      await loadAdminData();
+    } catch {
+      setFeedback("Falha de conexão ao atualizar aprovação.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleCreateGroup(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (busyAction) {
+      return;
+    }
+
+    setBusyAction("create-group");
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/groups", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: groupForm.name,
+          description: groupForm.description || undefined,
+          kind: groupForm.kind,
+          isRestricted: groupForm.isRestricted,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível criar grupo.");
+        return;
+      }
+
+      setGroupForm(defaultGroupForm);
+      setFeedback("Grupo/turma criado com sucesso.");
+      await loadAdminData();
+    } catch {
+      setFeedback("Falha de conexão ao criar grupo.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function toggleGroupStatus(group: AdminGroupItem) {
+    if (busyAction) {
+      return;
+    }
+
+    setBusyAction(`toggle-group-${group.id}`);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/admin/groups/${group.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isActive: !group.isActive,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível atualizar grupo.");
+        return;
+      }
+
+      setFeedback(`Grupo ${group.name} atualizado.`);
+      await loadAdminData();
+    } catch {
+      setFeedback("Falha de conexão ao atualizar grupo.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   async function publishOrDraftEvent(event: AdminEventItem) {
     if (busyAction) {
       return;
@@ -498,8 +653,11 @@ export function AdminDashboardScreen() {
   const handleQuickAction = (action: string) => {
     switch (action) {
       case "Gerenciar prestadores":
-      case "Aprovar profissionais":
         document.getElementById("gestao-profissionais")?.scrollIntoView({ behavior: "smooth" });
+        break;
+      case "Aprovar cadastros":
+        document.getElementById("gestao-usuarios")?.scrollIntoView({ behavior: "smooth" });
+        setActiveUserTab("PENDING");
         break;
       case "Configurar gamificação":
         setFeedback("Configurações de Gamificação: Os pontos são atribuídos automaticamente via API (Mecânica de Check-in e Streaks ativa).");
@@ -588,7 +746,7 @@ export function AdminDashboardScreen() {
             {
               title: "Usuários ativos",
               value: String(activeUsers),
-              detail: `${users.length} no total`,
+              detail: pendingUsers ? `${pendingUsers} pendentes` : `${users.length} no total`,
               icon: Users,
               color: "border-l-blue-500 text-blue-500",
             },
@@ -691,7 +849,7 @@ export function AdminDashboardScreen() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <Card className="p-6">
+          <Card id="gestao-usuarios" className="p-6">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Gestão de usuários</h3>
             <form className="grid gap-3 md:grid-cols-6" onSubmit={(event) => void handleCreateUser(event)}>
               <input
@@ -752,12 +910,46 @@ export function AdminDashboardScreen() {
               <Button type="submit" disabled={busyAction === "create-user"}>
                 {busyAction === "create-user" ? "Salvando..." : "Criar"}
               </Button>
+              {groups.length > 0 ? (
+                <div className="md:col-span-6 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Grupos e turmas
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {groups.filter((group) => group.isActive).map((group) => {
+                      const selected = userForm.groupIds.includes(group.id);
+                      return (
+                        <button
+                          key={group.id}
+                          type="button"
+                          onClick={() =>
+                            setUserForm((current) => ({
+                              ...current,
+                              groupIds: selected
+                                ? current.groupIds.filter((groupId) => groupId !== group.id)
+                                : [...current.groupIds, group.id],
+                            }))
+                          }
+                          className={cn(
+                            "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors",
+                            selected
+                              ? "border-[#0264af] bg-[#0264af] text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-[#0264af]/30",
+                          )}
+                        >
+                          {group.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </form>
 
             <div className="mt-8 space-y-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 pt-6">
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
-                  {(["TODOS", "USER", "PROFESSIONAL", "ADMIN"] as const).map((tab) => (
+                  {(["TODOS", "PENDING", "USER", "PROFESSIONAL", "ADMIN"] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveUserTab(tab)}
@@ -768,7 +960,15 @@ export function AdminDashboardScreen() {
                           : "text-slate-500 hover:bg-slate-100"
                       )}
                     >
-                      {tab === "TODOS" ? "Todos" : tab === "USER" ? "Pacientes" : tab === "PROFESSIONAL" ? "Pro" : "Admins"}
+                      {tab === "TODOS"
+                        ? "Todos"
+                        : tab === "PENDING"
+                          ? "Pendentes"
+                          : tab === "USER"
+                            ? "Pacientes"
+                            : tab === "PROFESSIONAL"
+                              ? "Pro"
+                              : "Admins"}
                     </button>
                   ))}
                 </div>
@@ -791,7 +991,10 @@ export function AdminDashboardScreen() {
                 ) : null}
                 
                 {users
-                  .filter((u) => activeUserTab === "TODOS" || u.role === activeUserTab)
+                  .filter((u) =>
+                    activeUserTab === "TODOS" ||
+                    (activeUserTab === "PENDING" ? u.approvalStatus === "PENDING" : u.role === activeUserTab)
+                  )
                   .filter((u) => 
                     userSearch === "" || 
                     u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
@@ -813,13 +1016,54 @@ export function AdminDashboardScreen() {
                           )}>
                             {user.role}
                           </span>
+                          <span className={cn(
+                            "text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
+                            user.approvalStatus === "APPROVED" ? "bg-emerald-100 text-emerald-700" :
+                            user.approvalStatus === "PENDING" ? "bg-orange-100 text-orange-700" :
+                            "bg-rose-100 text-rose-700"
+                          )}>
+                            {user.approvalStatus === "APPROVED" ? "Aprovado" : user.approvalStatus === "PENDING" ? "Pendente" : "Rejeitado"}
+                          </span>
                         </div>
                         <p className="text-sm text-slate-500">
                           {user.email} {user.company ? `· ${user.company}` : ""}
                         </p>
+                        {user.groupNames.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {user.groupNames.map((groupName) => (
+                              <span key={groupName} className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                                {groupName}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2">
                          <span className="text-xs font-bold text-slate-400 mr-2">{user.score} pts</span>
+                        {user.approvalStatus === "PENDING" ? (
+                          <>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => void updateUserApproval(user, "APPROVED")}
+                              disabled={busyAction === `approved-user-${user.id}`}
+                              className="h-8 text-xs"
+                            >
+                              <UserCheck size={14} />
+                              Aprovar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void updateUserApproval(user, "REJECTED")}
+                              disabled={busyAction === `rejected-user-${user.id}`}
+                              className="h-8 text-xs border-rose-100 text-rose-600 hover:bg-rose-50"
+                            >
+                              <UserX size={14} />
+                              Rejeitar
+                            </Button>
+                          </>
+                        ) : null}
                         <Button
                           variant={user.isActive ? "outline" : "secondary"}
                           size="sm"
@@ -843,7 +1087,7 @@ export function AdminDashboardScreen() {
                     </div>
                   ))}
 
-                {users.length > 0 && users.filter((u) => (activeUserTab === "TODOS" || u.role === activeUserTab) && (userSearch === "" || u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()))).length === 0 && (
+                {users.length > 0 && users.filter((u) => (activeUserTab === "TODOS" || (activeUserTab === "PENDING" ? u.approvalStatus === "PENDING" : u.role === activeUserTab)) && (userSearch === "" || u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()))).length === 0 && (
                   <div className="py-8 text-center text-slate-400 text-sm italic">
                     Nenhum usuário encontrado com esses filtros.
                   </div>
@@ -857,7 +1101,7 @@ export function AdminDashboardScreen() {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {[
                 "Gerenciar prestadores",
-                "Aprovar profissionais",
+                "Aprovar cadastros",
                 "Disparar comunicado",
                 "Configurar gamificação",
                 "Relatórios mensais",
@@ -870,7 +1114,7 @@ export function AdminDashboardScreen() {
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition-colors">
                     {action === "Gerenciar prestadores" && <Users size={18} />}
-                    {action === "Aprovar profissionais" && <Stethoscope size={18} />}
+                    {action === "Aprovar cadastros" && <UserCheck size={18} />}
                     {action === "Disparar comunicado" && <Megaphone size={18} />}
                     {action === "Configurar gamificação" && <Star size={18} />}
                     {action === "Relatórios mensais" && <Activity size={18} />}
@@ -890,6 +1134,76 @@ export function AdminDashboardScreen() {
                   <ChevronRight size={20} className="text-[#0264af]" />
                 </div>
               </Link>
+            </div>
+
+            <div className="mt-8 border-t border-slate-100 pt-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Tags className="h-5 w-5 text-[#0264af]" />
+                <h3 className="text-lg font-bold text-gray-900">Grupos e turmas</h3>
+              </div>
+              <form className="space-y-3" onSubmit={(event) => void handleCreateGroup(event)}>
+                <input
+                  className={inputClassName}
+                  placeholder="Nome da turma ou grupo"
+                  value={groupForm.name}
+                  onChange={(event) =>
+                    setGroupForm((current) => ({ ...current, name: event.target.value }))
+                  }
+                  required
+                />
+                <textarea
+                  className={cn(inputClassName, "min-h-20 resize-none")}
+                  placeholder="Descrição curta"
+                  value={groupForm.description}
+                  onChange={(event) =>
+                    setGroupForm((current) => ({ ...current, description: event.target.value }))
+                  }
+                />
+                <div className="grid grid-cols-[1fr_auto] gap-3">
+                  <select
+                    className={inputClassName}
+                    value={groupForm.kind}
+                    onChange={(event) =>
+                      setGroupForm((current) => ({
+                        ...current,
+                        kind: event.target.value as AdminGroupItem["kind"],
+                      }))
+                    }
+                  >
+                    <option value="COHORT">Turma/Coorte</option>
+                    <option value="CLASS">Aula</option>
+                    <option value="TAG">Tag</option>
+                    <option value="PROJECT">Projeto</option>
+                  </select>
+                  <Button type="submit" disabled={busyAction === "create-group"}>
+                    {busyAction === "create-group" ? "..." : "Criar"}
+                  </Button>
+                </div>
+              </form>
+
+              <div className="mt-4 space-y-2">
+                {groups.map((group) => (
+                  <div key={group.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{group.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {group.kind} · {group.memberCount} participante{group.memberCount === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <Button
+                        variant={group.isActive ? "outline" : "secondary"}
+                        size="sm"
+                        onClick={() => void toggleGroupStatus(group)}
+                        disabled={busyAction === `toggle-group-${group.id}`}
+                        className="h-8 text-xs"
+                      >
+                        {group.isActive ? "Inativar" : "Ativar"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </Card>
         </div>
@@ -989,7 +1303,21 @@ export function AdminDashboardScreen() {
                        <Button 
                          variant={professional.isActive ? "outline" : "secondary"}
                          size="sm"
-                         onClick={() => void toggleUserStatus({ id: professional.userId, name: professional.name, isActive: professional.isActive } as AdminUserItem)}
+                         onClick={() => void toggleUserStatus({
+                           id: professional.userId,
+                           name: professional.name,
+                           email: professional.email,
+                           role: "PROFESSIONAL",
+                           isActive: professional.isActive,
+                           approvalStatus: "APPROVED",
+                           approvedAtIso: null,
+                           rejectedAtIso: null,
+                           company: null,
+                           score: 0,
+                           createdAtIso: "",
+                           groupIds: [],
+                           groupNames: [],
+                         })}
                          disabled={busyAction === `toggle-user-${professional.userId}`}
                        >
                          {professional.isActive ? "Desativar" : "Ativar"}

@@ -14,6 +14,25 @@ enum UserRole {
   ADMIN
 }
 
+enum UserApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum GroupKind {
+  COHORT
+  CLASS
+  TAG
+  PROJECT
+}
+
+enum GroupMemberRole {
+  PARTICIPANT
+  FACILITATOR
+  OWNER
+}
+
 enum GoalType {
   WEIGHT_LOSS
   MENTAL_HEALTH
@@ -105,6 +124,11 @@ model User {
   score                     Int                      @default(0)
   currentGoal               String?
   isActive                  Boolean                  @default(true)
+  approvalStatus            UserApprovalStatus       @default(APPROVED)
+  approvedAt                DateTime?
+  approvedById              String?
+  rejectedAt                DateTime?
+  approvalNote              String?
   createdAt                 DateTime                 @default(now())
   updatedAt                 DateTime                 @updatedAt
   professionalProfile       ProfessionalProfile?
@@ -128,6 +152,7 @@ model User {
   teamNotesAbout            TeamNote[]               @relation("TeamNoteUser")
   teamNotesAuthored          TeamNote[]               @relation("TeamNoteAuthor")
   teamNotesTargeted         TeamNote[]               @relation("TeamNoteTarget")
+  groupMemberships          UserGroupMembership[]
 }
 
 model ProfessionalProfile {
@@ -420,6 +445,34 @@ model GlobalAlert {
   message   String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+model AccessGroup {
+  id           String                @id @default(cuid())
+  name         String
+  slug         String                @unique
+  description  String?
+  kind         GroupKind             @default(COHORT)
+  isRestricted Boolean               @default(true)
+  isActive     Boolean               @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  memberships  UserGroupMembership[]
+
+  @@index([kind, isActive])
+}
+
+model UserGroupMembership {
+  id        String          @id @default(cuid())
+  userId    String
+  groupId   String
+  role      GroupMemberRole @default(PARTICIPANT)
+  createdAt DateTime        @default(now())
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     AccessGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([groupId])
 }
 
 model AgendaSetting {
