@@ -1,417 +1,273 @@
-# Pulse Hub - mapa mental do produto
+# dr.monitora Bem-Estar - mapa mental do produto
 
-Documento para revisao funcional com parceiro.
+Data da revisao: 2026-05-11
+Documento principal de backlog: `docs/checklist-funcionalidades-e-inclusoes.md`
 
 Objetivo:
-- listar tudo que ja existe no produto
-- separar o que esta parcial ou mockado
-- apontar o que ainda falta decidir ou implementar
-- evitar que paginas, sessoes e fluxos importantes fiquem de fora
 
-## Atualizacao de execucao (2026-04-17)
+- dar uma visao executiva do produto atual;
+- refletir o codigo existente, sem decisoes antigas defasadas;
+- separar produto em modulos menores para evoluir sem quebrar a plataforma hospedada;
+- apoiar a aprovacao de escopo antes de mexer em banco, API ou tela.
 
-- Checklist tecnico oficial para implementar e fechar funcionalidades por papel:
-  - `docs/checklist-funcionalidades-e-inclusoes.md`
-- Regra de acesso fechada:
-  - USER acessa somente `/usuario/*`
-  - PROFESSIONAL acessa somente `/profissional/*`
-  - ADMIN acessa somente `/admin/*`
+## Legenda
 
-Legenda:
-- `[OK]` implementado na interface ou na estrutura tecnica
-- `[PARCIAL]` existe na UI ou no fluxo, mas ainda depende de backend, regra ou CRUD real
-- `[FALTA]` ainda nao existe no produto atual
+- `[OK]` existe e esta ligado em fluxo basico.
+- `[PARCIAL]` existe, mas depende de regra, acabamento, tela, API ou integracao.
+- `[FALTA]` ainda nao existe de forma funcional.
+- `[DECISAO]` precisa de definicao de produto/compliance antes de implementar.
 
 ## Mapa mental
 
 ```mermaid
 mindmap
-  root((Pulse Hub))
+  root((Bem-Estar dr.monitora))
     Autenticacao e acesso
       Login email e senha [OK]
-      Login por perfil USER/PROFESSIONAL/ADMIN [OK]
-      Cadastro e onboarding inicial [PARCIAL]
-      Google Workspace [PARCIAL]
-      Esqueci minha senha [FALTA]
-      JWT + cookie de sessao [OK]
+      Cadastro publico [PARCIAL]
       RBAC por papel [OK]
+      Aprovacao de cadastro [FALTA]
+      Grupos e turmas [FALTA]
+      Primeiro aceite [FALTA]
     Colaborador
-      Home [OK]
-        Cards de categorias [OK]
+      Home [PARCIAL]
         Proxima sessao [OK]
-        Pontos e ofensiva [OK]
-        Feed social de atividades [PARCIAL]
-        Depoimentos [PARCIAL]
+        Check-in rapido [PARCIAL]
+        Feed [PARCIAL]
+        Ranking rapido [PARCIAL]
       Agenda [PARCIAL]
-      Ranking [OK]
+        Reserva real [OK]
+        Lista de espera [OK]
+        Turmas fechadas [FALTA]
       Progresso [PARCIAL]
-      Acompanhamento [PARCIAL]
-      Perfil e notificacoes [PARCIAL]
-      Categorias
-        Saude e bem-estar [OK]
-        Cultura [OK]
-        Eventos [OK]
-        Festas [OK]
+        Historico bem-estar [OK]
+        Streak real [FALTA]
+      Ranking [PARCIAL]
+        Score global [OK]
+        Privacidade ranking [FALTA]
+      Perfil [PARCIAL]
+        Registros profissionais [OK]
+        Termos e consentimentos [PARCIAL]
     Profissional
-      Dashboard do dia [PARCIAL]
-      Agenda de atendimentos [PARCIAL]
-      Confirmar presenca [PARCIAL]
-      Historico do paciente [PARCIAL]
-      Observacoes clinicas [PARCIAL]
-      Publicar fotos de atividades [FALTA]
+      Dashboard [PARCIAL]
+      Agenda [PARCIAL]
+      Registro atendimento [OK]
+      Historico paciente [PARCIAL]
+      Feed profissional [PARCIAL]
+      Comunicacao interna [PARCIAL]
+      Avaliacoes [FALTA]
     Admin
-      Dashboard geral [PARCIAL]
-      Metricas de engajamento [PARCIAL]
-      Acoes rapidas [PARCIAL]
-      Notificacoes em massa [PARCIAL]
-      Gestao de usuarios [FALTA]
-      Gestao de profissionais [FALTA]
-      Gestao de eventos e cultura [FALTA]
-      Regras de gamificacao [FALTA]
-      Relatorios reais [FALTA]
+      Dashboard [PARCIAL]
+      Usuarios [PARCIAL]
+      Profissionais [PARCIAL]
+      Eventos [PARCIAL]
+      Gamificacao [PARCIAL]
+      Moderacao [PARCIAL]
+      Conteudos [PARCIAL]
+      Relatorios [FALTA]
+      Compliance [PARCIAL]
     Gamificacao
-      Pontos [OK]
-      Ranking geral [OK]
-      Streak/ofensiva [OK]
-      Pontos por sessao e evento [PARCIAL]
-      Medalhas/badges [PARCIAL]
-      Regras editaveis pelo admin [FALTA]
-    Social e comunidade
-      Feed com fotos [PARCIAL]
-      Curtidas [PARCIAL]
-      Comentarios [PARCIAL]
-      Depoimentos [PARCIAL]
-      Moderacao [FALTA]
-      Denuncia/report [FALTA]
-      Consentimento de imagem [FALTA]
-    Notificacoes
-      Central de notificacoes [PARCIAL]
-      Toggles no perfil [PARCIAL]
-      Lembrete 1 dia antes [PARCIAL]
-      Lembrete 1 hora antes [PARCIAL]
-      Vaga liberada [PARCIAL]
-      Push real [FALTA]
-    Infra e deploy
-      Next.js App Router [OK]
-      Tailwind + componentes UI [OK]
-      Prisma + Neon ready [OK]
-      Vercel ready [OK]
-      Manifest/PWA [OK]
-      Loading skeleton [OK]
-      API login/register/health [OK]
+      Score atual [OK]
+      Regras admin [PARCIAL]
+      Pontos separados de moedas [FALTA]
+      Ledger de transacoes [FALTA]
+      Check-in e streak [FALTA]
+    Feed e conteudo
+      Posts [OK]
+      Curtidas [OK]
+      Comentarios [OK]
+      Chave para bloquear postagem [OK]
+      Fila aprovacao [FALTA]
+      Blog dicas especialistas [FALTA]
+      Links e embeds [PARCIAL]
+    Infra
+      Next.js 16 App Router [OK]
+      Prisma e Neon [OK]
+      Vercel [OK]
+      PWA manifest [OK]
+      GitHub remoto [OK]
 ```
 
-## Inventario de paginas e sessoes
-
-### 1. Entrada / autenticacao
-
-- `/` - landing com login e onboarding `[OK]`
-- login por papel: colaborador, profissional e admin `[OK]`
-- onboarding com objetivo e frequencia `[PARCIAL]`
-- CTA Google Workspace `[PARCIAL]`
-- link "esqueci minha senha" `[FALTA]`
-
-### 2. Colaborador
-
-- `/usuario` - Home `[OK]`
-  - saudacao e navegacao `[OK]`
-  - cards principais: saude e bem-estar, cultura, eventos, festas `[OK]`
-  - card de proxima sessao `[OK]`
-  - card de pontos e ofensiva `[OK]`
-  - metas da semana `[OK]`
-  - ranking rapido `[OK]`
-  - proximos eventos `[OK]`
-  - feed social da equipe `[PARCIAL]`
-  - depoimentos `[PARCIAL]`
-
-- `/usuario/agenda` - Agenda `[PARCIAL]`
-  - calendario visual `[OK]`
-  - filtros por especialidade `[OK]`
-  - horarios disponiveis/ocupados/lista de espera `[OK]`
-  - confirmar agendamento real `[FALTA]`
-  - validacao de vagas no backend `[FALTA]`
-
-- `/usuario/ranking` - Ranking `[OK]`
-  - ranking geral `[OK]`
-  - destaque da posicao do usuario `[OK]`
-  - categorias de ranking `[PARCIAL]`
-
-- `/usuario/progresso` - Progresso `[PARCIAL]`
-  - frequencia semanal `[OK]`
-  - evolucao de metas `[OK]`
-  - input de peso `[OK]`
-  - input de humor `[OK]`
-  - input de habitos `[OK]`
-  - persistencia real do historico `[FALTA]`
-
-- `/usuario/acompanhamento` - Acompanhamento `[PARCIAL]`
-  - plano alimentar em cards `[OK]`
-  - recomendacoes do profissional `[OK]`
-  - upload de feedback (placeholder) `[PARCIAL]`
-  - check diario `[OK]`
-  - upload real de arquivo `[FALTA]`
-
-- `/usuario/perfil` - Perfil `[PARCIAL]`
-  - resumo do usuario `[OK]`
-  - preferencias de notificacao `[OK]`
-  - mensagens recentes `[OK]`
-  - sessao tecnica / estrutura pronta `[OK]`
-  - salvar preferencias no backend `[FALTA]`
-
-### 3. Categorias dedicadas
-
-- `/usuario/saude-bem-estar` `[OK]`
-  - nutricionista com Vitoria `[OK]`
-  - fisioterapeuta com Mirna `[OK]`
-  - terapia com Gabriel `[OK]`
-  - terapia com Giovanna `[OK]`
-  - enfermagem com Camila `[OK]`
-  - recreacao infantil `[OK]`
-  - defesa pessoal com Felipe `[OK]`
-
-- `/usuario/cultura` `[OK]`
-  - campanhas internas `[OK]`
-  - mensagem da lideranca `[OK]`
-  - onboarding cultural `[OK]`
-
-- `/usuario/eventos` `[OK]`
-  - eventos corporativos `[OK]`
-  - presenca e check-in visual `[PARCIAL]`
-
-- `/usuario/festas` `[OK]`
-  - happy hour `[OK]`
-  - celebracoes `[OK]`
-  - RSVP visual `[PARCIAL]`
-
-### 4. Profissional
-
-- `/profissional` - Painel do profissional `[PARCIAL]`
-  - atendimentos do dia `[OK]`
-  - taxa de comparecimento `[OK]`
-  - pacientes ativos `[OK]`
-  - observacoes pendentes `[OK]`
-  - agenda do dia `[OK]`
-  - confirmar presenca `[PARCIAL]`
-  - ver historico `[PARCIAL]`
-  - observacoes clinicas `[PARCIAL]`
-  - metricas com grafico `[PARCIAL]`
-  - publicar fotos/atividades no feed `[FALTA]`
-
-### 5. Admin
-
-- `/admin` - Painel administrativo `[PARCIAL]`
-  - usuarios ativos `[OK]`
-  - engajamento mensal `[OK]`
-  - sessoes realizadas `[OK]`
-  - avaliacao geral `[OK]`
-  - grafico de retencao `[PARCIAL]`
-  - acoes rapidas `[PARCIAL]`
-  - notificacoes em massa `[PARCIAL]`
-  - CRUD de usuarios `[FALTA]`
-  - CRUD de profissionais `[FALTA]`
-  - CRUD de eventos/cultura/lazer/festas `[FALTA]`
-  - regras de pontuacao `[FALTA]`
-  - limites de agenda `[FALTA]`
-  - relatorios filtrados `[FALTA]`
-
-## Funcionalidades transversais
-
-### Autenticacao e seguranca
-
-- API de login `[OK]`
-- API de cadastro `[OK]`
-- health check `[OK]`
-- JWT com `jose` `[OK]`
-- cookie de sessao `[OK]`
-- middleware/proxy para RBAC `[OK]`
-- modo demo `[OK]`
-- login social real `[FALTA]`
-- recuperacao de senha `[FALTA]`
-- refresh token / expiracao refinada `[FALTA]`
-
-### Gamificacao
-
-- pontuacao exibida na Home `[OK]`
-- ranking geral `[OK]`
-- streak/ofensiva `[OK]`
-- pontos em categorias e atividades `[PARCIAL]`
-- calculo real baseado em sessoes/eventos `[FALTA]`
-- regras editaveis pelo admin `[FALTA]`
-
-### Social / comunidade
-
-- feed na Home `[PARCIAL]`
-- curtidas em estado local `[PARCIAL]`
-- comentarios em estado local `[PARCIAL]`
-- bloco de depoimentos `[PARCIAL]`
-- postagem real pelo profissional `[FALTA]`
-- upload de imagem real `[FALTA]`
-- moderacao/aprovacao `[FALTA]`
-- politica de uso de imagem `[FALTA]`
-- pagina dedicada de feed `[FALTA]`
-
-### Agenda e atendimento
-
-- visualizacao de slots `[OK]`
-- filtros por tipo `[OK]`
-- estado de disponivel/ocupado/lista de espera `[OK]`
-- reserva real em banco `[FALTA]`
-- bloqueio de conflitos `[FALTA]`
-- regramento de fila de espera `[FALTA]`
-- integracao com calendario externo `[FALTA]`
-
-### Notificacoes
-
-- preferencias visuais no perfil `[OK]`
-- mensagens internas mockadas `[OK]`
-- lembretes e vaga liberada como conceito `[PARCIAL]`
-- disparo real automatizado `[FALTA]`
-- push web/app `[FALTA]`
-
-### Progresso e acompanhamento
-
-- charts e visuais `[OK]`
-- inputs de peso/humor/habitos `[OK]`
-- plano alimentar e recomendacoes `[OK]`
-- upload de feedback `[PARCIAL]`
-- persistencia historica real `[FALTA]`
-
-### PWA / experiencia mobile
-
-- manifest `[OK]`
-- icones `[OK]`
-- estrutura mobile-first `[OK]`
-- prompt de instalacao `[OK]`
-- experiencia offline `[FALTA]`
-- push nativo `[FALTA]`
-
-### Infra / banco / deploy
-
-- Next.js App Router `[OK]`
-- Prisma schema `[OK]`
-- Neon ready `[OK]`
-- Vercel ready `[OK]`
-- estrutura de componentes `[OK]`
-- models atuais no schema:
-  - `User`
-  - `ProfessionalProfile`
-  - `SessionBooking`
-  - `Event`
-  - `EventAttendance`
-  - `WellnessEntry`
-  - `Notification`
-- models que ainda faltam para fechar o produto:
-  - `FeedPost`
-  - `FeedComment`
-  - `FeedLike`
-  - `Testimonial`
-  - `MediaAsset`
-  - `NotificationPreference`
-  - possivelmente `Company`, `Department`, `Challenge`, `ScoringRule`
-
-## O que esta forte hoje
-
-- base visual consistente e SaaS/mobile-first
-- paginas principais ja desenhadas
-- separacao por papel de usuario
-- categorias dedicadas com rota propria
-- feed social e depoimentos ja prototipados
-- stack pronta para GitHub, Vercel e Neon
-
-## O que ainda precisa de definicao do parceiro
-
-### 1. Escopo do feed social
-
-- quem pode postar: apenas profissional ou admin tambem?
-- colaborador pode postar ou apenas interagir?
-- o post precisa de aprovacao antes de aparecer?
-- pode marcar colaboradores nas fotos?
-- vai existir denuncia/report de conteudo?
-
-### 2. Politica de imagem
-
-- pode usar foto real dos colaboradores?
-- precisa aceite de uso de imagem?
-- algumas atividades nao podem ser fotografadas?
-
-### 3. Depoimentos
-
-- depoimento e publico para toda empresa ou apenas admins/profissionais?
-- precisa aprovacao antes de publicar?
-- sera por profissional, por atividade ou ambos?
-- tera nota de 1 a 5?
-
-### 4. Agenda
-
-- o slot e fixo ou gerado dinamicamente?
-- a fila de espera e automatica?
-- pode remarcar/cancelar no app?
-- cada profissional tem agenda propria?
-- precisa integrar Google Calendar ou Outlook?
-
-### 5. Gamificacao
-
-- quanto vale cada sessao, evento e check-in?
-- like/comentario no feed gera pontos?
-- depoimento gera pontos?
-- admin pode editar regra sem deploy?
-
-### 6. Profissional
-
-- precisa tela dedicada para criar post?
-- precisa historico completo por paciente?
-- precisa anexar documentos/planos?
-- precisa ver comentarios/depoimentos sobre si?
-
-### 7. Admin
-
-- precisa CRUD completo ou painel com acoes rapidas basta?
-- precisa relatorios exportaveis?
-- precisa filtros por empresa, area, profissional e periodo?
-- precisa gerir regras de notificacao e pontuacao?
-
-## Sugestao de backlog por prioridade
-
-### Prioridade 1 - fechar produto minimo
-
-- booking real com Prisma
-- CRUD real de eventos
-- salvar progresso e acompanhamento
-- login/cadastro persistidos no banco
-- painel profissional salvando observacoes
-
-### Prioridade 2 - fechar engajamento
-
-- feed real com upload de imagem
-- curtidas e comentarios persistidos
-- depoimentos persistidos e moderados
-- notificacoes reais
-- regras reais de pontuacao
-
-### Prioridade 3 - fechar operacao
-
-- admin com CRUD completo
-- relatorios reais
-- filtros por area/profissional/periodo
-- integracoes calendario/push/storage
-
-## Resposta esperada do parceiro
-
-Peça para ele devolver o documento com:
-
-- itens para adicionar
-- itens para remover
-- itens para renomear
-- prioridades por fase
-- regras de negocio que faltam
-- telas novas necessarias
-- quais partes podem continuar mockadas e quais precisam virar backend agora
-
-## Sugestao de uso
-
-Fluxo ideal:
-
-1. voce envia este documento
-2. ele marca cada bloco com observacoes
-3. voces fecham prioridade 1, 2 e 3
-4. eu transformo isso em backlog tecnico e plano de implementacao
+## Inventario resumido
+
+### Entrada e autenticacao
+
+- `/` - landing/login/onboarding. `[OK]`
+- `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`. `[OK]`
+- JWT + cookie `pulsehub.session`. `[OK]`
+- RBAC por `src/proxy.ts`. `[OK]`
+- Cadastro pendente/aprovacao. `[FALTA]`
+- Recuperacao de senha. `[FALTA]`
+- Termo obrigatorio no primeiro login. `[FALTA]`
+
+### Usuario
+
+- `/usuario` - home. `[PARCIAL]`
+- `/usuario/agenda` - agenda com slots, reserva e lista de espera. `[PARCIAL]`
+- `/usuario/agenda-dr` - agenda dr/eventos especiais. `[PARCIAL]`
+- `/usuario/progresso` - registros de bem-estar. `[PARCIAL]`
+- `/usuario/ranking` - ranking por score. `[PARCIAL]`
+- `/usuario/perfil` - perfil e registros profissionais. `[PARCIAL]`
+- `/usuario/acompanhamento` - acompanhamento e feedback. `[PARCIAL]`
+- `/usuario/configuracoes` - avatar, senha e preferencias. `[PARCIAL]`
+- Categorias dedicadas: saude e bem-estar, cultura, eventos, festas. `[PARCIAL]`
+
+### Profissional
+
+- `/profissional` - dashboard. `[PARCIAL]`
+- `/profissional/agenda` - agenda/atendimentos. `[PARCIAL]`
+- `/profissional/registros` - registros. `[PARCIAL]`
+- `/profissional/feed` e `/profissional/feed/novo`. `[PARCIAL]`
+- `/profissional/pacientes/[id]` - historico do paciente. `[PARCIAL]`
+
+### Admin
+
+- `/admin` - dashboard. `[PARCIAL]`
+- `/admin/usuarios` - gestao de usuarios. `[PARCIAL]`
+- `/admin/profissionais` - gestao de profissionais. `[PARCIAL]`
+- `/admin/eventos` - gestao de eventos. `[PARCIAL]`
+- `/admin/gamificacao` - regras de pontuacao. `[PARCIAL]`
+- `/admin/moderacao` - moderacao/chave de postagem. `[PARCIAL]`
+- `/admin/notificacoes` - notificacoes. `[PARCIAL]`
+- `/admin/relatorios` - relatorios. `[FALTA]`
+- `/admin/compliance` - compliance. `[PARCIAL]`
+- `/admin/conteudos` - conteudos/cards. `[PARCIAL]`
+
+## Modulos de evolucao
+
+### 0. Diagnostico e backlog tecnico
+
+Status: `[OK]`
+
+- Atualizar checklist real.
+- Separar implementado/parcial/falta regra/falta banco/falta API/falta tela.
+- Definir ordem segura de commits.
+
+### 1. Usuarios, aprovacao e grupos
+
+Status: `[FALTA]`
+
+- Cadastro pendente/aprovacao.
+- Grupos/tags/turmas.
+- Restricao por convite ou aprovacao manual.
+
+### 2. Compliance e aceites
+
+Status: `[FALTA]`
+
+- Termo no primeiro login.
+- Aceite de imagem/publicacao.
+- Texto juridico de liberalidade e nao substituicao medica.
+
+### 3. Gamificacao
+
+Status: `[PARCIAL]`
+
+- Separar pontos de moedas.
+- Criar saldo/ledger.
+- Regras de login, check-in, streak, eventos e campanhas.
+
+### 4. Ranking e privacidade
+
+Status: `[PARCIAL]`
+
+- Flag para aparecer ou nao no ranking.
+- Nome anonimo/censurado.
+- Top 3/top 10 ou posicao individual.
+
+### 5. Check-in e progresso
+
+Status: `[PARCIAL]`
+
+- Check-in diario com trava.
+- Streak de 5 dias.
+- Medidas admin de humor, energia e cansaco por quantidade de pessoas.
+
+### 6. Turmas, eventos fechados e presenca
+
+Status: `[PARCIAL]`
+
+- Turma da Maisa, clube do livro e ingles.
+- Participantes selecionados.
+- Presenca/check-in por aula/evento.
+
+### 7. Feed e moderacao
+
+Status: `[PARCIAL]`
+
+- Decidir pre-moderacao, pos-moderacao ou campanha.
+- Fila de aprovacao.
+- Regra de quem pode postar.
+
+### 8. Conteudos/blog
+
+Status: `[FALTA]`
+
+- Dicas/artigos/publicacoes dos especialistas.
+- Admin publica em nome da equipe.
+- Links, imagem, observacoes e descricao.
+
+### 9. Perfil dos profissionais
+
+Status: `[PARCIAL]`
+
+- Tags/categorias por profissional.
+- Campos especificos por area.
+- Avaliacao por estrelas/nota/sentimento.
+
+### 10. Links, embeds e materiais
+
+Status: `[PARCIAL]`
+
+- Link externo.
+- Embed/iframe controlado.
+- Caso Camila.
+
+### 11. Painel admin
+
+Status: `[PARCIAL]`
+
+- Indicadores de engajamento, humor, pontuacao, avaliacoes e profissionais.
+- Alertas de baixa frequencia ou situacao critica.
+- Relatorios filtrados/exportaveis.
+
+### 12. Painel profissional
+
+Status: `[PARCIAL]`
+
+- Agenda, historico, registros e observacoes.
+- Comunicacao interna por notas/mural.
+- Metricas de presenca e atendimentos.
+
+### 13. Notificacoes
+
+Status: `[PARCIAL]`
+
+- Priorizar in-app.
+- Aviso de vaga, turma, campanha, check-in e evento.
+- Push real fica para etapa posterior.
+
+## Decisoes pendentes mais importantes
+
+- Cadastro publico continua aberto ou vira solicitacao pendente?
+- Quais grupos/turmas entram primeiro: ingles, Maisa, clube do livro?
+- Ranking mostra top completo, top parcial ou apenas posicao do usuario?
+- Usuario anonimo aparece como `Usuario #23`, `*****` ou sai da lista publica?
+- Feed usa pre-moderacao, pos-moderacao ou abre apenas por campanha?
+- Profissional pode publicar direto ou apenas sugerir conteudo para admin?
+- Check-in vale por dia calendario ou janela de 24 horas?
+- Falta em aula/evento perde pontos/moedas ou apenas deixa de ganhar?
+- Dados emocionais criticos aparecem para admin, RH, lideranca ou profissional?
+
+## Regra operacional para proximas entregas
+
+Cada modulo funcional deve seguir:
+
+1. branch pequena;
+2. alteracao aditiva no banco quando necessario;
+3. tela/API protegida por papel;
+4. `npm run lint`;
+5. `npm run build`;
+6. commit unico do modulo;
+7. push para GitHub;
+8. conferencia de deploy/preview na Vercel.

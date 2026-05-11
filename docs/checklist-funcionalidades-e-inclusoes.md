@@ -1,279 +1,534 @@
-# se.monitora - checklist funcional + inclusoes
+# dr.monitora Bem-Estar - diagnostico funcional e backlog modular
 
-Data: 2026-04-17
-Objetivo: fechar funcionalidades reais por papel (USER, PROFESSIONAL, ADMIN) sem quebrar o fluxo atual.
+Data: 2026-05-11
+Escopo desta revisao: Modulo 0 - documentacao, diagnostico funcional e ordem segura de implementacao.
 
-## Atualizacao desta iteracao (P1 Home + Agenda)
-- [x] Home reorganizada por prioridade: proxima sessao, check-in rapido e feed colapsavel.
-- [x] Card Daily Insight incluido na Home.
-- [x] Agenda com skeleton loading para evitar layout shift.
-- [x] Agenda com filtros por foco de especialista (ex.: burnout, nutricao esportiva, postura, sono).
-- [x] Minha agenda com links para Google Calendar e Outlook.
-- [x] Promocao automatica da fila de espera ao liberar vaga + notificacao in-app para usuario promovido.
-- [x] Feed estabilizado com fallback (demo) quando banco estiver vazio ou indisponivel.
-- [x] Tratamento de erro separado para Feed vs Proxima Sessao (evita falso positivo de falha no feed).
-- [x] Feed com paginacao + rolagem infinita na Home (carrega mais ao rolar).
+Este documento compara o que existe no codigo atual com os pedidos levantados na reuniao da plataforma de Bem-Estar. Ele nao representa implementacao tecnica ainda. A finalidade e deixar claro o que ja esta ligado, o que esta parcial e o que precisa ser aprovado antes de mexer em banco, API ou tela.
 
-### Observacao de depuracao local
-- Se aparecer "Falha de conexão ao carregar o feed", primeiro reiniciar o `next dev` (processo antigo pode servir rotas desatualizadas).
-- Extensoes do navegador podem causar warning de hydration no `<body>` (ex.: atributos injetados no DOM).
+## Legenda
 
-## 1) Regra obrigatoria de acesso por papel
+- `Implementado`: existe no codigo, tela/API/modelo e fluxo basico estao ligados.
+- `Parcial`: existe alguma parte, mas ainda falta regra, tela, persistencia completa ou acabamento.
+- `Falta regra`: a decisao de produto/compliance ainda precisa ser fechada.
+- `Falta banco`: precisa alterar Prisma/Neon.
+- `Falta API`: precisa criar ou alterar rota de API.
+- `Falta tela`: precisa criar ou alterar interface.
+- `Fora deste modulo`: nao sera feito agora.
 
-Regra de negocio fechada:
-- USER acessa somente `/usuario/*`
-- PROFESSIONAL acessa somente `/profissional/*`
-- ADMIN acessa somente `/admin/*`
+## Estado geral do projeto
 
-### Checklist (bloqueio P0)
-- [x] Remover links de troca de papel nas telas:
-  - `src/components/layout/backoffice-shell.tsx`
-  - `src/components/screens/profile-screen.tsx`
-- [x] Manter e reforcar RBAC no `proxy` para todas as rotas protegidas.
-- [x] Garantir que em producao o modo demo nao bypassa autorizacao.
-- [x] Bloquear APIs por papel (nao apenas telas).
-- [x] Criar `POST /api/auth/logout` para encerrar sessao com cookie limpo.
-- [x] Definir pagina de `403` para tentativa de acesso indevido.
+- Stack: Next.js 16, React 19, TypeScript, Tailwind CSS 4, Prisma e PostgreSQL.
+- Deploy: Vercel.
+- Banco: Neon via `DATABASE_URL` e `DIRECT_URL`.
+- Repositorio remoto: `https://github.com/felipemaiocch/bem-estar.git`.
+- URL publica atual: `https://bem-estar-self.vercel.app/`.
+- RBAC atual: `USER`, `PROFESSIONAL`, `ADMIN`.
+- Rotas protegidas por papel em `src/proxy.ts`.
+- Prisma atual ja possui modelos de usuarios, profissionais, agenda, eventos, feed, comentarios, curtidas, progresso, notificacoes, regras de pontuacao, consentimento de imagem, auditoria, cards e notas internas.
 
-### Criterio de pronto
-- [x] Usuario logado como USER nao abre `/admin` nem `/profissional`.
-- [x] Usuario logado como PROFESSIONAL nao abre `/usuario` nem `/admin`.
-- [x] Usuario logado como ADMIN nao abre `/usuario` nem `/profissional`.
-- [x] Mesmo bloqueio aplicado nas APIs de cada modulo.
+## Rotas e superficies existentes
 
----
+### Usuario
 
-## 2) Tela ADMIN - o que falta implementar
+- `/usuario` - home com cards, proxima sessao, check-in rapido, ranking rapido e feed. `Parcial`
+- `/usuario/agenda` - agenda com slots, filtros, reserva e lista de espera. `Parcial`
+- `/usuario/agenda-dr` - agenda dr/eventos especiais. `Parcial`
+- `/usuario/progresso` - historico de bem-estar, peso, humor/habitos. `Parcial`
+- `/usuario/ranking` - ranking geral por score. `Parcial`
+- `/usuario/perfil` - perfil e registros vindos dos profissionais. `Parcial`
+- `/usuario/acompanhamento` - acompanhamento e feedback. `Parcial`
+- `/usuario/configuracoes` - preferencias, senha e avatar. `Parcial`
+- `/usuario/saude-bem-estar`, `/usuario/cultura`, `/usuario/eventos`, `/usuario/festas`. `Parcial`
 
-Estado atual: painel com operacao minima real (usuarios, profissionais e eventos via API), faltando modulos avancados.
+### Profissional
 
-### Rotas que precisam existir
-- [x] `/admin` (dashboard com dados reais)
-- [x] `/admin/usuarios`
-- [x] `/admin/profissionais`
-- [x] `/admin/eventos`
-- [x] `/admin/gamificacao`
-- [x] `/admin/notificacoes`
-- [x] `/admin/moderacao`
-- [x] `/admin/relatorios`
-- [x] `/admin/compliance` (consentimento de imagem, politicas)
+- `/profissional` - dashboard profissional. `Parcial`
+- `/profissional/agenda` - agenda do profissional. `Parcial`
+- `/profissional/registros` - registros de atendimento. `Parcial`
+- `/profissional/feed` e `/profissional/feed/novo` - publicacao de conteudo/feed. `Parcial`
+- `/profissional/pacientes/[id]` - historico de paciente. `Parcial`
 
-### Funcionalidades por modulo
+### Admin
 
-#### 2.1 Gestao de usuarios
-- [x] Listar usuarios com busca/filtro (nome, email, area, papel, status).
-- [x] Criar usuario com validacao de dados.
-- [x] Editar perfil e papel (com trilha de auditoria).
-- [x] Ativar/inativar usuario.
-- [ ] Reset de senha administrativo (fluxo seguro).
+- `/admin` - dashboard administrativo. `Parcial`
+- `/admin/usuarios` - gestao de usuarios. `Parcial`
+- `/admin/profissionais` - gestao de profissionais. `Parcial`
+- `/admin/eventos` - gestao de eventos. `Parcial`
+- `/admin/gamificacao` - regras de pontuacao. `Parcial`
+- `/admin/moderacao` - moderacao/feed e chave de postagem. `Parcial`
+- `/admin/notificacoes` - tela administrativa de notificacoes. `Parcial`
+- `/admin/relatorios` - relatorios. `Parcial`
+- `/admin/compliance` - compliance/consentimentos. `Parcial`
+- `/admin/conteudos` - area de conteudos/cards. `Parcial`
 
-#### 2.2 Gestao de profissionais
-- [x] Criar/editar profissional e especialidade.
-- [ ] Definir agenda base e limites diarios.
-- [ ] Ativar/inativar profissional.
-- [x] Ver metricas de comparecimento por profissional.
+## Modulo 0 - Diagnostico e backlog tecnico
 
-#### 2.3 Gestao de eventos/cultura/festas
-- [x] CRUD completo de eventos.
-- [x] Publicar/rascunho/cancelar evento.
-- [x] Definir capacidade, pontos e janela de inscricao.
-- [ ] Painel de presenca/check-in por evento.
+Status: `Implementado nesta revisao documental`.
 
-#### 2.4 Gamificacao
-- [ ] CRUD de regras de pontuacao (sessao, evento, check-in, streak).
-- [ ] Versionamento de regra (inicio/fim de vigencia).
-- [ ] Simulador de pontuacao para validar impacto antes de publicar.
+Itens cobertos:
 
-#### 2.5 Notificacoes em massa
-- [ ] Compor campanha por publico (papel, area, periodo).
-- [ ] Envio imediato ou agendado.
-- [ ] Historico de envios e status (entregue/falha).
+- Revisar checklist antigo contra codigo atual.
+- Atualizar rotas, APIs e modelos que ja existem.
+- Separar backlog por modulo funcional.
+- Marcar pendencias por regra, banco, API e tela.
+- Definir ordem de implementacao segura com commits pequenos.
 
-#### 2.6 Moderacao
-- [ ] Fila de aprovacao de posts/depoimentos.
-- [ ] Tratamento de denuncias/report.
-- [ ] Acao de ocultar/remover conteudo.
+Nao entra neste modulo:
 
-#### 2.7 Relatorios
-- [ ] Relatorio por periodo, area e profissional.
-- [ ] Engajamento, retencao, presenca, pontuacao.
-- [ ] Exportacao CSV.
+- Alteracao de schema Prisma.
+- Mudanca em API.
+- Mudanca em interface.
+- Deploy.
+- Migracao no Neon.
 
-#### 2.8 Compliance
-- [ ] Politica de uso de imagem.
-- [ ] Controle de consentimento por usuario.
-- [ ] Bloqueio de publicacao sem consentimento valido.
+Commit sugerido:
 
-### APIs ADMIN (inclusoes)
-- [x] `GET/POST /api/admin/users`
-- [x] `GET/PATCH /api/admin/users/[id]` (DELETE pendente)
-- [x] `GET/POST /api/admin/professionals`
-- [x] `GET/PATCH /api/admin/professionals/[id]` (DELETE pendente)
-- [x] `GET/POST /api/admin/events`
-- [x] `GET/PATCH /api/admin/events/[id]` (DELETE pendente)
-- [ ] `GET/POST/PATCH /api/admin/scoring-rules`
-- [ ] `POST /api/admin/notifications/bulk`
-- [ ] `GET /api/admin/notifications/history`
-- [ ] `GET/PATCH /api/admin/moderation/posts`
-- [ ] `GET/PATCH /api/admin/moderation/testimonials`
-- [ ] `GET /api/admin/reports`
-- [ ] `GET /api/admin/audit-logs`
+- `docs: update wellness roadmap and implementation modules`
 
-### Criterio de pronto ADMIN
-- [x] Admin opera CRUDs basicos sem mexer em codigo/deploy.
-- [ ] Todas as mudancas persistem em banco.
-- [x] Todas as operacoes sensiveis ficam em audit log.
+## Modulo 1 - Usuarios, aprovacao e grupos
 
----
+Objetivo: controlar quem entra, quem precisa aprovacao e quem pertence a turmas/grupos especificos.
 
-## 3) Tela PROFISSIONAL - o que falta implementar
+### Estado atual
 
-Estado atual: fluxo profissional conectado em API (agenda, registros e publicacao de feed).
+- Login e cadastro existem. `Implementado`
+- Admin cria, edita, ativa/inativa e exclui usuarios. `Parcial`
+- RBAC por papel existe em tela e API. `Implementado`
+- Cadastro publico cria usuario `USER` diretamente quando fora do modo demo. `Implementado`
+- Nao existe status de cadastro pendente/aprovado/rejeitado. `Falta banco`, `Falta API`, `Falta tela`
+- Nao existe convite ou cadastro restrito por turma. `Falta regra`, `Falta banco`, `Falta API`, `Falta tela`
+- Nao existe modelo de grupo/turma/tag de participante. `Falta banco`, `Falta API`, `Falta tela`
 
-### Rotas que precisam existir
-- [x] `/profissional` (dashboard real)
-- [x] `/profissional/agenda`
-- [x] `/profissional/pacientes/[id]`
-- [x] `/profissional/registros`
-- [x] `/profissional/feed`
-- [x] `/profissional/feed/novo`
+### Entraria no modulo
 
-### Funcionalidades por modulo
+- Criar status de cadastro: `PENDING`, `APPROVED`, `REJECTED`.
+- Criar fluxo admin para aprovar/rejeitar cadastro.
+- Definir se cadastro publico fica aberto ou vira solicitacao pendente.
+- Criar base para grupos/tags: Ingles, Maisa, Clube do Livro, turma fechada, profissional por categoria.
+- Preparar vinculo usuario-grupo sem ainda implementar todos os fluxos de aula.
 
-#### 3.1 Agenda de atendimentos
-- [x] Carregar agenda real do profissional autenticado.
-- [x] Confirmar presenca do usuario.
-- [x] Marcar sessao como concluida/falta/cancelada.
-- [x] Motivo de cancelamento registrado (regra de penalidade automatica pendente).
+### Decisoes antes de implementar
 
-#### 3.2 Historico do paciente
-- [x] Visualizar historico completo por paciente.
-- [ ] Filtrar por periodo/categoria.
-- [x] Exibir metricas anteriores para comparacao.
+- Usuario externo pode se cadastrar sozinho ou sempre precisa aprovacao?
+- Quais dominios/emails podem entrar sem aprovacao?
+- Turmas fechadas usam convite, aprovacao manual ou lista cadastrada pelo admin?
 
-#### 3.3 Observacoes clinicas e feedback
-- [x] Registrar feedback em banco (nao localStorage).
-- [x] Registrar entrega/recomendacao/proximo passo.
-- [x] Registrar metricas por atendimento.
-- [ ] Opcional: anexar documento/plano.
+Commit sugerido:
 
-#### 3.4 Postagem no feed com fotos
-- [x] Criar post com texto + imagem (URL).
-- [ ] Upload real para storage (S3/R2/Vercel Blob).
-- [ ] Regras de consentimento de imagem antes de publicar.
-- [x] Status de publicacao suportado em modelo (moderacao pendente de interface).
+- `feat: add user approval and group foundation`
 
-### APIs PROFISSIONAL (inclusoes)
-- [x] `GET /api/professional/bookings`
-- [x] `PATCH /api/professional/bookings/[id]`
-- [x] `GET/POST /api/professional/care-records`
-- [x] `GET /api/professional/patients/[id]/care-records`
-- [x] `POST /api/professional/feed-posts`
-- [x] `GET /api/professional/feed-posts`
-- [ ] `POST /api/uploads/presign`
+## Modulo 2 - Compliance e aceites
 
-### Criterio de pronto PROFISSIONAL
-- [x] Profissional fecha o ciclo completo: agenda -> atendimento -> registro -> publicacao no feed.
-- [x] Usuario enxerga no perfil os registros salvos pelo profissional em tempo real.
+Objetivo: garantir aceite obrigatorio antes de uso sensivel da plataforma.
 
----
+### Estado atual
 
-## 4) Dependencias do lado USER para fechar o ciclo
+- Existe modelo `ImageConsent`. `Parcial`
+- Existe rota/tela admin de compliance. `Parcial`
+- Nao existe termo obrigatorio no primeiro login. `Falta banco`, `Falta API`, `Falta tela`
+- Nao existe aceite geral de liberalidade/nao substituicao medica. `Falta regra`, `Falta banco`, `Falta tela`
+- Nao existe bloqueio por falta de aceite. `Falta API`, `Falta tela`
+- Consentimento de imagem ainda nao bloqueia publicacao. `Parcial`
 
-### Home e feed
-- [x] Trocar feed mock por API real.
-- [x] Curtir/comentar persistindo em banco.
-- [ ] Depoimentos reais com regra de aprovacao.
+### Entraria no modulo
 
-### Agenda
-- [x] Reserva real de slot.
-- [x] Validacao de conflito de horario.
-- [x] Lista de espera real.
+- Criar aceite geral de termos de uso.
+- Criar aceite de imagem/publicacao.
+- Registrar data, versao do termo e origem do aceite.
+- Bloquear acesso ou publicacao quando aceite obrigatorio estiver pendente.
+- Texto base: beneficio por mera liberalidade da empresa e nao substitui atendimento medico.
 
-### Progresso e acompanhamento
-- [x] Salvar peso/humor/habitos no backend.
-- [ ] Salvar check diario e upload de feedback no backend.
+### Decisoes antes de implementar
 
-### Perfil e notificacoes
-- [x] Salvar preferencias de notificacao no backend.
-- [ ] Carregar mensagens/notificacoes reais.
+- Bloqueio sera total no primeiro login ou so para feed/imagem?
+- Quem pode ver historico de aceite?
+- Termo tera versao unica ou versionamento por atualizacao?
 
----
+Commit sugerido:
 
-## 5) Inclusoes de banco (Prisma)
+- `feat: add compliance acceptance flow`
 
-### Novos modelos
-- [x] `CareRecord`
-- [x] `FeedPost`
-- [x] `FeedComment`
-- [x] `FeedLike`
-- [x] `MediaAsset`
-- [x] `Testimonial`
-- [x] `NotificationPreference`
-- [x] `ScoringRule`
-- [x] `ContentReport`
-- [x] `ImageConsent`
-- [x] `AuditLog`
+## Modulo 3 - Gamificacao: pontos, moedas e auditoria
 
-### Ajustes em modelos existentes
-- [x] `SessionBooking`: `cancellationReason`, `cancelledAt`, `completedAt`, `pointsAwarded`
-- [x] `Event`: `kind` (evento/cultura/festa), `registrationDeadline`, `publishedBy`
-- [x] `Notification`: `channel`, `deliveryStatus`, `sentAt`
+Objetivo: separar ranking de saldo de troca.
 
-### Criterio de pronto DB
-- [ ] Migracoes aditivas (sem quebrar dados existentes).
-- [ ] Constraints e indices para evitar duplicidade e conflito.
+### Estado atual
 
----
+- `User.score` existe e alimenta ranking. `Implementado`
+- `ScoringRule` existe no Prisma. `Implementado`
+- Admin lista/cria/ativa/inativa regra de pontuacao. `Parcial`
+- API de missao incrementa score diretamente. `Parcial`
+- Pontos e moedas ainda nao estao separados. `Falta banco`, `Falta API`, `Falta tela`
+- Nao existe carteira/saldo de moedas. `Falta banco`, `Falta API`, `Falta tela`
+- Nao existe ledger historico de ganhos/gastos. `Falta banco`, `Falta API`
 
-## 6) Ordem de implementacao (sem quebra)
+### Entraria no modulo
 
-### Fase A - Seguranca e base tecnica
-- [x] Fechar RBAC total (UI + API + proxy).
-- [x] Corrigir falhas de lint atuais.
-- [x] Hardening de auth (role no cadastro, logout, secret de producao).
+- Manter pontos acumulados para ranking.
+- Criar moedas/saldo separado para lojinha/trocas futuras.
+- Criar historico de transacoes de pontuacao/moeda.
+- Garantir que gastar moedas nao reduza posicao no ranking.
+- Preparar regras para login, check-in, streak, evento/aula, campanha e feed.
 
-### Fase B - Operacao minima (ADMIN + PROFISSIONAL)
-- [x] Entregar CRUD de usuarios/profissionais/eventos (admin).
-- [x] Entregar agenda + registro clinico real (profissional).
-- [x] Entregar leitura do historico no perfil do usuario.
+### Decisoes antes de implementar
 
-### Fase C - Engajamento real
-- [ ] Entregar feed com upload e moderacao.
-- [x] Entregar curtida/comentario persistidos.
-- [ ] Entregar depoimentos persistidos + moderacao.
-- [ ] Entregar notificacoes reais (disparo e entrega).
+- Moeda tera nome proprio?
+- Quais acoes geram ponto, moeda ou ambos?
+- Gastos de moeda ja terao lojinha agora ou apenas estrutura?
 
-### Fase D - Gestao avancada
-- [ ] Regras de gamificacao editaveis.
-- [ ] Relatorios e exportacao.
-- [ ] Compliance + auditoria.
+Commit sugerido:
 
----
+- `feat: split points and wallet balance`
 
-## 7) Definition of Done por tela
+## Modulo 4 - Ranking e privacidade
 
-### Admin pronto quando
-- [x] Consegue cadastrar/editar entidades principais.
-- [ ] Consegue publicar evento/campanha e ver impacto no sistema.
-- [ ] Consegue moderar feed e extrair relatorio.
+Objetivo: reduzir exposicao e permitir anonimato.
 
-### Profissional pronto quando
-- [x] Consegue gerir agenda do dia real.
-- [x] Consegue registrar feedback completo por usuario em banco.
-- [ ] Consegue postar foto/relato no feed com regra de consentimento.
+### Estado atual
 
-### Usuario pronto quando
-- [x] Consegue reservar/confirmar/cancelar com efeito real.
-- [x] Consegue acompanhar historico vindo do profissional.
-- [x] Consegue interagir no feed com persistencia.
+- Ranking existe em `/usuario/ranking`. `Parcial`
+- API `/api/user/ranking` lista usuarios ativos por `score`. `Parcial`
+- Nao existe flag de aparecer publicamente no ranking. `Falta banco`, `Falta API`, `Falta tela`
+- Nao existe anonimizar/censurar usuario. `Falta API`, `Falta tela`
+- Ranking por categoria ainda nao esta real. `Parcial`
 
----
+### Entraria no modulo
 
-## 8) Itens tecnicos obrigatorios para nao quebrar nada
-- [x] Toda feature nova atras de API versionada/estavel.
-- [x] Validacao Zod em todas as entradas.
-- [x] Autorizacao por papel em todas as rotas de API.
-- [ ] Logs de erro + monitoracao basica.
-- [ ] Testes de smoke por papel (login e bloqueio de acesso).
-- [ ] Testes de fluxo critico: agenda, registro clinico, post no feed, CRUD admin.
+- Campo de privacidade no usuario: deseja aparecer publicamente no ranking.
+- API retorna nome real so quando permitido ou quando for o proprio usuario.
+- Tela exibe anonimo/censurado para quem nao quiser aparecer.
+- Avaliar top 3/top 10 + posicao individual como padrao mais seguro.
+
+### Decisoes antes de implementar
+
+- Ranking geral completo continua visivel?
+- Quem nao autorizar aparece como `Usuario #23`, `*****` ou nao aparece?
+- Admin pode ver nomes reais em relatorio interno?
+
+Commit sugerido:
+
+- `feat: add ranking privacy controls`
+
+## Modulo 5 - Check-in diario, streak e progresso
+
+Objetivo: fechar rotina de check-in com trava, historico e pontuacao.
+
+### Estado atual
+
+- `WellnessEntry` salva peso, humor, habitos e notas. `Parcial`
+- API `/api/user/progress/wellness` lista e cria entradas. `Parcial`
+- Home possui check-in rapido. `Parcial`
+- Admin possui estatistica de humor recente. `Parcial`
+- Nao existe trava formal de um check-in por periodo. `Falta regra`, `Falta API`
+- Nao existe streak real de 5 dias com bonus. `Falta banco`, `Falta API`, `Falta tela`
+- Medida de burnout por quantidade de pessoas ainda nao esta fechada. `Falta regra`, `Falta API`, `Falta tela`
+
+### Entraria no modulo
+
+- Check-in diario com janela de validade.
+- Pontuacao/moeda por check-in.
+- Bonus por 5 dias seguidos.
+- Historico visual no progresso.
+- Metricas admin por humor, energia, cansaco e sinais criticos.
+- Mostrar burnout por quantidade de pessoas, nao somente percentual.
+
+### Decisoes antes de implementar
+
+- Check-in vale por dia calendario ou janela de 24 horas?
+- Quais perguntas entram: humor, energia, cansaco, sono, presenca?
+- Qual criterio dispara alerta critico?
+
+Commit sugerido:
+
+- `feat: add daily checkin streak scoring`
+
+## Modulo 6 - Turmas, eventos fechados e presenca
+
+Objetivo: controlar turmas fechadas, presenca e pontuacao por aula/evento.
+
+### Estado atual
+
+- `Event` e `EventAttendance` existem. `Implementado`
+- Usuario confirma participacao em evento. `Parcial`
+- Eventos possuem capacidade e pontos. `Parcial`
+- Nao existe grupo/turma com participantes selecionados. `Falta banco`, `Falta API`, `Falta tela`
+- Nao existe regra para Ingles, Maisa ou Clube do Livro. `Falta regra`, `Falta banco`, `Falta tela`
+- Nao existe painel completo de presenca/check-in por evento. `Falta tela`, `Falta API`
+- Penalidade por falta ainda nao esta implementada. `Falta regra`, `Falta API`
+
+### Entraria no modulo
+
+- Criar modelo de turma/grupo e participantes.
+- Vincular evento/aula a turma.
+- Mostrar detalhes internos apenas para participantes.
+- Mostrar "em breve" ou "proxima turma em X meses" para quem esta fora.
+- Check-in/presenca por evento/aula.
+- Pontuar presenca e preparar penalidade por falta se aprovada.
+
+### Decisoes antes de implementar
+
+- Faltas devem perder pontos/moedas ou apenas nao pontuar?
+- Quem confirma presenca: usuario, profissional ou admin?
+- Turmas fechadas podem ter lista de espera?
+
+Commit sugerido:
+
+- `feat: add cohorts and event attendance rules`
+
+## Modulo 7 - Feed e moderacao
+
+Objetivo: controlar publicacoes sem matar campanhas.
+
+### Estado atual
+
+- Feed real existe com `FeedPost`, `FeedComment` e `FeedLike`. `Implementado`
+- Usuario pode listar, publicar, editar e excluir seus posts. `Parcial`
+- Profissional pode criar/listar/editar/excluir posts. `Parcial`
+- Admin lista posts recentes e pode excluir. `Parcial`
+- `PlatformSettings.allowUserPosting` liga/desliga postagem de usuario. `Parcial`
+- `ContentStatus` suporta `PENDING`, `APPROVED`, `REJECTED`, `PUBLISHED`. `Parcial`
+- Posts atualmente tendem a nascer publicados. `Parcial`
+- Nao existe fila real de aprovacao/rejeicao antes de publicar. `Falta API`, `Falta tela`
+- Denuncia/report existe como modelo, mas fluxo ainda nao esta fechado. `Parcial`
+
+### Entraria no modulo
+
+- Definir modo inicial: pre-moderacao, pos-moderacao ou feed por campanha.
+- Criar chave admin de moderacao ativa.
+- Criar posts como `PENDING` quando pre-moderacao estiver ativa.
+- Fila admin para aprovar/rejeitar/remover.
+- Preservar chave para bloquear publicacao de usuarios.
+
+### Decisoes antes de implementar
+
+- Profissional publica direto ou tambem passa por admin?
+- Usuario pode postar fora de campanha?
+- Comentarios tambem precisam moderacao?
+
+Commit sugerido:
+
+- `feat: add feed moderation workflow`
+
+## Modulo 8 - Conteudos, blog e publicacoes dos especialistas
+
+Objetivo: separar feed social de conteudo editorial.
+
+### Estado atual
+
+- Existe rota admin `/admin/conteudos`. `Parcial`
+- Existem `EngagementCard` e cards por categoria. `Parcial`
+- Feed pode carregar imagem/link via URL no post. `Parcial`
+- Nao existe modelo editorial claro de artigo/dica/blog. `Falta banco`, `Falta API`, `Falta tela`
+- Decisao da reuniao: profissionais nao publicam diretamente; admin/equipe publica. `Falta regra aplicada`
+
+### Entraria no modulo
+
+- Criar area de conteudos/dicas/artigos separada do feed.
+- Admin publica conteudos dos especialistas.
+- Conteudo com titulo, descricao, observacoes, imagem, link externo e categoria.
+- Exibir conteudo no usuario conforme categoria/grupo.
+
+### Decisoes antes de implementar
+
+- Conteudo sera publico para todos ou filtrado por grupo/turma?
+- Profissional apenas sugere rascunho ou nao acessa essa area?
+- Comentarios em conteudo editorial serao permitidos?
+
+Commit sugerido:
+
+- `feat: add specialist content area`
+
+## Modulo 9 - Perfil dos profissionais e avaliacoes
+
+Objetivo: tornar perfis mais especificos por area de atuacao.
+
+### Estado atual
+
+- `ProfessionalProfile` possui especialidade, registro e metricas basicas. `Parcial`
+- Admin cria/edita profissional. `Parcial`
+- Agenda vincula profissional a sessoes. `Parcial`
+- `Testimonial` existe com rating, mas fluxo completo nao esta ligado. `Parcial`
+- Nao existem tags/categorias multiplas por profissional. `Falta banco`, `Falta API`, `Falta tela`
+- Nao existem campos especificos por categoria profissional. `Falta regra`, `Falta banco`, `Falta tela`
+
+### Entraria no modulo
+
+- Tags/categorias: nutricao, treino, ingles, defesa pessoal, clube do livro, etc.
+- Campos de perfil por area: materiais, agenda, links, observacoes.
+- Avaliacao por estrelas/nota/sentimento.
+- Relacionar avaliacao ao profissional e possivelmente ao atendimento/evento.
+
+### Decisoes antes de implementar
+
+- Avaliacao sera anonima?
+- Profissional pode ver suas avaliacoes?
+- Admin aprova depoimento antes de ficar publico?
+
+Commit sugerido:
+
+- `feat: expand professional profiles and ratings`
+
+## Modulo 10 - Links, embeds e materiais externos
+
+Objetivo: priorizar links/embeds em vez de upload pesado.
+
+### Estado atual
+
+- Posts e cards aceitam imagem/link por URL em alguns pontos. `Parcial`
+- `MediaAsset` existe, mas upload real ainda nao esta fechado. `Parcial`
+- Nao existe whitelist/sanitizacao especifica para iframe/embed. `Falta regra`, `Falta API`, `Falta tela`
+- Caso Camila ainda nao tem tela/card dedicada com link/embed. `Falta tela`
+
+### Entraria no modulo
+
+- Campo de link externo em conteudos/cards/profissionais.
+- Suporte controlado a embed/iframe com dominios permitidos.
+- Card/tela para Camila e composicao corporal.
+- Evitar upload pesado de PDF no inicio.
+
+### Decisoes antes de implementar
+
+- Quais dominios podem ser embutidos?
+- Links abrem dentro da plataforma ou nova aba?
+- Materiais precisam aceite/termo antes de acesso?
+
+Commit sugerido:
+
+- `feat: add external resources and embeds`
+
+## Modulo 11 - Painel admin e relatorios
+
+Objetivo: consolidar gestao e leitura operacional.
+
+### Estado atual
+
+- Admin dashboard existe com metricas e CRUDs basicos. `Parcial`
+- Mapa de humor recente existe. `Parcial`
+- Usuarios, profissionais, eventos, cards, agenda config e alerta global possuem APIs. `Parcial`
+- Relatorios filtrados/exportacao ainda nao existem. `Falta API`, `Falta tela`
+- Alertas criticos ainda nao existem. `Falta regra`, `Falta API`, `Falta tela`
+- Filtros por equipe/setor/lider ainda nao existem. `Falta banco`, `Falta API`, `Falta tela`
+
+### Entraria no modulo
+
+- Dashboard com usuarios, engajamento, check-ins, humor, pontuacao, avaliacoes e profissionais.
+- Alertas de baixa frequencia e situacao emocional critica.
+- Relatorios por periodo, area e profissional.
+- Preparar filtros por equipe/setor/lider para etapa futura.
+
+### Decisoes antes de implementar
+
+- Quem pode ver dados sensiveis de humor?
+- Alerta critico vai para admin, RH, lideranca ou profissional?
+- Exportacao CSV e obrigatoria agora?
+
+Commit sugerido:
+
+- `feat: improve admin wellness reporting`
+
+## Modulo 12 - Painel profissional e comunicacao interna
+
+Objetivo: fechar rotina de atendimento e colaboracao entre especialistas.
+
+### Estado atual
+
+- Agenda do profissional existe. `Parcial`
+- Historico do paciente existe. `Parcial`
+- Registro de atendimento existe em `CareRecord`. `Implementado`
+- `TeamNote` existe no Prisma. `Parcial`
+- Comunicacao interna entre profissionais ainda nao esta completa na interface. `Falta tela`, `Falta API`
+- Anexos/documentos por atendimento ainda nao existem. `Falta banco`, `Falta API`, `Falta tela`
+
+### Entraria no modulo
+
+- Melhorar agenda, historico, registros e observacoes.
+- Mural/notas internas entre profissionais.
+- Notas restritas ao time profissional/admin quando necessario.
+- Metricas de presenca e atendimentos.
+
+### Decisoes antes de implementar
+
+- Usuario final pode ver quais notas?
+- Profissional pode escrever para outro profissional especifico?
+- Precisa anexar PDF/plano ou apenas link?
+
+Commit sugerido:
+
+- `feat: improve professional workspace`
+
+## Modulo 13 - Notificacoes
+
+Objetivo: avisos operacionais antes de push real.
+
+### Estado atual
+
+- `Notification` existe com canal e status de entrega. `Parcial`
+- Preferencias de notificacao existem e persistem. `Implementado`
+- Notificacao in-app de vaga liberada aparece em fluxo de agenda/lista de espera. `Parcial`
+- Tela admin de notificacoes existe. `Parcial`
+- Disparo em massa e historico de envios ainda nao existem. `Falta API`, `Falta tela`
+- Push real ainda nao existe. `Falta regra`, `Falta API`, `Falta tela`
+
+### Entraria no modulo
+
+- Priorizar notificacoes in-app.
+- Avisos de vaga, proxima turma, campanha, check-in e evento.
+- Historico basico de envio.
+- Push web/app fica para etapa posterior apos base operacional.
+
+### Decisoes antes de implementar
+
+- Notificacao em massa podera filtrar por grupo/turma?
+- Usuario pode desligar todos os tipos?
+- Push real sera PWA/web push ou app nativo no futuro?
+
+Commit sugerido:
+
+- `feat: add in-app notification workflows`
+
+## Modulo 14 - Revisao tecnica final por ciclo
+
+Objetivo: manter a plataforma hospedada estavel.
+
+Checklist apos cada modulo funcional:
+
+- Rodar `npm run lint`.
+- Rodar `npm run build`.
+- Conferir login e bloqueio por papel.
+- Conferir APIs protegidas.
+- Testar fluxo principal afetado.
+- Revisar `git diff`.
+- Fazer commit pequeno.
+- Fazer push somente depois de validado localmente.
+- Conferir deploy/preview da Vercel antes de seguir para o proximo modulo.
+
+## Ordem recomendada de implementacao
+
+1. Modulo 0 - Diagnostico e backlog tecnico.
+2. Modulo 1 - Usuarios, aprovacao e grupos.
+3. Modulo 2 - Compliance e aceites.
+4. Modulo 3 - Gamificacao: pontos, moedas e auditoria.
+5. Modulo 4 - Ranking e privacidade.
+6. Modulo 5 - Check-in diario, streak e progresso.
+7. Modulo 6 - Turmas, eventos fechados e presenca.
+8. Modulo 7 - Feed e moderacao.
+9. Modulo 8 - Conteudos, blog e publicacoes dos especialistas.
+10. Modulo 9 - Perfil dos profissionais e avaliacoes.
+11. Modulo 10 - Links, embeds e materiais externos.
+12. Modulo 11 - Painel admin e relatorios.
+13. Modulo 12 - Painel profissional e comunicacao interna.
+14. Modulo 13 - Notificacoes.
+15. Modulo 14 - Revisao tecnica final por ciclo.
+
+## Principais riscos identificados
+
+- Alterar banco de dados sem migracao aditiva pode quebrar a instancia Neon em producao.
+- Misturar compliance, gamificacao e ranking em um unico commit aumenta risco de regressao.
+- Moderacao do feed precisa de regra clara antes de alterar status padrao de publicacao.
+- Ranking sem anonimato pode contrariar a preocupacao de privacidade levantada na reuniao.
+- Check-in com pontuacao sem trava pode gerar abuso.
+- Turmas fechadas precisam de grupo/permissao antes de aparecerem na interface do usuario.
+
+## Proximo passo sugerido
+
+Aprovar ou ajustar o escopo do Modulo 1 antes de qualquer alteracao funcional. O Modulo 1 e o primeiro que deve mexer em banco/API/tela, portanto precisa de decisao previa sobre cadastro livre, aprovacao manual e grupos/turmas.
