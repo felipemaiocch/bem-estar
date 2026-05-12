@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -13,6 +12,7 @@ import {
   Lock,
   Mail,
   Trophy,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useState } from "react";
@@ -38,7 +38,14 @@ export function AuthLanding() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "request-access">("login");
+  const [requestFeedback, setRequestFeedback] = useState<string | null>(null);
   const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
+  const [requestForm, setRequestForm] = useState({
+    name: "",
     email: "",
     password: "",
   });
@@ -83,6 +90,49 @@ export function AuthLanding() {
     }
   }
 
+  async function handleRequestAccessSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setLoginError(null);
+    setRequestFeedback(null);
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: requestForm.name,
+          email: requestForm.email,
+          password: requestForm.password,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !data.ok) {
+        setLoginError(data.error ?? "Não foi possível solicitar acesso agora.");
+        return;
+      }
+
+      setRequestFeedback(
+        data.message ??
+          "Cadastro enviado para aprovação. Você poderá entrar assim que o administrador liberar seu acesso.",
+      );
+      setForm((current) => ({ ...current, email: requestForm.email, password: "" }));
+      setRequestForm({ name: "", email: "", password: "" });
+    } catch {
+      setLoginError("Falha de conexão ao solicitar acesso.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen w-full bg-gray-50">
       <div className="z-10 flex w-full flex-1 flex-col justify-center bg-white p-6 shadow-2xl md:max-w-md md:p-10 lg:max-w-lg lg:p-16">
@@ -103,10 +153,46 @@ export function AuthLanding() {
                 Bem-vindo ao <span className="text-[#fd3a83]">se.monitora</span>
               </h1>
               <p className="mt-2 text-base text-gray-500">
-                Entre para acessar sua rotina de saúde e bem-estar da dr.monitora.
+                {authMode === "login"
+                  ? "Entre para acessar sua rotina de saúde e bem-estar da dr.monitora."
+                  : "Solicite seu acesso. A entrada será liberada após aprovação do administrador."}
               </p>
             </div>
 
+            <div className="mb-5 grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("login");
+                  setLoginError(null);
+                  setRequestFeedback(null);
+                }}
+                className={`rounded-xl px-3 py-2 text-sm font-bold transition-colors ${
+                  authMode === "login"
+                    ? "bg-white text-[#0264af] shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Entrar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("request-access");
+                  setLoginError(null);
+                  setRequestFeedback(null);
+                }}
+                className={`rounded-xl px-3 py-2 text-sm font-bold transition-colors ${
+                  authMode === "request-access"
+                    ? "bg-white text-[#0264af] shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Solicitar acesso
+              </button>
+            </div>
+
+            {authMode === "login" ? (
             <form className="space-y-4" onSubmit={handleLoginSubmit}>
               <div className="w-full">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">E-mail</label>
@@ -164,6 +250,77 @@ export function AuthLanding() {
                 <a href="#" className="font-semibold underline hover:text-slate-800 ml-1 transition-colors">Termo de Consentimento de Saúde</a>.
               </div>
             </form>
+            ) : (
+              <form className="space-y-4" onSubmit={handleRequestAccessSubmit}>
+                <div className="w-full">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Nome completo</label>
+                  <input
+                    value={requestForm.name}
+                    onChange={(event) =>
+                      setRequestForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    placeholder="Seu nome"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 px-4 outline-none transition-all focus:border-[#0264af] focus:bg-white focus:ring-2 focus:ring-[#0264af]/20"
+                    required
+                  />
+                </div>
+
+                <div className="w-full">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">E-mail</label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={requestForm.email}
+                      onChange={(event) =>
+                        setRequestForm((current) => ({ ...current, email: event.target.value }))
+                      }
+                      placeholder="seuemail@exemplo.com"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-4 pr-10 outline-none transition-all focus:border-[#0264af] focus:bg-white focus:ring-2 focus:ring-[#0264af]/20"
+                      required
+                    />
+                    <Mail className="absolute right-3 top-3.5 text-gray-400" size={18} />
+                  </div>
+                </div>
+
+                <div className="w-full">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Senha</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={requestForm.password}
+                      onChange={(event) =>
+                        setRequestForm((current) => ({ ...current, password: event.target.value }))
+                      }
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-4 pr-10 outline-none transition-all focus:border-[#0264af] focus:bg-white focus:ring-2 focus:ring-[#0264af]/20"
+                      minLength={6}
+                      required
+                    />
+                    <Lock className="absolute right-3 top-3.5 text-gray-400" size={18} />
+                  </div>
+                </div>
+
+                {loginError ? (
+                  <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                    {loginError}
+                  </div>
+                ) : null}
+
+                {requestFeedback ? (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {requestFeedback}
+                  </div>
+                ) : null}
+
+                <Button type="submit" size="lg" disabled={isSubmitting}>
+                  {isSubmitting ? "Enviando..." : "Enviar solicitação"}
+                  <UserPlus size={18} />
+                </Button>
+
+                <p className="text-center text-xs leading-relaxed text-slate-500">
+                  Após enviar, seu cadastro ficará pendente até aprovação do administrador.
+                </p>
+              </form>
+            )}
 
           </>
         ) : (
