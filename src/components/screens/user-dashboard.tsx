@@ -725,7 +725,7 @@ export function UserDashboardScreen() {
 
                 return (
                   <div
-                    key={user.name}
+                    key={user.id ?? user.name}
                     className={cn(
                       "flex items-center justify-between rounded-2xl px-4 py-3 transition-all",
                       isFirst ? "bg-amber-50 ring-1 ring-amber-200" : 
@@ -745,7 +745,12 @@ export function UserDashboardScreen() {
                          <span className="text-xs font-bold">#{index + 1}</span>}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-gray-900">{user.name}</p>
+                        <p className={cn(
+                          "text-sm font-bold",
+                          user.isMe ? "text-[#0264af]" : "text-gray-900"
+                        )}>
+                          {user.isMe ? `${user.name} (Você)` : user.name}
+                        </p>
                         <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">{user.area}</p>
                       </div>
                     </div>

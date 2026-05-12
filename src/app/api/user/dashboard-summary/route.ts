@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-export const dynamic = "force-dynamic";
-import { prisma } from "@/lib/prisma";
+
 import { requireSession } from "@/lib/api-auth";
+import { prisma } from "@/lib/prisma";
+import { buildRankingEntry } from "@/lib/ranking-privacy";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request, "USER");
@@ -16,8 +19,12 @@ export async function GET(request: NextRequest) {
     // 1. Leaderboard
     const topUsers = await prisma.user.findMany({
       where: { role: "USER", isActive: true },
-      select: { id: true, name: true, company: true, score: true },
-      orderBy: { score: "desc" },
+      select: { id: true, name: true, company: true, score: true, showInRanking: true },
+      orderBy: [
+        { score: "desc" },
+        { createdAt: "asc" },
+        { id: "asc" },
+      ],
       take: 5,
     });
     
@@ -97,11 +104,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      leaderboard: topUsers.map(u => ({
-          name: u.name,
-          area: u.company || "Geral",
-          points: u.score,
-      })),
+      leaderboard: topUsers.map((user, index) =>
+        buildRankingEntry(user, index + 1, sub),
+      ),
       upcomingEvents: unifiedEvents,
       metrics: {
           bookingsCount,
@@ -111,7 +116,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error) {
+  } catch {
     return NextResponse.json({ ok: false, error: "Falha ao buscar resumo" }, { status: 500 });
   }
 }

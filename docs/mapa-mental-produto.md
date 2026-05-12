@@ -44,7 +44,7 @@ mindmap
         Streak real [FALTA]
       Ranking [PARCIAL]
         Score global [OK]
-        Privacidade ranking [FALTA]
+        Privacidade ranking [PARCIAL]
       Perfil [PARCIAL]
         Registros profissionais [OK]
         Termos e consentimentos [PARCIAL]
@@ -167,14 +167,16 @@ Status: `[PARCIAL]`
 - Separar pontos de moedas.
 - Criar saldo/ledger.
 - Regras de login, check-in, streak, eventos e campanhas.
+- Decisao: implementar por ultimo.
 
 ### 4. Ranking e privacidade
 
 Status: `[PARCIAL]`
 
-- Flag para aparecer ou nao no ranking.
-- Nome anonimo/censurado.
-- Top 3/top 10 ou posicao individual.
+- Flag para aparecer ou nao no ranking. `[OK]`
+- Nome anonimo/censurado. `[OK]`
+- Top 5 publico + posicao individual. `[OK]`
+- Ranking por categoria. `[FALTA]`
 
 ### 5. Check-in e progresso
 

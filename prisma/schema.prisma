@@ -126,6 +126,7 @@ model User {
   company                   String?
   avatarUrl                 String?
   score                     Int                      @default(0)
+  showInRanking             Boolean                  @default(true)
   currentGoal               String?
   isActive                  Boolean                  @default(true)
   approvalStatus            UserApprovalStatus       @default(APPROVED)

@@ -197,25 +197,28 @@ Commit sugerido:
 
 Objetivo: reduzir exposicao e permitir anonimato.
 
+Status: `Parcial implementado em 2026-05-12`.
+
 ### Estado atual
 
-- Ranking existe em `/usuario/ranking`. `Parcial`
-- API `/api/user/ranking` lista usuarios ativos por `score`. `Parcial`
-- Nao existe flag de aparecer publicamente no ranking. `Falta banco`, `Falta API`, `Falta tela`
-- Nao existe anonimizar/censurar usuario. `Falta API`, `Falta tela`
+- Ranking existe em `/usuario/ranking`. `Implementado`
+- API `/api/user/ranking` retorna Top 5 publico + posicao individual do usuario. `Implementado`
+- Existe flag `showInRanking` para aparecer publicamente no ranking. `Implementado`
+- Tela de configuracoes permite ativar/desativar aparicao publica no ranking. `Implementado`
+- Usuarios que nao autorizam aparecem como participantes anonimos para outras pessoas. `Implementado`
 - Ranking por categoria ainda nao esta real. `Parcial`
 
 ### Entraria no modulo
 
-- Campo de privacidade no usuario: deseja aparecer publicamente no ranking.
-- API retorna nome real so quando permitido ou quando for o proprio usuario.
-- Tela exibe anonimo/censurado para quem nao quiser aparecer.
-- Avaliar top 3/top 10 + posicao individual como padrao mais seguro.
+- Campo de privacidade no usuario: deseja aparecer publicamente no ranking. `Implementado`
+- API retorna nome real so quando permitido ou quando for o proprio usuario. `Implementado`
+- Tela exibe anonimo/censurado para quem nao quiser aparecer. `Implementado`
+- Ranking mostra Top 5 + posicao individual do usuario. `Implementado`
 
 ### Decisoes antes de implementar
 
-- Ranking geral completo continua visivel?
-- Quem nao autorizar aparece como `Usuario #23`, `*****` ou nao aparece?
+- Ranking geral completo continua visivel? `Decidido: nao. Mostrar apenas Top 5 + posicao individual.`
+- Quem nao autorizar aparece como `Usuario #23`, `*****` ou nao aparece? `Decidido: Participante #posicao.`
 - Admin pode ver nomes reais em relatorio interno?
 
 Commit sugerido:
@@ -520,17 +523,17 @@ Checklist apos cada modulo funcional:
 1. Modulo 0 - Diagnostico e backlog tecnico.
 2. Modulo 1 - Usuarios, aprovacao e grupos.
 3. Modulo 2 - Compliance e aceites.
-4. Modulo 3 - Gamificacao: pontos, moedas e auditoria.
-5. Modulo 4 - Ranking e privacidade.
-6. Modulo 5 - Check-in diario, streak e progresso.
-7. Modulo 6 - Turmas, eventos fechados e presenca.
-8. Modulo 7 - Feed e moderacao.
-9. Modulo 8 - Conteudos, blog e publicacoes dos especialistas.
-10. Modulo 9 - Perfil dos profissionais e avaliacoes.
-11. Modulo 10 - Links, embeds e materiais externos.
-12. Modulo 11 - Painel admin e relatorios.
-13. Modulo 12 - Painel profissional e comunicacao interna.
-14. Modulo 13 - Notificacoes.
+4. Modulo 4 - Ranking e privacidade.
+5. Modulo 5 - Check-in diario, streak e progresso.
+6. Modulo 6 - Turmas, eventos fechados e presenca.
+7. Modulo 7 - Feed e moderacao.
+8. Modulo 8 - Conteudos, blog e publicacoes dos especialistas.
+9. Modulo 9 - Perfil dos profissionais e avaliacoes.
+10. Modulo 10 - Links, embeds e materiais externos.
+11. Modulo 11 - Painel admin e relatorios.
+12. Modulo 12 - Painel profissional e comunicacao interna.
+13. Modulo 13 - Notificacoes.
+14. Modulo 3 - Gamificacao: pontos, moedas e auditoria.
 15. Modulo 14 - Revisao tecnica final por ciclo.
 
 ## Principais riscos identificados
@@ -544,4 +547,4 @@ Checklist apos cada modulo funcional:
 
 ## Proximo passo sugerido
 
-Aprovar ou ajustar o escopo do Modulo 1 antes de qualquer alteracao funcional. O Modulo 1 e o primeiro que deve mexer em banco/API/tela, portanto precisa de decisao previa sobre cadastro livre, aprovacao manual e grupos/turmas.
+Depois de validar ranking e privacidade em producao, seguir para check-in/progresso ou turmas/eventos fechados. Gamificacao fica por ultimo por decisao de produto.

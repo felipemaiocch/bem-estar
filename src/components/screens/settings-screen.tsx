@@ -1,9 +1,9 @@
 "use client";
 
-import { Bell, Camera, ChevronRight, Lock, User } from "lucide-react";
+import { Bell, Camera, ChevronRight, Lock, Trophy, User } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +18,17 @@ export function SettingsScreen() {
   const [preferences, setPreferences] = useState<PreferenceItem[]>([]);
   const [loadingPreferences, setLoadingPreferences] = useState(false);
   const [loadingUser, setLoadingUser] = useState(false);
-  const [user, setUser] = useState<{ name: string; avatarUrl: string | null; email: string } | null>(null);
+  const [user, setUser] = useState<{
+    name: string;
+    avatarUrl: string | null;
+    email: string;
+    showInRanking: boolean;
+  } | null>(null);
   const [apiFeedback, setApiFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: "", new: "", confirm: "" });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isUpdatingRankingPrivacy, setIsUpdatingRankingPrivacy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -61,6 +67,43 @@ export function SettingsScreen() {
       if (data.ok) setPreferences(data.preferences);
     } catch {
       setApiFeedback({ type: "error", message: "Erro ao atualizar preferência." });
+    }
+  }
+
+  async function toggleRankingPrivacy(showInRanking: boolean) {
+    setIsUpdatingRankingPrivacy(true);
+    setApiFeedback(null);
+
+    try {
+      const response = await fetch("/api/user/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showInRanking }),
+      });
+      const data = await response.json();
+
+      if (data.ok) {
+        setUser(data.user);
+        setApiFeedback({
+          type: "success",
+          message: showInRanking
+            ? "Seu nome voltou a aparecer no ranking."
+            : "Seu nome será exibido como participante anônimo no ranking.",
+        });
+        return;
+      }
+
+      setApiFeedback({
+        type: "error",
+        message: data.error || "Erro ao atualizar privacidade do ranking.",
+      });
+    } catch {
+      setApiFeedback({
+        type: "error",
+        message: "Falha de conexão ao atualizar privacidade do ranking.",
+      });
+    } finally {
+      setIsUpdatingRankingPrivacy(false);
     }
   }
 
@@ -173,7 +216,9 @@ export function SettingsScreen() {
               />
             </div>
             <div className="flex-1 text-center sm:text-left">
-              <h3 className="text-xl font-bold text-slate-900">{user?.name || "Carregando..."}</h3>
+              <h3 className="text-xl font-bold text-slate-900">
+                {loadingUser ? "Carregando..." : user?.name || "Carregando..."}
+              </h3>
               <p className="text-slate-500">{user?.email || "—"}</p>
               <p className="text-xs font-bold text-[#0264af] mt-2 uppercase tracking-widest">Membro se.monitora</p>
             </div>
@@ -190,6 +235,47 @@ export function SettingsScreen() {
               {apiFeedback.message}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Privacidade do Ranking */}
+      <Card>
+        <CardHeader>
+          <SectionHeading
+            eyebrow="Privacidade"
+            title="Ranking"
+            description="Controle como seu nome aparece na lista pública de pontuação."
+            action={<Trophy className="text-amber-500" size={20} />}
+          />
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={() => {
+              if (user) {
+                void toggleRankingPrivacy(!user.showInRanking);
+              }
+            }}
+            disabled={!user || isUpdatingRankingPrivacy}
+            className="group flex w-full items-center justify-between gap-4 rounded-3xl border border-slate-100 bg-slate-50/50 p-5 text-left transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <div className="flex-1">
+              <p className="font-bold text-slate-900 group-hover:text-[#0264af] transition-colors">
+                Aparecer publicamente no ranking
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Quando desativado, outros usuários veem você como participante anônimo.
+              </p>
+            </div>
+            <div
+              className={cn(
+                "mt-1 flex h-7 w-12 shrink-0 items-center rounded-full px-1 transition-all duration-300",
+                user?.showInRanking ? "justify-end bg-[#0264af]" : "justify-start bg-slate-300",
+              )}
+            >
+              <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
+            </div>
+          </button>
         </CardContent>
       </Card>
 
