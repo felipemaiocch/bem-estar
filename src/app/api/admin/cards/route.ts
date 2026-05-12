@@ -16,6 +16,7 @@ const cardSchema = z.object({
   responsibleId: z.string().optional(),
   slots: z.string().optional(),
   availableDays: z.string().optional(),
+  accessGroupId: z.string().optional().nullable().or(z.literal("")),
 });
 
 export async function GET(request: NextRequest) {
@@ -44,6 +45,11 @@ export async function GET(request: NextRequest) {
               name: true,
             },
           },
+        },
+      },
+      accessGroup: {
+        select: {
+          name: true,
         },
       },
     },
@@ -82,7 +88,13 @@ export async function POST(request: NextRequest) {
       responsibleId: parsed.data.responsibleId || null,
       slots: parsed.data.slots || null,
       availableDays: parsed.data.availableDays || null,
+      accessGroupId: parsed.data.accessGroupId || null,
       publishedById: auth.session.sub,
+    },
+    include: {
+      accessGroup: {
+        select: { name: true },
+      },
     },
   });
 

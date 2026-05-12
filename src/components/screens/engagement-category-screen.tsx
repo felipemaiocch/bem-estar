@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Leaf,
+  Lock,
   MapPin,
   MessageSquareText,
   Sparkles,
@@ -245,11 +246,29 @@ export function EngagementCategoryScreen({ slug }: { slug: EngagementCategorySlu
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between rounded-[24px] bg-slate-50 px-4 py-4 text-sm mt-4">
-                    <span className="text-slate-500">Pontos na participação</span>
-                    <span className="font-semibold text-slate-950">+{item.points}</span>
+                    <span className="text-slate-500">
+                      {item.isLocked ? "Acesso" : "Pontos na participação"}
+                    </span>
+                    <span className="font-semibold text-slate-950">
+                      {item.isLocked ? item.accessGroupName ?? "Turma fechada" : `+${item.points}`}
+                    </span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-1">
-                    <Button onClick={() => window.location.href = '/usuario/agenda'}>{page.primaryAction}</Button>
+                    <Button
+                      disabled={item.isLocked}
+                      onClick={() => {
+                        if (!item.isLocked) {
+                          window.location.href = "/usuario/agenda";
+                        }
+                      }}
+                    >
+                      {item.isLocked ? (
+                        <>
+                          <Lock className="h-4 w-4" />
+                          Turma fechada
+                        </>
+                      ) : page.primaryAction}
+                    </Button>
                   </div>
                 </div>
               </CardContent>

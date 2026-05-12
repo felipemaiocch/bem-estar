@@ -21,6 +21,14 @@ interface EngagementCardItem {
   availableDays?: string | null;
   responsibleName?: string | null;
   responsibleId?: string | null;
+  accessGroupId?: string | null;
+  accessGroup?: { name: string } | null;
+}
+
+interface AccessGroupItem {
+  id: string;
+  name: string;
+  isActive: boolean;
 }
 
 const defaultCardForm = {
@@ -35,6 +43,7 @@ const defaultCardForm = {
   responsibleId: "",
   slots: "",
   availableDays: "",
+  accessGroupId: "",
 };
 
 const inputClassName =
@@ -53,6 +62,7 @@ const DAYS_OF_WEEK = [
 export function AdminCardsScreen() {
   const [cards, setCards] = useState<EngagementCardItem[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
+  const [groups, setGroups] = useState<AccessGroupItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -64,19 +74,26 @@ export function AdminCardsScreen() {
     setFeedback(null);
 
     try {
-      const [cardsRes, profRes] = await Promise.all([
+      const [cardsRes, profRes, groupsRes] = await Promise.all([
         fetch("/api/admin/cards"),
         fetch("/api/admin/professionals"),
+        fetch("/api/admin/groups"),
       ]);
       
-      const cardsData = await cardsRes.json();
-      const profData = await profRes.json();
+      const [cardsData, profData, groupsData] = await Promise.all([
+        cardsRes.json(),
+        profRes.json(),
+        groupsRes.json(),
+      ]);
 
       if (cardsData.ok) {
         setCards(cardsData.cards ?? []);
       }
       if (profData.ok) {
         setProfessionals(profData.professionals ?? []);
+      }
+      if (groupsData.ok) {
+        setGroups(groupsData.groups ?? []);
       }
     } catch {
       setFeedback("Falha de conexão ao carregar dados.");
@@ -130,6 +147,7 @@ export function AdminCardsScreen() {
           responsibleId: form.responsibleId,
           slots: form.slots,
           availableDays: form.availableDays,
+          accessGroupId: form.accessGroupId,
         }),
       });
 
@@ -164,6 +182,7 @@ export function AdminCardsScreen() {
         responsibleId: card.responsibleId || "",
         slots: card.slots || "",
         availableDays: card.availableDays || "",
+        accessGroupId: card.accessGroupId || "",
      });
      setEditingId(card.id);
      setFeedback(null);
@@ -295,6 +314,22 @@ export function AdminCardsScreen() {
                 />
               )}
 
+              <label className="grid gap-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+                Turma/grupo restrito
+                <select
+                  className={inputClassName}
+                  value={form.accessGroupId}
+                  onChange={(event) => setForm((f) => ({ ...f, accessGroupId: event.target.value }))}
+                >
+                  <option value="">Público para todos</option>
+                  {groups.filter((group) => group.isActive).map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               <div className="grid gap-3 grid-cols-1">
                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Horários Individuais (ex: 09:00, 10:00, 16:00)
@@ -389,6 +424,11 @@ export function AdminCardsScreen() {
                              {card.slots && (
                                 <p className="text-[10px] text-amber-600 font-bold mt-1 uppercase">Grade Ativa</p>
                              )}
+                             {card.accessGroup?.name ? (
+                                <p className="text-[10px] text-blue-600 font-bold mt-1 uppercase">
+                                  Restrito: {card.accessGroup.name}
+                                </p>
+                             ) : null}
                            </div>
                            <button
                              type="button"

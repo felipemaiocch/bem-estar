@@ -48,6 +48,8 @@ interface AdminEventItem {
   points: number;
   status: "DRAFT" | "PUBLISHED" | "COMPLETED" | "CANCELED";
   maxAttendees: number | null;
+  accessGroupId: string | null;
+  accessGroupName: string | null;
 }
 
 interface AdminGroupItem {
@@ -90,6 +92,7 @@ const defaultEventForm = {
   points: 0,
   maxAttendees: "",
   responsibleName: "",
+  accessGroupId: "",
 };
 
 const defaultGroupForm = {
@@ -336,6 +339,7 @@ export function AdminDashboardScreen() {
           maxAttendees: eventForm.maxAttendees ? Number(eventForm.maxAttendees) : undefined,
           status: "PUBLISHED",
           responsibleName: eventForm.responsibleName,
+          accessGroupId: eventForm.accessGroupId,
         }),
       });
 
@@ -1201,6 +1205,104 @@ export function AdminDashboardScreen() {
                         {group.isActive ? "Inativar" : "Ativar"}
                       </Button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 border-t border-slate-100 pt-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[#0264af]" />
+                <h3 className="text-lg font-bold text-gray-900">Evento ou aula fechada</h3>
+              </div>
+              <form className="space-y-3" onSubmit={(event) => void handleCreateEvent(event)}>
+                <input
+                  className={inputClassName}
+                  placeholder="Título do evento ou aula"
+                  value={eventForm.title}
+                  onChange={(event) =>
+                    setEventForm((current) => ({ ...current, title: event.target.value }))
+                  }
+                  required
+                />
+                <textarea
+                  className={cn(inputClassName, "min-h-20 resize-none")}
+                  placeholder="Descrição"
+                  value={eventForm.description}
+                  onChange={(event) =>
+                    setEventForm((current) => ({ ...current, description: event.target.value }))
+                  }
+                  required
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input
+                    className={inputClassName}
+                    placeholder="Local"
+                    value={eventForm.location}
+                    onChange={(event) =>
+                      setEventForm((current) => ({ ...current, location: event.target.value }))
+                    }
+                    required
+                  />
+                  <select
+                    className={inputClassName}
+                    value={eventForm.category}
+                    onChange={(event) =>
+                      setEventForm((current) => ({ ...current, category: event.target.value }))
+                    }
+                  >
+                    <option value="Agenda dr">Agenda dr</option>
+                    <option value="Cultura">Cultura</option>
+                    <option value="Saúde e bem-estar">Saúde e bem-estar</option>
+                  </select>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input
+                    className={inputClassName}
+                    type="datetime-local"
+                    value={eventForm.startsAtIso}
+                    onChange={(event) =>
+                      setEventForm((current) => ({ ...current, startsAtIso: event.target.value }))
+                    }
+                    required
+                  />
+                  <input
+                    className={inputClassName}
+                    type="datetime-local"
+                    value={eventForm.endsAtIso}
+                    onChange={(event) =>
+                      setEventForm((current) => ({ ...current, endsAtIso: event.target.value }))
+                    }
+                    required
+                  />
+                </div>
+                <select
+                  className={inputClassName}
+                  value={eventForm.accessGroupId}
+                  onChange={(event) =>
+                    setEventForm((current) => ({ ...current, accessGroupId: event.target.value }))
+                  }
+                >
+                  <option value="">Público para todos</option>
+                  {groups.filter((group) => group.isActive).map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" disabled={busyAction === "create-event"} className="w-full">
+                  {busyAction === "create-event" ? "Criando..." : "Criar evento/aula"}
+                </Button>
+              </form>
+
+              <div className="mt-4 space-y-2">
+                {events.slice(0, 4).map((event) => (
+                  <div key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-sm font-bold text-slate-900">{event.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {event.category} · {new Date(event.startsAtIso).toLocaleDateString("pt-BR")}
+                      {event.accessGroupName ? ` · Restrito: ${event.accessGroupName}` : ""}
+                    </p>
                   </div>
                 ))}
               </div>

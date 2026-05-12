@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { requireSession } from "@/lib/api-auth";
+import {
+  buildRestrictedContentState,
+  getActiveUserGroupIds,
+  lockedContentCopy,
+} from "@/lib/group-content-access";
 import { prisma } from "@/lib/prisma";
 import { buildRankingEntry } from "@/lib/ranking-privacy";
 
@@ -16,6 +21,7 @@ export async function GET(request: NextRequest) {
   const { sub } = auth.session;
 
   try {
+    const userGroupIds = await getActiveUserGroupIds(sub);
     // 1. Leaderboard
     const topUsers = await prisma.user.findMany({
       where: { role: "USER", isActive: true },
@@ -36,12 +42,20 @@ export async function GET(request: NextRequest) {
       where: { status: "PUBLISHED", startsAt: { gte: today } },
       orderBy: { startsAt: "asc" },
       take: 4,
+      include: {
+        accessGroup: {
+          select: { id: true, name: true },
+        },
+      },
     });
 
     const latestCards = await prisma.engagementCard.findMany({
         orderBy: { createdAt: "desc" },
         take: 3,
         include: {
+          accessGroup: {
+            select: { id: true, name: true },
+          },
           responsible: {
             include: { user: { select: { name: true } } }
           }
@@ -67,17 +81,28 @@ export async function GET(request: NextRequest) {
         prisma.engagementCard.count({ where: { category: "saude-bem-estar" } }),
     ]);
 
-    const upcomingEventsData = upcomingEvents.map(e => ({
-        id: e.id,
-        title: e.title,
-        location: e.location,
-        category: e.category,
-        startsAtIso: e.startsAt.toISOString(),
-        isCard: false,
-        specialist: e.responsibleName || null
-    }));
+    const upcomingEventsData = upcomingEvents.map((event) => {
+        const accessState = buildRestrictedContentState(event, userGroupIds);
+        const lockedCopy = accessState.isLocked ? lockedContentCopy(event) : null;
+
+        return {
+          id: event.id,
+          title: lockedCopy?.title ?? event.title,
+          location: lockedCopy?.location ?? event.location,
+          category: event.category,
+          startsAtIso: event.startsAt.toISOString(),
+          isCard: false,
+          specialist: accessState.isLocked ? null : event.responsibleName || null,
+          accessGroupName: accessState.accessGroupName,
+          isRestricted: accessState.isRestricted,
+          userHasAccess: accessState.userHasAccess,
+          isLocked: accessState.isLocked,
+        };
+    });
 
     const latestCardsData = latestCards.map(c => {
+        const accessState = buildRestrictedContentState(c, userGroupIds);
+        const lockedCopy = accessState.isLocked ? lockedContentCopy(c) : null;
         // Se o card tem uma data fixa no banco, tentar usar ela
         let cardDate = c.createdAt;
         if (c.date && c.date.length >= 10 && !isNaN(Date.parse(c.date))) {
@@ -88,13 +113,17 @@ export async function GET(request: NextRequest) {
 
         return {
           id: c.id,
-          title: c.title,
-          location: c.location,
+          title: lockedCopy?.title ?? c.title,
+          location: lockedCopy?.location ?? c.location,
           category: c.category.replace('saude-bem-estar', 'Saúde').replace('cultura', 'Cultura'),
           startsAtIso: cardDate.toISOString(),
           isCard: true,
-          cardDisplayDate: c.date,
-          specialist: c.responsibleName || c.responsible?.user.name || null
+          cardDisplayDate: accessState.isLocked ? lockedCopy?.status : c.date,
+          specialist: accessState.isLocked ? null : c.responsibleName || c.responsible?.user.name || null,
+          accessGroupName: accessState.accessGroupName,
+          isRestricted: accessState.isRestricted,
+          userHasAccess: accessState.userHasAccess,
+          isLocked: accessState.isLocked,
         };
     });
 

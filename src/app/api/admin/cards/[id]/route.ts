@@ -56,6 +56,12 @@ export async function PATCH(
         responsibleId: body.responsibleId || null,
         slots: body.slots || null,
         availableDays: body.availableDays || null,
+        accessGroupId: body.accessGroupId || null,
+      },
+      include: {
+        accessGroup: {
+          select: { name: true },
+        },
       },
     });
 

@@ -1,5 +1,10 @@
 import bcrypt from "bcryptjs";
 import type { BookingStatus, SessionBooking } from "@prisma/client";
+import {
+  buildRestrictedContentState,
+  getActiveUserGroupIds,
+  lockedContentCopy,
+} from "@/lib/group-content-access";
 import { prisma } from "@/lib/prisma";
 
 type SessionIdentity = {
@@ -423,6 +428,7 @@ export async function listAgendaSlots(options: {
 
   const userExists = await ensureUserExists(options.session.sub);
   if (!userExists) return { slots: [], events: [], cards: [] };
+  const userGroupIds = await getActiveUserGroupIds(options.session.sub);
 
   // Fetch all Engagement Cards with custom scheduling for this day (Derived from CMS)
   const dayNameEn = start.toLocaleDateString("en-US", { weekday: "long" }); // e.g. "Monday"
@@ -430,10 +436,20 @@ export async function listAgendaSlots(options: {
 
   const cardsWithSlots = await prisma.engagementCard.findMany({
     where: {
-      OR: [
-        { availableDays: { contains: dayNameEn, mode: 'insensitive' } },
-        { availableDays: { contains: dateStr } },
-        { date: dateStr }
+      AND: [
+        {
+          OR: [
+            { availableDays: { contains: dayNameEn, mode: 'insensitive' } },
+            { availableDays: { contains: dateStr } },
+            { date: dateStr }
+          ],
+        },
+        {
+          OR: [
+            { accessGroupId: null },
+            { accessGroupId: { in: userGroupIds } },
+          ],
+        },
       ],
       NOT: { slots: "" }
     },
@@ -491,6 +507,9 @@ export async function listAgendaSlots(options: {
       status: "PUBLISHED",
     },
     include: {
+      accessGroup: {
+        select: { id: true, name: true },
+      },
       attendances: {
         where: { userId: options.session.sub },
         select: { id: true },
@@ -498,15 +517,24 @@ export async function listAgendaSlots(options: {
     },
   });
 
-  const companyEvents = events.map(e => ({
-    id: e.id,
-    title: e.title,
-    time: e.startsAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }),
-    location: e.location,
-    type: e.category,
-    points: e.points,
-    isParticipating: e.attendances.length > 0,
-  }));
+  const companyEvents = events.map((event) => {
+    const accessState = buildRestrictedContentState(event, userGroupIds);
+    const lockedCopy = accessState.isLocked ? lockedContentCopy(event) : null;
+
+    return {
+      id: event.id,
+      title: lockedCopy?.title ?? event.title,
+      time: event.startsAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }),
+      location: lockedCopy?.location ?? event.location,
+      type: event.category,
+      points: accessState.isLocked ? 0 : event.points,
+      isParticipating: accessState.isLocked ? false : event.attendances.length > 0,
+      accessGroupName: accessState.accessGroupName,
+      isRestricted: accessState.isRestricted,
+      userHasAccess: accessState.userHasAccess,
+      isLocked: accessState.isLocked,
+    };
+  });
 
   const engagementCards = await prisma.engagementCard.findMany({
     where: {
@@ -515,13 +543,35 @@ export async function listAgendaSlots(options: {
         { availableDays: { contains: dateStr } },
         { date: dateStr }
       ]
-    }
+    },
+    include: {
+      accessGroup: {
+        select: { id: true, name: true },
+      },
+    },
   });
 
   return {
     slots,
     events: companyEvents,
-    cards: engagementCards
+    cards: engagementCards.map((card) => {
+      const accessState = buildRestrictedContentState(card, userGroupIds);
+      const lockedCopy = accessState.isLocked ? lockedContentCopy(card) : null;
+
+      return {
+        ...card,
+        title: lockedCopy?.title ?? card.title,
+        location: lockedCopy?.location ?? card.location,
+        status: lockedCopy?.status ?? card.status,
+        points: accessState.isLocked ? 0 : card.points,
+        slots: accessState.isLocked ? null : card.slots,
+        accessGroupName: accessState.accessGroupName,
+        isRestricted: accessState.isRestricted,
+        userHasAccess: accessState.userHasAccess,
+        isLocked: accessState.isLocked,
+        accessGroup: undefined,
+      };
+    })
   };
 }
 

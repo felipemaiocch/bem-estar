@@ -260,32 +260,38 @@ Commit sugerido:
 
 ## Modulo 6 - Turmas, eventos fechados e presenca
 
-Objetivo: controlar turmas fechadas, presenca e pontuacao por aula/evento.
+Objetivo: controlar turmas fechadas, presenca e acesso a aula/evento sem abrir gamificacao ainda.
+
+Status: `Parcial implementado em 2026-05-12`.
 
 ### Estado atual
 
 - `Event` e `EventAttendance` existem. `Implementado`
 - Usuario confirma participacao em evento. `Parcial`
-- Eventos possuem capacidade e pontos. `Parcial`
-- Nao existe grupo/turma com participantes selecionados. `Falta banco`, `Falta API`, `Falta tela`
-- Nao existe regra para Ingles, Maisa ou Clube do Livro. `Falta regra`, `Falta banco`, `Falta tela`
-- Nao existe painel completo de presenca/check-in por evento. `Falta tela`, `Falta API`
-- Penalidade por falta ainda nao esta implementada. `Falta regra`, `Falta API`
+- Eventos possuem capacidade e pontos, mas pontuacao fica para gamificacao. `Parcial`
+- Grupos/turmas com participantes selecionados existem desde o Modulo 1. `Implementado`
+- Eventos e cards podem ser vinculados a uma turma/grupo por `accessGroupId`. `Implementado`
+- Usuario fora da turma ve conteudo mascarado como turma fechada/proxima turma. `Implementado`
+- Usuario dentro da turma ve detalhes completos e pode confirmar presenca. `Implementado`
+- Confirmacao de presenca em evento fechado bloqueia usuario fora do grupo. `Implementado`
+- Ingles, Maisa e Clube do Livro usam a base de grupos, mas ainda nao possuem regra especifica de pontuacao. `Parcial`
+- Painel completo de presenca/check-in por evento ainda nao existe. `Falta tela`, `Falta API`
+- Penalidade por falta ainda nao esta implementada. `Fora deste modulo`
 
 ### Entraria no modulo
 
-- Criar modelo de turma/grupo e participantes.
-- Vincular evento/aula a turma.
-- Mostrar detalhes internos apenas para participantes.
-- Mostrar "em breve" ou "proxima turma em X meses" para quem esta fora.
-- Check-in/presenca por evento/aula.
-- Pontuar presenca e preparar penalidade por falta se aprovada.
+- Criar modelo de turma/grupo e participantes. `Implementado no Modulo 1`
+- Vincular evento/aula/card a turma. `Implementado`
+- Mostrar detalhes internos apenas para participantes. `Implementado`
+- Mostrar "em breve" ou "proxima turma em X meses" para quem esta fora. `Parcial`
+- Check-in/presenca por evento/aula. `Parcial`
+- Pontuar presenca e preparar penalidade por falta se aprovada. `Fora deste modulo`
 
 ### Decisoes antes de implementar
 
-- Faltas devem perder pontos/moedas ou apenas nao pontuar?
-- Quem confirma presenca: usuario, profissional ou admin?
-- Turmas fechadas podem ter lista de espera?
+- Faltas devem perder pontos/moedas ou apenas nao pontuar? `Adiado para gamificacao.`
+- Quem confirma presenca: usuario, profissional ou admin? `Parcial: usuario confirma participacao.`
+- Turmas fechadas podem ter lista de espera? `Pendente. Lista de desejo/vagas fica para proximo refinamento.`
 
 Commit sugerido:
 

@@ -43,6 +43,9 @@ export interface AdminEventView {
   points: number;
   status: EventStatus;
   maxAttendees: number | null;
+  responsibleName: string | null;
+  accessGroupId: string | null;
+  accessGroupName: string | null;
 }
 
 export interface AdminGroupView {
@@ -109,6 +112,7 @@ interface AdminCreateEventInput {
   maxAttendees?: number;
   publishedBy?: string;
   responsibleName?: string;
+  accessGroupId?: string | null;
 }
 
 interface AdminUpdateEventInput {
@@ -123,6 +127,7 @@ interface AdminUpdateEventInput {
   status?: EventStatus;
   maxAttendees?: number;
   responsibleName?: string;
+  accessGroupId?: string | null;
 }
 
 interface AdminCreateGroupInput {
@@ -183,6 +188,8 @@ type DemoEvent = {
   points: number;
   status: EventStatus;
   maxAttendees: number | null;
+  responsibleName?: string | null;
+  accessGroupId?: string | null;
 };
 
 declare global {
@@ -406,6 +413,9 @@ function toAdminEventView(event: DemoEvent): AdminEventView {
     points: event.points,
     status: event.status,
     maxAttendees: event.maxAttendees,
+    responsibleName: event.responsibleName ?? null,
+    accessGroupId: null,
+    accessGroupName: null,
   };
 }
 
@@ -1164,6 +1174,11 @@ export async function listAdminEvents() {
 
   const events = await prisma.event.findMany({
     orderBy: { startsAt: "asc" },
+    include: {
+      accessGroup: {
+        select: { name: true },
+      },
+    },
   });
 
   return events.map((event) => ({
@@ -1178,6 +1193,9 @@ export async function listAdminEvents() {
     points: event.points,
     status: event.status,
     maxAttendees: event.maxAttendees,
+    responsibleName: event.responsibleName,
+    accessGroupId: event.accessGroupId,
+    accessGroupName: event.accessGroup?.name ?? null,
   }));
 }
 
@@ -1195,6 +1213,8 @@ export async function createAdminEvent(actorId: string, input: AdminCreateEventI
       points: input.points ?? 0,
       status: input.status ?? "PUBLISHED",
       maxAttendees: input.maxAttendees ?? null,
+      responsibleName: input.responsibleName ?? null,
+      accessGroupId: input.accessGroupId ?? null,
     };
 
     getDemoEvents().push(event);
@@ -1214,6 +1234,13 @@ export async function createAdminEvent(actorId: string, input: AdminCreateEventI
       status: input.status ?? "PUBLISHED",
       maxAttendees: input.maxAttendees ?? null,
       publishedBy: input.publishedBy,
+      responsibleName: input.responsibleName?.trim() || null,
+      accessGroupId: input.accessGroupId ?? null,
+    },
+    include: {
+      accessGroup: {
+        select: { name: true },
+      },
     },
   });
 
@@ -1234,6 +1261,9 @@ export async function createAdminEvent(actorId: string, input: AdminCreateEventI
     points: created.points,
     status: created.status,
     maxAttendees: created.maxAttendees,
+    responsibleName: created.responsibleName,
+    accessGroupId: created.accessGroupId,
+    accessGroupName: created.accessGroup?.name ?? null,
   };
 }
 
@@ -1259,6 +1289,12 @@ export async function updateAdminEvent(actorId: string, eventId: string, input: 
       ...(input.maxAttendees !== undefined
         ? { maxAttendees: input.maxAttendees }
         : {}),
+      ...(input.responsibleName !== undefined
+        ? { responsibleName: input.responsibleName?.trim() || null }
+        : {}),
+      ...(input.accessGroupId !== undefined
+        ? { accessGroupId: input.accessGroupId }
+        : {}),
     });
 
     return toAdminEventView(target);
@@ -1279,6 +1315,17 @@ export async function updateAdminEvent(actorId: string, eventId: string, input: 
       ...(input.maxAttendees !== undefined
         ? { maxAttendees: input.maxAttendees }
         : {}),
+      ...(input.responsibleName !== undefined
+        ? { responsibleName: input.responsibleName?.trim() || null }
+        : {}),
+      ...(input.accessGroupId !== undefined
+        ? { accessGroupId: input.accessGroupId }
+        : {}),
+    },
+    include: {
+      accessGroup: {
+        select: { name: true },
+      },
     },
   });
 
@@ -1296,5 +1343,8 @@ export async function updateAdminEvent(actorId: string, eventId: string, input: 
     points: updated.points,
     status: updated.status,
     maxAttendees: updated.maxAttendees,
+    responsibleName: updated.responsibleName,
+    accessGroupId: updated.accessGroupId,
+    accessGroupName: updated.accessGroup?.name ?? null,
   };
 }

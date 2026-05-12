@@ -15,6 +15,8 @@ const updateEventSchema = z.object({
   points: z.number().int().min(0).max(5000).optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELED"]).optional(),
   maxAttendees: z.number().int().min(1).max(50000).nullable().optional(),
+  responsibleName: z.string().max(200).optional(),
+  accessGroupId: z.string().optional().nullable().or(z.literal("")),
 });
 
 function getEventId(pathname: string) {
@@ -81,6 +83,8 @@ export async function PATCH(request: NextRequest) {
       points: parsed.data.points,
       status: parsed.data.status,
       maxAttendees: parsed.data.maxAttendees ?? undefined,
+      responsibleName: parsed.data.responsibleName,
+      accessGroupId: parsed.data.accessGroupId === undefined ? undefined : parsed.data.accessGroupId || null,
     });
 
     return NextResponse.json({

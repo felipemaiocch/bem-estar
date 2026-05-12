@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus2, ChevronLeft, ChevronRight, Clock3, ExternalLink, MapPin, Star } from "lucide-react";
+import { CalendarPlus2, ChevronLeft, ChevronRight, Clock3, ExternalLink, Lock, MapPin, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -411,9 +411,15 @@ export function AgendaScreen() {
                         size="sm" 
                         variant={event.isParticipating ? "secondary" : "primary"}
                         className={cn("h-8 rounded-lg", event.isParticipating && "bg-emerald-100 text-emerald-700")}
+                        disabled={event.isLocked}
                         onClick={() => void handleParticipate(event)}
                       >
-                        {event.isParticipating ? "Participando" : "Participar"}
+                        {event.isLocked ? (
+                          <>
+                            <Lock size={13} />
+                            Fechado
+                          </>
+                        ) : event.isParticipating ? "Participando" : "Participar"}
                       </Button>
                     </div>
                   </Card>
@@ -436,13 +442,14 @@ export function AgendaScreen() {
                           {card.slots ? "Sessão com horários" : "Evento / Atividade"}
                         </div>
                       </div>
-                      <Button 
+                     <Button
                         size="sm" 
                         variant="ghost" 
                         className="h-8 rounded-lg text-purple-600 hover:bg-purple-100"
+                        disabled={card.isLocked}
                         onClick={() => void handleCardAction(card)}
                       >
-                        Ver detalhes
+                        {card.isLocked ? "Turma fechada" : "Ver detalhes"}
                       </Button>
                     </div>
                   </Card>

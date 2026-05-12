@@ -214,10 +214,14 @@ model Event {
   publishedBy          String?
   status               EventStatus       @default(PUBLISHED)
   responsibleName      String?
+  accessGroupId        String?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   attendances          EventAttendance[]
   publisher            User?             @relation("EventPublisher", fields: [publishedBy], references: [id], onDelete: SetNull)
+  accessGroup          AccessGroup?       @relation(fields: [accessGroupId], references: [id], onDelete: SetNull)
+
+  @@index([accessGroupId])
 }
 
 model EventAttendance {
@@ -455,11 +459,14 @@ model EngagementCard {
   // Custom scheduling for this card
   slots           String?  // Ex: "09:00, 10:00, 15:00"
   availableDays   String?  // Ex: "Monday, Wednesday" or "2026-04-27"
+  accessGroupId   String?
+  accessGroup     AccessGroup? @relation(fields: [accessGroupId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([category])
+  @@index([accessGroupId])
 }
 
 model GlobalAlert {
@@ -480,6 +487,8 @@ model AccessGroup {
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   memberships  UserGroupMembership[]
+  events       Event[]
+  cards        EngagementCard[]
 
   @@index([kind, isActive])
 }

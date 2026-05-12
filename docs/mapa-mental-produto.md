@@ -38,7 +38,7 @@ mindmap
       Agenda [PARCIAL]
         Reserva real [OK]
         Lista de espera [OK]
-        Turmas fechadas [FALTA]
+        Turmas fechadas [PARCIAL]
       Progresso [PARCIAL]
         Historico bem-estar [OK]
         Streak real [FALTA]
@@ -190,9 +190,11 @@ Status: `[PARCIAL]`
 
 Status: `[PARCIAL]`
 
-- Turma da Maisa, clube do livro e ingles.
-- Participantes selecionados.
-- Presenca/check-in por aula/evento.
+- Turma da Maisa, clube do livro e ingles. `[PARCIAL]`
+- Participantes selecionados. `[OK]`
+- Conteudos e eventos restritos por grupo. `[OK]`
+- Presenca/check-in por aula/evento. `[PARCIAL]`
+- Lista de desejo/vaga. `[FALTA]`
 
 ### 7. Feed e moderacao
 
