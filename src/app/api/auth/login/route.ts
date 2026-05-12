@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createDemoSession, redirectForRole } from "@/lib/auth/demo-user";
 import { signToken } from "@/lib/auth/jwt";
 import { authCookieName, sessionCookieOptions } from "@/lib/auth/session";
+import { hasAcceptedRequiredTerms } from "@/lib/compliance";
 import { prisma } from "@/lib/prisma";
 
 const loginSchema = z.object({
@@ -93,10 +94,14 @@ export async function POST(request: Request) {
     } as const;
 
     const token = await signToken(sessionPayload);
+    const defaultRedirect = redirectForRole(user.role);
+    const acceptedRequiredTerms = await hasAcceptedRequiredTerms(user.id);
     const response = NextResponse.json({
       ok: true,
       mode: "database",
-      redirectTo: redirectForRole(user.role),
+      redirectTo: acceptedRequiredTerms
+        ? defaultRedirect
+        : `/aceite?next=${encodeURIComponent(defaultRedirect)}`,
       user: sessionPayload,
     });
 

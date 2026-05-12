@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { verifyToken } from "@/lib/auth/jwt";
 import { authCookieName } from "@/lib/auth/session";
+import { hasAcceptedRequiredTerms } from "@/lib/compliance";
 import type { SessionPayload, UserRole } from "@/types";
 
 interface SessionResult {
@@ -14,9 +15,14 @@ interface SessionErrorResult {
   response: NextResponse;
 }
 
+interface RequireSessionOptions {
+  requireAcceptedTerms?: boolean;
+}
+
 export async function requireSession(
   request: NextRequest,
   allowedRoles?: UserRole | UserRole[],
+  options?: RequireSessionOptions,
 ): Promise<SessionResult | SessionErrorResult> {
   const token = request.cookies.get(authCookieName)?.value;
 
@@ -53,6 +59,24 @@ export async function requireSession(
         { status: 403 },
       ),
     };
+  }
+
+  if (options?.requireAcceptedTerms !== false) {
+    const acceptedTerms = await hasAcceptedRequiredTerms(session.sub);
+
+    if (!acceptedTerms) {
+      return {
+        response: NextResponse.json(
+          {
+            ok: false,
+            error: "Aceite obrigatório pendente.",
+            requiresAcceptance: true,
+            redirectTo: "/aceite",
+          },
+          { status: 428 },
+        ),
+      };
+    }
   }
 
   return { session };

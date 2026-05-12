@@ -28,7 +28,7 @@ mindmap
       RBAC por papel [OK]
       Aprovacao de cadastro [PARCIAL]
       Grupos e turmas [PARCIAL]
-      Primeiro aceite [FALTA]
+      Primeiro aceite [PARCIAL]
     Colaborador
       Home [PARCIAL]
         Proxima sessao [OK]
@@ -98,7 +98,7 @@ mindmap
 - RBAC por `src/proxy.ts`. `[OK]`
 - Cadastro pendente/aprovacao. `[PARCIAL]`
 - Recuperacao de senha. `[FALTA]`
-- Termo obrigatorio no primeiro login. `[FALTA]`
+- Termo obrigatorio no primeiro login. `[PARCIAL]`
 
 ### Usuario
 
@@ -153,11 +153,12 @@ Status: `[PARCIAL]`
 
 ### 2. Compliance e aceites
 
-Status: `[FALTA]`
+Status: `[PARCIAL]`
 
-- Termo no primeiro login.
-- Aceite de imagem/publicacao.
-- Texto juridico de liberalidade e nao substituicao medica.
+- Termo no primeiro login. `[OK]`
+- Aceite de imagem/publicacao. `[PARCIAL]`
+- Texto juridico de liberalidade e nao substituicao medica. `[OK]`
+- Historico administrativo de aceites. `[FALTA]`
 
 ### 3. Gamificacao
 

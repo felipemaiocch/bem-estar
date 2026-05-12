@@ -127,28 +127,35 @@ Commit sugerido:
 
 Objetivo: garantir aceite obrigatorio antes de uso sensivel da plataforma.
 
+Status: `Parcial implementado em 2026-05-12`.
+
 ### Estado atual
 
 - Existe modelo `ImageConsent`. `Parcial`
+- Existe modelo `UserAcceptance` para aceite versionado do termo principal. `Implementado`
+- Existe tela `/aceite` para primeiro aceite apos login aprovado. `Implementado`
+- Existe API `/api/compliance/acceptance` para consultar e registrar aceite. `Implementado`
+- Acesso a `/usuario`, `/profissional`, `/admin` e APIs protegidas fica bloqueado quando o termo obrigatorio esta pendente. `Implementado`
 - Existe rota/tela admin de compliance. `Parcial`
-- Nao existe termo obrigatorio no primeiro login. `Falta banco`, `Falta API`, `Falta tela`
-- Nao existe aceite geral de liberalidade/nao substituicao medica. `Falta regra`, `Falta banco`, `Falta tela`
-- Nao existe bloqueio por falta de aceite. `Falta API`, `Falta tela`
+- Termo obrigatorio no primeiro login existe para usuarios aprovados. `Implementado`
+- Aceite geral de liberalidade/nao substituicao medica existe em fluxo basico. `Parcial`
+- Historico administrativo detalhado de aceites ainda nao foi evoluido. `Falta tela`
 - Consentimento de imagem ainda nao bloqueia publicacao. `Parcial`
 
 ### Entraria no modulo
 
-- Criar aceite geral de termos de uso.
-- Criar aceite de imagem/publicacao.
-- Registrar data, versao do termo e origem do aceite.
-- Bloquear acesso ou publicacao quando aceite obrigatorio estiver pendente.
-- Texto base: beneficio por mera liberalidade da empresa e nao substitui atendimento medico.
+- Criar aceite geral de termos de uso. `Implementado`
+- Criar aceite de imagem/publicacao. `Parcial`
+- Registrar data, versao do termo e origem do aceite. `Implementado`
+- Bloquear acesso quando aceite obrigatorio estiver pendente. `Implementado`
+- Bloquear publicacao quando aceite de imagem/publicacao estiver pendente. `Fora deste modulo`
+- Texto base: beneficio por mera liberalidade da empresa e nao substitui atendimento medico. `Implementado`
 
 ### Decisoes antes de implementar
 
-- Bloqueio sera total no primeiro login ou so para feed/imagem?
+- Bloqueio sera total no primeiro login ou so para feed/imagem? `Decidido: bloqueio total ate aceite do termo principal.`
 - Quem pode ver historico de aceite?
-- Termo tera versao unica ou versionamento por atualizacao?
+- Termo tera versao unica ou versionamento por atualizacao? `Decidido: aceite versionado. Versao atual 2026-05-12.`
 
 Commit sugerido:
 

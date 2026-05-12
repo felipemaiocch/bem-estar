@@ -33,6 +33,10 @@ enum GroupMemberRole {
   OWNER
 }
 
+enum AcceptanceKind {
+  PLATFORM_TERMS
+}
+
 enum GoalType {
   WEIGHT_LOSS
   MENTAL_HEALTH
@@ -153,6 +157,7 @@ model User {
   teamNotesAuthored          TeamNote[]               @relation("TeamNoteAuthor")
   teamNotesTargeted         TeamNote[]               @relation("TeamNoteTarget")
   groupMemberships          UserGroupMembership[]
+  acceptances               UserAcceptance[]
 }
 
 model ProfessionalProfile {
@@ -398,6 +403,22 @@ model ImageConsent {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId])
+}
+
+model UserAcceptance {
+  id         String         @id @default(cuid())
+  userId     String
+  kind       AcceptanceKind
+  version    String
+  acceptedAt DateTime       @default(now())
+  ipAddress  String?
+  userAgent  String?
+  source     String?
+  createdAt  DateTime       @default(now())
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, version])
+  @@index([userId, kind, acceptedAt])
 }
 
 model AuditLog {

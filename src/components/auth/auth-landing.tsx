@@ -244,10 +244,11 @@ export function AuthLanding() {
               </Button>
 
               <div className="mt-6 pt-4 border-t border-slate-100 text-center text-[12px] text-slate-500 leading-relaxed">
-                Ao entrar na plataforma, você aceita de forma explícita e concorda com as <br />
-                <a href="#" className="font-semibold underline hover:text-slate-800 mr-1 transition-colors">Políticas de Privacidade (LGPD)</a>
-                e o nosso
-                <a href="#" className="font-semibold underline hover:text-slate-800 ml-1 transition-colors">Termo de Consentimento de Saúde</a>.
+                Se ainda não houver aceite registrado, você será direcionado ao{" "}
+                <span className="font-semibold text-slate-700">
+                  Termo de Consentimento de Saúde
+                </span>{" "}
+                antes de acessar a plataforma.
               </div>
             </form>
             ) : (
