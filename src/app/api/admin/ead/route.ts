@@ -152,6 +152,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, course });
     }
 
+    const lastLesson = await prisma.eadLesson.findFirst({
+      where: { courseId: parsed.data.courseId },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+
     const lesson = await prisma.eadLesson.create({
       data: {
         courseId: parsed.data.courseId,
@@ -171,7 +177,7 @@ export async function POST(request: NextRequest) {
             : null,
         pointsReward: parsed.data.pointsReward ?? 20,
         coinsReward: parsed.data.coinsReward ?? 5,
-        sortOrder: parsed.data.sortOrder ?? 0,
+        sortOrder: parsed.data.sortOrder ?? (lastLesson?.sortOrder ?? 0) + 1,
       },
     });
 

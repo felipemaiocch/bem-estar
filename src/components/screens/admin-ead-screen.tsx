@@ -69,6 +69,18 @@ const lessonKindIcon = {
   TUTORIAL: BookOpen,
 };
 
+function getAdminEadErrorMessage(
+  response: Response,
+  error: string | undefined,
+  fallback: string,
+) {
+  if (response.status === 401 || response.status === 403) {
+    return "Sua sessão atual não é de administrador. Se você testou como colaborador em outra aba, entre novamente como admin ou use uma janela anônima para testar o usuário.";
+  }
+
+  return error ?? fallback;
+}
+
 export function AdminEadScreen() {
   const [courses, setCourses] = useState<AdminEadCourse[]>([]);
   const [courseForm, setCourseForm] = useState(defaultCourseForm);
@@ -83,11 +95,14 @@ export function AdminEadScreen() {
     setFeedback(null);
 
     try {
-      const response = await fetch("/api/admin/ead", { cache: "no-store" });
+      const response = await fetch("/api/admin/ead", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        setFeedback(data.error ?? "Nao foi possivel carregar o EAD.");
+        setFeedback(getAdminEadErrorMessage(response, data.error, "Nao foi possivel carregar o EAD."));
         return;
       }
 
@@ -123,6 +138,7 @@ export function AdminEadScreen() {
       const response = await fetch("/api/admin/ead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           type: "course",
           title: courseForm.title,
@@ -133,7 +149,7 @@ export function AdminEadScreen() {
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        setFeedback(data.error ?? "Nao foi possivel criar curso.");
+        setFeedback(getAdminEadErrorMessage(response, data.error, "Nao foi possivel criar curso."));
         return;
       }
 
@@ -163,6 +179,7 @@ export function AdminEadScreen() {
       const response = await fetch("/api/admin/ead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           type: "lesson",
           courseId: lessonForm.courseId,
@@ -182,7 +199,7 @@ export function AdminEadScreen() {
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        setFeedback(data.error ?? "Nao foi possivel criar aula.");
+        setFeedback(getAdminEadErrorMessage(response, data.error, "Nao foi possivel criar aula."));
         return;
       }
 
@@ -209,6 +226,7 @@ export function AdminEadScreen() {
       const response = await fetch("/api/admin/ead", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           entity,
           id,
@@ -218,7 +236,7 @@ export function AdminEadScreen() {
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        setFeedback(data.error ?? "Nao foi possivel atualizar EAD.");
+        setFeedback(getAdminEadErrorMessage(response, data.error, "Nao foi possivel atualizar EAD."));
         return;
       }
 
