@@ -7,6 +7,7 @@ import Link from "next/link";
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { departmentOptions, getDepartmentLabel, type DepartmentCode } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 
 interface AdminUserItem {
@@ -19,6 +20,8 @@ interface AdminUserItem {
   approvedAtIso: string | null;
   rejectedAtIso: string | null;
   company: string | null;
+  department: DepartmentCode | null;
+  drCoins: number;
   score: number;
   createdAtIso: string;
   groupIds: string[];
@@ -63,11 +66,28 @@ interface AdminGroupItem {
   memberCount: number;
 }
 
+interface MoodStatItem {
+  area: string;
+  risk: number;
+  color: string;
+}
+
+interface FeedModerationPostItem {
+  id: string;
+  caption: string | null;
+  createdAt: string;
+  author: {
+    name: string;
+    email: string;
+  };
+}
+
 const defaultUserForm = {
   name: "",
   email: "",
   role: "USER" as "USER" | "PROFESSIONAL" | "ADMIN",
   company: "",
+  department: "COMERCIAL" as DepartmentCode,
   specialty: "",
   password: "",
   groupIds: [] as string[],
@@ -123,11 +143,11 @@ export function AdminDashboardScreen() {
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [cardCount, setCardCount] = useState(0);
   const [globalSlots, setGlobalSlots] = useState("");
-  const [moodStats, setMoodStats] = useState<any[]>([]);
+  const [moodStats, setMoodStats] = useState<MoodStatItem[]>([]);
   const [activeUserTab, setActiveUserTab] = useState<"TODOS" | "PENDING" | "USER" | "PROFESSIONAL" | "ADMIN">("TODOS");
   const [userSearch, setUserSearch] = useState("");
   const [allowUserPosting, setAllowUserPosting] = useState(true);
-  const [feedModerationPosts, setFeedModerationPosts] = useState<any[]>([]);
+  const [feedModerationPosts, setFeedModerationPosts] = useState<FeedModerationPostItem[]>([]);
   const [loadingModeration, setLoadingModeration] = useState(false);
 
   const activeUsers = users.filter((user) => user.isActive && user.approvalStatus === "APPROVED").length;
@@ -222,6 +242,7 @@ export function AdminDashboardScreen() {
           email: userForm.email,
           role: userForm.role,
           company: userForm.company || undefined,
+          department: userForm.role === "USER" ? userForm.department : undefined,
           specialty: userForm.role === "PROFESSIONAL" ? userForm.specialty || undefined : undefined,
           password: userForm.password || undefined,
           groupIds: userForm.groupIds,
@@ -901,6 +922,24 @@ export function AdminDashboardScreen() {
                   )
                 }
               />
+              <select
+                className={inputClassName}
+                value={userForm.department}
+                onChange={(event) =>
+                  setUserForm((current) => ({
+                    ...current,
+                    department: event.target.value as DepartmentCode,
+                  }))
+                }
+                disabled={userForm.role !== "USER"}
+                title={userForm.role === "USER" ? "Departamento do EAD" : "Departamento usado apenas para usuários"}
+              >
+                {departmentOptions.map((department) => (
+                  <option key={department.value} value={department.value}>
+                    {department.label}
+                  </option>
+                ))}
+              </select>
               <input
                 className={inputClassName}
                 placeholder="Senha inicial"
@@ -1032,6 +1071,11 @@ export function AdminDashboardScreen() {
                         <p className="text-sm text-slate-500">
                           {user.email} {user.company ? `· ${user.company}` : ""}
                         </p>
+                        {user.department ? (
+                          <p className="mt-1 text-xs font-semibold text-[#0264af]">
+                            EAD: {getDepartmentLabel(user.department)} · {user.drCoins} drcoins
+                          </p>
+                        ) : null}
                         {user.groupNames.length > 0 ? (
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {user.groupNames.map((groupName) => (
@@ -1134,6 +1178,14 @@ export function AdminDashboardScreen() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-[#0264af]">
                     Gerenciar Cards de Conteúdo
+                  </span>
+                  <ChevronRight size={20} className="text-[#0264af]" />
+                </div>
+              </Link>
+              <Link href="/admin/ead" className="block cursor-pointer p-5 transition-all hover:border-blue-300 hover:shadow-md rounded-xl border bg-card text-card-foreground shadow">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#0264af]">
+                    Gerenciar EAD por departamento
                   </span>
                   <ChevronRight size={20} className="text-[#0264af]" />
                 </div>
@@ -1415,6 +1467,8 @@ export function AdminDashboardScreen() {
                            approvedAtIso: null,
                            rejectedAtIso: null,
                            company: null,
+                           department: null,
+                           drCoins: 0,
                            score: 0,
                            createdAtIso: "",
                            groupIds: [],

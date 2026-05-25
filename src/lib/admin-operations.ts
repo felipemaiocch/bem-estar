@@ -1,5 +1,12 @@
 import bcrypt from "bcryptjs";
-import type { EventKind, EventStatus, GroupKind, UserApprovalStatus, UserRole } from "@prisma/client";
+import type {
+  Department,
+  EventKind,
+  EventStatus,
+  GroupKind,
+  UserApprovalStatus,
+  UserRole,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { isDemoMode } from "@/lib/runtime-mode";
@@ -14,6 +21,8 @@ export interface AdminUserView {
   approvedAtIso: string | null;
   rejectedAtIso: string | null;
   company: string | null;
+  department: Department | null;
+  drCoins: number;
   score: number;
   createdAtIso: string;
   groupIds: string[];
@@ -65,6 +74,7 @@ interface AdminCreateUserInput {
   role: UserRole;
   password?: string;
   company?: string;
+  department?: Department;
   specialty?: string;
   licenseCode?: string;
   groupIds?: string[];
@@ -78,6 +88,7 @@ interface AdminUpdateUserInput {
   approvalStatus?: UserApprovalStatus;
   approvalNote?: string;
   company?: string;
+  department?: Department | null;
   score?: number;
   groupIds?: string[];
 }
@@ -153,6 +164,8 @@ type DemoUser = {
   email: string;
   role: UserRole;
   company: string | null;
+  department?: Department | null;
+  drCoins?: number;
   score: number;
   isActive: boolean;
   approvalStatus: UserApprovalStatus;
@@ -265,6 +278,8 @@ function getDemoUsers() {
         email: "felipe@empresa.com",
         role: "USER",
         company: "Operações",
+        department: "ATENDIMENTO",
+        drCoins: 0,
         score: 1990,
         isActive: true,
         approvalStatus: "APPROVED",
@@ -278,6 +293,8 @@ function getDemoUsers() {
         email: "larissa@empresa.com",
         role: "USER",
         company: "RH",
+        department: "FINANCEIRO",
+        drCoins: 0,
         score: 1890,
         isActive: true,
         approvalStatus: "APPROVED",
@@ -291,6 +308,8 @@ function getDemoUsers() {
         email: "amanda@empresa.com",
         role: "USER",
         company: "Produto",
+        department: "COMERCIAL",
+        drCoins: 0,
         score: 2430,
         isActive: true,
         approvalStatus: "APPROVED",
@@ -304,6 +323,8 @@ function getDemoUsers() {
         email: "camila@empresa.com",
         role: "PROFESSIONAL",
         company: "Saúde e bem-estar",
+        department: null,
+        drCoins: 0,
         score: 0,
         isActive: true,
         approvalStatus: "APPROVED",
@@ -319,6 +340,8 @@ function getDemoUsers() {
         email: "admin@empresa.com",
         role: "ADMIN",
         company: "Operações",
+        department: null,
+        drCoins: 0,
         score: 0,
         isActive: true,
         approvalStatus: "APPROVED",
@@ -380,6 +403,8 @@ function toAdminUserView(user: DemoUser): AdminUserView {
     approvedAtIso: user.approvedAtIso ?? null,
     rejectedAtIso: user.rejectedAtIso ?? null,
     company: user.company,
+    department: user.department ?? null,
+    drCoins: user.drCoins ?? 0,
     score: user.score,
     createdAtIso: user.createdAtIso,
     groupIds,
@@ -491,11 +516,12 @@ export async function listAdminUsers(filters?: { search?: string; role?: UserRol
           return true;
         }
 
-        return (
-          user.name.toLowerCase().includes(search) ||
-          user.email.toLowerCase().includes(search) ||
-          (user.company ?? "").toLowerCase().includes(search)
-        );
+    return (
+      user.name.toLowerCase().includes(search) ||
+      user.email.toLowerCase().includes(search) ||
+      (user.company ?? "").toLowerCase().includes(search) ||
+      (user.department ?? "").toLowerCase().includes(search)
+    );
       })
       .map(toAdminUserView);
   }
@@ -538,6 +564,8 @@ export async function listAdminUsers(filters?: { search?: string; role?: UserRol
     approvedAtIso: user.approvedAt?.toISOString() ?? null,
     rejectedAtIso: user.rejectedAt?.toISOString() ?? null,
     company: user.company,
+    department: user.department,
+    drCoins: user.drCoins,
     score: user.score,
     createdAtIso: user.createdAt.toISOString(),
     groupIds: user.groupMemberships.map((membership) => membership.group.id),
@@ -564,6 +592,8 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
       email: input.email.trim().toLowerCase(),
       role: input.role,
       company: input.company?.trim() || null,
+      department: input.department ?? null,
+      drCoins: 0,
       score: 0,
       isActive: true,
       approvalStatus: "APPROVED",
@@ -597,6 +627,7 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
       passwordHash,
       role: input.role,
       company: input.company?.trim() || null,
+      department: input.department ?? null,
       approvalStatus: "APPROVED",
       approvedAt: new Date(),
       approvedById: actorId,
@@ -637,6 +668,8 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
     approvedAtIso: created.approvedAt?.toISOString() ?? null,
     rejectedAtIso: created.rejectedAt?.toISOString() ?? null,
     company: created.company,
+    department: created.department,
+    drCoins: created.drCoins,
     score: created.score,
     createdAtIso: created.createdAt.toISOString(),
     groupIds: uniqueStrings(input.groupIds),
@@ -670,6 +703,7 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
       ...(input.email ? { email: input.email.trim().toLowerCase() } : {}),
       ...(input.role ? { role: input.role } : {}),
       ...(input.company !== undefined ? { company: input.company?.trim() || null } : {}),
+      ...(input.department !== undefined ? { department: input.department } : {}),
       ...(input.score !== undefined ? { score: input.score } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       ...(input.approvalStatus
@@ -727,6 +761,7 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
       ...(input.email ? { email: input.email.trim().toLowerCase() } : {}),
       ...(input.role ? { role: input.role } : {}),
       ...(input.company !== undefined ? { company: input.company?.trim() || null } : {}),
+      ...(input.department !== undefined ? { department: input.department } : {}),
       ...(input.score !== undefined ? { score: input.score } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       ...approvalData,
@@ -772,6 +807,8 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
     approvedAtIso: updated.approvedAt?.toISOString() ?? null,
     rejectedAtIso: updated.rejectedAt?.toISOString() ?? null,
     company: updated.company,
+    department: updated.department,
+    drCoins: updated.drCoins,
     score: updated.score,
     createdAtIso: updated.createdAt.toISOString(),
     groupIds: input.groupIds ?? updated.groupMemberships.map((membership) => membership.group.id),

@@ -11,6 +11,7 @@ const registerSchema = z.object({
   name: z.string().min(2),
   email: z.email(),
   password: z.string().min(6),
+  department: z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO"]),
   goal: z
     .enum(["WEIGHT_LOSS", "MENTAL_HEALTH", "PERFORMANCE", "HABITS"])
     .optional(),
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { name, email, password, goal, desiredWeeklyFrequency } = parsed.data;
+  const { name, email, password, department, goal, desiredWeeklyFrequency } = parsed.data;
   const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
   if (demoMode) {
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
       email,
       passwordHash,
       role: "USER",
+      department,
       goal,
       desiredWeeklyFrequency,
       currentGoal: goal,

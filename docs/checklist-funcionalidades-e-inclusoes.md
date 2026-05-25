@@ -35,6 +35,7 @@ Este documento compara o que existe no codigo atual com os pedidos levantados na
 - `/usuario/agenda-dr` - agenda dr/eventos especiais. `Parcial`
 - `/usuario/progresso` - historico de bem-estar, peso, humor/habitos. `Parcial`
 - `/usuario/ranking` - ranking geral por score. `Parcial`
+- `/usuario/ead` - EAD por departamento com cursos, aulas, materiais e quiz. `Parcial`
 - `/usuario/perfil` - perfil e registros vindos dos profissionais. `Parcial`
 - `/usuario/acompanhamento` - acompanhamento e feedback. `Parcial`
 - `/usuario/configuracoes` - preferencias, senha e avatar. `Parcial`
@@ -60,6 +61,7 @@ Este documento compara o que existe no codigo atual com os pedidos levantados na
 - `/admin/relatorios` - relatorios. `Parcial`
 - `/admin/compliance` - compliance/consentimentos. `Parcial`
 - `/admin/conteudos` - area de conteudos/cards. `Parcial`
+- `/admin/ead` - gestao de cursos e aulas EAD por departamento. `Parcial`
 
 ## Modulo 0 - Diagnostico e backlog tecnico
 
@@ -297,6 +299,44 @@ Commit sugerido:
 
 - `feat: add cohorts and event attendance rules`
 
+## Modulo 6.5 - EAD por departamento
+
+Objetivo: liberar cursos internos por departamento sem expor conteudo de uma area para outra.
+
+Status: `Parcial implementado em 2026-05-25`.
+
+### Estado atual
+
+- Usuario possui `department`: Comercial, Financeiro ou Atendimento. `Implementado`
+- Cadastro publico e criacao admin de usuario permitem selecionar departamento. `Implementado`
+- Sidebar do usuario possui menu `EAD`. `Implementado`
+- `/usuario/ead` lista somente cursos do departamento do usuario. `Implementado`
+- `/admin/ead` cria cursos e aulas por departamento. `Parcial`
+- Aulas suportam videoaula, PDF e tutorial por URL. `Parcial`
+- Videoaula e exibida sem botao de download no player nativo. `Parcial`
+- Conclusao de aula exige quiz quando configurado. `Implementado`
+- Recompensa por conclusao incrementa `User.score` e `User.drCoins` uma unica vez por aula. `Parcial`
+- Ainda nao existe upload protegido de video/PDF nem streaming com DRM. `Falta regra`, `Falta API`
+- Ainda nao existe historico/ledger completo de moedas fora do registro de conclusao. `Falta banco`, `Falta API`
+
+### Entraria no modulo
+
+- Departamentos fixos para EAD: Comercial, Financeiro e Atendimento. `Implementado`
+- Cursos e aulas filtrados por departamento. `Implementado`
+- Videoaula assistida dentro da plataforma. `Parcial`
+- Quiz pos-aula para validar conclusao. `Implementado`
+- Pontos e drcoins por aula concluida. `Parcial`
+
+### Decisoes antes de evoluir
+
+- Videos serao hospedados onde: Vercel Blob, Vimeo privado, YouTube nao listado ou outro storage?
+- PDFs podem ser baixados ou apenas visualizados?
+- Drcoins terao carteira/ledger completo agora ou ficam no saldo simples ate o modulo de gamificacao?
+
+Commit sugerido:
+
+- `feat: add department ead courses`
+
 ## Modulo 7 - Feed e moderacao
 
 Objetivo: controlar publicacoes sem matar campanhas.
@@ -532,15 +572,16 @@ Checklist apos cada modulo funcional:
 4. Modulo 4 - Ranking e privacidade.
 5. Modulo 5 - Check-in diario, streak e progresso.
 6. Modulo 6 - Turmas, eventos fechados e presenca.
-7. Modulo 7 - Feed e moderacao.
-8. Modulo 8 - Conteudos, blog e publicacoes dos especialistas.
-9. Modulo 9 - Perfil dos profissionais e avaliacoes.
-10. Modulo 10 - Links, embeds e materiais externos.
-11. Modulo 11 - Painel admin e relatorios.
-12. Modulo 12 - Painel profissional e comunicacao interna.
-13. Modulo 13 - Notificacoes.
-14. Modulo 3 - Gamificacao: pontos, moedas e auditoria.
-15. Modulo 14 - Revisao tecnica final por ciclo.
+7. Modulo 6.5 - EAD por departamento.
+8. Modulo 7 - Feed e moderacao.
+9. Modulo 8 - Conteudos, blog e publicacoes dos especialistas.
+10. Modulo 9 - Perfil dos profissionais e avaliacoes.
+11. Modulo 10 - Links, embeds e materiais externos.
+12. Modulo 11 - Painel admin e relatorios.
+13. Modulo 12 - Painel profissional e comunicacao interna.
+14. Modulo 13 - Notificacoes.
+15. Modulo 3 - Gamificacao: pontos, moedas e auditoria.
+16. Modulo 14 - Revisao tecnica final por ciclo.
 
 ## Principais riscos identificados
 
@@ -553,4 +594,4 @@ Checklist apos cada modulo funcional:
 
 ## Proximo passo sugerido
 
-Depois de validar ranking e privacidade em producao, seguir para check-in/progresso ou turmas/eventos fechados. Gamificacao fica por ultimo por decisao de produto.
+Depois de validar EAD por departamento em producao, seguir para Feed e Moderacao. Gamificacao completa continua por ultimo por decisao de produto.

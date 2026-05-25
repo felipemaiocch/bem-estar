@@ -42,6 +42,10 @@ mindmap
       Progresso [PARCIAL]
         Historico bem-estar [OK]
         Streak real [FALTA]
+      EAD [PARCIAL]
+        Cursos por departamento [OK]
+        Videoaulas e materiais [PARCIAL]
+        Quiz e recompensa por aula [PARCIAL]
       Ranking [PARCIAL]
         Score global [OK]
         Privacidade ranking [PARCIAL]
@@ -64,12 +68,14 @@ mindmap
       Gamificacao [PARCIAL]
       Moderacao [PARCIAL]
       Conteudos [PARCIAL]
+      EAD [PARCIAL]
       Relatorios [FALTA]
       Compliance [PARCIAL]
     Gamificacao
       Score atual [OK]
       Regras admin [PARCIAL]
-      Pontos separados de moedas [FALTA]
+      Drcoins simples no EAD [PARCIAL]
+      Pontos separados de moedas [PARCIAL]
       Ledger de transacoes [FALTA]
       Check-in e streak [FALTA]
     Feed e conteudo
@@ -106,6 +112,7 @@ mindmap
 - `/usuario/agenda` - agenda com slots, reserva e lista de espera. `[PARCIAL]`
 - `/usuario/agenda-dr` - agenda dr/eventos especiais. `[PARCIAL]`
 - `/usuario/progresso` - registros de bem-estar. `[PARCIAL]`
+- `/usuario/ead` - cursos internos filtrados por departamento. `[PARCIAL]`
 - `/usuario/ranking` - ranking por score. `[PARCIAL]`
 - `/usuario/perfil` - perfil e registros profissionais. `[PARCIAL]`
 - `/usuario/acompanhamento` - acompanhamento e feedback. `[PARCIAL]`
@@ -132,6 +139,7 @@ mindmap
 - `/admin/relatorios` - relatorios. `[FALTA]`
 - `/admin/compliance` - compliance. `[PARCIAL]`
 - `/admin/conteudos` - conteudos/cards. `[PARCIAL]`
+- `/admin/ead` - cursos e aulas EAD por departamento. `[PARCIAL]`
 
 ## Modulos de evolucao
 
@@ -195,6 +203,17 @@ Status: `[PARCIAL]`
 - Conteudos e eventos restritos por grupo. `[OK]`
 - Presenca/check-in por aula/evento. `[PARCIAL]`
 - Lista de desejo/vaga. `[FALTA]`
+
+### 6.5. EAD por departamento
+
+Status: `[PARCIAL]`
+
+- Departamentos Comercial, Financeiro e Atendimento no cadastro. `[OK]`
+- Menu EAD no sidebar do usuario. `[OK]`
+- Cursos e aulas filtrados pelo departamento do usuario. `[OK]`
+- Admin cria cursos, videoaulas, PDFs e tutoriais. `[PARCIAL]`
+- Quiz pos-aula e recompensa unica por conclusao. `[PARCIAL]`
+- Protecao forte contra download/DRM ainda depende de decisao de hospedagem. `[FALTA]`
 
 ### 7. Feed e moderacao
 
@@ -260,6 +279,8 @@ Status: `[PARCIAL]`
 - Usuario anonimo aparece como `Usuario #23`, `*****` ou sai da lista publica?
 - Feed usa pre-moderacao, pos-moderacao ou abre apenas por campanha?
 - Profissional pode publicar direto ou apenas sugerir conteudo para admin?
+- Videos EAD serao hospedados em qual servico e com qual nivel de protecao?
+- Drcoins do EAD usam saldo simples ate gamificacao ou precisam de ledger completo agora?
 - Check-in vale por dia calendario ou janela de 24 horas?
 - Falta em aula/evento perde pontos/moedas ou apenas deixa de ganhar?
 - Dados emocionais criticos aparecem para admin, RH, lideranca ou profissional?

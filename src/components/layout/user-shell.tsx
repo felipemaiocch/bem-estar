@@ -27,7 +27,13 @@ export function UserShell({ children }: { children: ReactNode }) {
   const [activeAlertId, setActiveAlertId] = useState<string | null>(null);
   const [modalDismissed, setModalDismissed] = useState(true);
   const [hasUnreadAlert, setHasUnreadAlert] = useState(false);
-  const [user, setUser] = useState<{ name: string; avatarUrl: string | null; score: number } | null>(null);
+  const [user, setUser] = useState<{
+    name: string;
+    avatarUrl: string | null;
+    score: number;
+    drCoins: number;
+    departmentLabel: string;
+  } | null>(null);
   const [allowUserPosting, setAllowUserPosting] = useState(true);
 
   const loadGlobalAlert = useCallback(async () => {
@@ -184,7 +190,7 @@ export function UserShell({ children }: { children: ReactNode }) {
             <div>
               <p className="text-sm font-bold text-gray-900 line-clamp-1">{user?.name || "Carregando..."}</p>
               <p className="text-xs text-gray-500">
-                {user ? `${user.score >= 3000 ? "Nível Ouro" : user.score >= 1000 ? "Nível Prata" : "Nível Bronze"} • ${user.score} pts` : "..."}
+                {user ? `${user.score >= 3000 ? "Nível Ouro" : user.score >= 1000 ? "Nível Prata" : "Nível Bronze"} • ${user.score} pts • ${user.drCoins ?? 0} drcoins` : "..."}
               </p>
             </div>
           </Link>
@@ -193,20 +199,28 @@ export function UserShell({ children }: { children: ReactNode }) {
         <nav className="flex-1 space-y-2 px-4">
           {userMainNav.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href;
+            const active =
+              pathname === item.href ||
+              (item.href === "/usuario/ead" && pathname.startsWith("/usuario/ead"));
 
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-200",
-                  active ? "bg-[#0264af]/8 text-[#0264af]" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
-                )}
-              >
-                <Icon size={20} className={active ? "stroke-[2.5px]" : ""} />
-                {item.label}
-              </Link>
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-200",
+                    active ? "bg-[#0264af]/8 text-[#0264af]" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+                  )}
+                >
+                  <Icon size={20} className={active ? "stroke-[2.5px]" : ""} />
+                  {item.label}
+                </Link>
+                {item.href === "/usuario/ead" && active && user?.departmentLabel ? (
+                  <div className="ml-8 mt-1 rounded-xl border border-blue-50 bg-blue-50/60 px-3 py-2 text-xs font-semibold text-[#0264af]">
+                    {user.departmentLabel}
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </nav>
@@ -312,10 +326,12 @@ export function UserShell({ children }: { children: ReactNode }) {
         </main>
       </div>
 
-      <nav className="fixed bottom-0 z-50 flex w-full items-center justify-between border-t border-gray-100 bg-white px-6 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] md:hidden">
+      <nav className="fixed bottom-0 z-50 flex w-full items-center justify-start gap-2 overflow-x-auto border-t border-gray-100 bg-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] md:hidden">
         {userMainNav.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href;
+          const active =
+            pathname === item.href ||
+            (item.href === "/usuario/ead" && pathname.startsWith("/usuario/ead"));
 
           return (
             <Link

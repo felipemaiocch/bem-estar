@@ -20,6 +20,12 @@ enum UserApprovalStatus {
   REJECTED
 }
 
+enum Department {
+  COMERCIAL
+  FINANCEIRO
+  ATENDIMENTO
+}
+
 enum GroupKind {
   COHORT
   CLASS
@@ -106,6 +112,7 @@ enum ScoringAction {
   STREAK
   FEED_ENGAGEMENT
   TESTIMONIAL
+  EAD_LESSON
 }
 
 enum NotificationPreferenceKey {
@@ -113,6 +120,12 @@ enum NotificationPreferenceKey {
   REMINDER_HOUR_BEFORE
   SLOT_RELEASED
   AGENDA_NEWS
+}
+
+enum EadLessonKind {
+  VIDEO
+  PDF
+  TUTORIAL
 }
 
 model User {
@@ -124,8 +137,10 @@ model User {
   goal                      GoalType?
   desiredWeeklyFrequency    Int?
   company                   String?
+  department                Department?
   avatarUrl                 String?
   score                     Int                      @default(0)
+  drCoins                   Int                      @default(0)
   showInRanking             Boolean                  @default(true)
   currentGoal               String?
   isActive                  Boolean                  @default(true)
@@ -159,6 +174,7 @@ model User {
   teamNotesTargeted         TeamNote[]               @relation("TeamNoteTarget")
   groupMemberships          UserGroupMembership[]
   acceptances               UserAcceptance[]
+  eadLessonCompletions      EadLessonCompletion[]
 }
 
 model ProfessionalProfile {
@@ -380,6 +396,64 @@ model ScoringRule {
   endsAt    DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+}
+
+model EadCourse {
+  id          String      @id @default(cuid())
+  department  Department
+  title       String
+  description String
+  isPublished Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  lessons     EadLesson[]
+
+  @@unique([department, title])
+  @@index([department, isPublished, sortOrder])
+}
+
+model EadLesson {
+  id                 String                @id @default(cuid())
+  courseId           String
+  title              String
+  description        String
+  kind               EadLessonKind         @default(VIDEO)
+  videoUrl           String?
+  materialUrl        String?
+  durationMinutes    Int?
+  quizQuestion       String?
+  quizOptions        Json?
+  correctAnswerIndex Int?
+  pointsReward       Int                   @default(20)
+  coinsReward        Int                   @default(5)
+  isPublished        Boolean               @default(true)
+  sortOrder          Int                   @default(0)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  course             EadCourse             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  completions        EadLessonCompletion[]
+
+  @@unique([courseId, title])
+  @@index([courseId, isPublished, sortOrder])
+}
+
+model EadLessonCompletion {
+  id                  String    @id @default(cuid())
+  lessonId            String
+  userId              String
+  selectedAnswerIndex Int?
+  isCorrect           Boolean   @default(false)
+  pointsAwarded       Int       @default(0)
+  coinsAwarded        Int       @default(0)
+  completedAt         DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  lesson              EadLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, userId])
+  @@index([userId, completedAt])
+  @@index([lessonId])
 }
 
 model ContentReport {

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
+import { getDepartmentLabel } from "@/lib/departments";
 import { prisma } from "@/lib/prisma";
 
 const profilePrivacySchema = z.object({
@@ -24,6 +25,8 @@ export async function GET(request: NextRequest) {
         email: true,
         avatarUrl: true,
         company: true,
+        department: true,
+        drCoins: true,
         score: true,
         showInRanking: true,
       }
@@ -35,7 +38,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      user
+      user: {
+        ...user,
+        departmentLabel: getDepartmentLabel(user.department),
+      }
     });
   } catch {
     return NextResponse.json({ ok: false, error: "Falha ao buscar usuário" }, { status: 500 });
@@ -72,6 +78,8 @@ export async function PATCH(request: NextRequest) {
         email: true,
         avatarUrl: true,
         company: true,
+        department: true,
+        drCoins: true,
         score: true,
         showInRanking: true,
       },
@@ -79,7 +87,10 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      user,
+      user: {
+        ...user,
+        departmentLabel: getDepartmentLabel(user.department),
+      },
     });
   } catch {
     return NextResponse.json(

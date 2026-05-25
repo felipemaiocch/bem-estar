@@ -9,6 +9,7 @@ import {
   Clock3,
   Dumbbell,
   Flame,
+  GraduationCap,
   HeartPulse,
   House,
   Leaf,
@@ -41,6 +42,7 @@ import type {
 export const userMainNav: AppNavItem[] = [
   { label: "Home", href: "/usuario", icon: House },
   { label: "Agenda", href: "/usuario/agenda", icon: CalendarDays },
+  { label: "EAD", href: "/usuario/ead", icon: GraduationCap },
   { label: "Ranking", href: "/usuario/ranking", icon: Trophy },
   { label: "Progresso", href: "/usuario/progresso", icon: BarChart3 },
   { label: "Perfil", href: "/usuario/perfil", icon: UserRound },

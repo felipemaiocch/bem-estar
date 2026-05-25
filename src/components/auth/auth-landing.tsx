@@ -20,6 +20,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { appMeta, roleRouteMap } from "@/lib/constants";
+import { departmentOptions } from "@/lib/departments";
 import type { UserRole } from "@/types";
 
 const goals = [
@@ -48,6 +49,7 @@ export function AuthLanding() {
     name: "",
     email: "",
     password: "",
+    department: "COMERCIAL",
   });
 
   const progress = step === 1 ? 33 : step === 2 ? 66 : 100;
@@ -106,6 +108,7 @@ export function AuthLanding() {
           name: requestForm.name,
           email: requestForm.email,
           password: requestForm.password,
+          department: requestForm.department,
         }),
       });
 
@@ -125,7 +128,7 @@ export function AuthLanding() {
           "Cadastro enviado para aprovação. Você poderá entrar assim que o administrador liberar seu acesso.",
       );
       setForm((current) => ({ ...current, email: requestForm.email, password: "" }));
-      setRequestForm({ name: "", email: "", password: "" });
+      setRequestForm({ name: "", email: "", password: "", department: "COMERCIAL" });
     } catch {
       setLoginError("Falha de conexão ao solicitar acesso.");
     } finally {
@@ -281,6 +284,24 @@ export function AuthLanding() {
                     />
                     <Mail className="absolute right-3 top-3.5 text-gray-400" size={18} />
                   </div>
+                </div>
+
+                <div className="w-full">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Departamento</label>
+                  <select
+                    value={requestForm.department}
+                    onChange={(event) =>
+                      setRequestForm((current) => ({ ...current, department: event.target.value }))
+                    }
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition-all focus:border-[#0264af] focus:bg-white focus:ring-2 focus:ring-[#0264af]/20"
+                    required
+                  >
+                    {departmentOptions.map((department) => (
+                      <option key={department.value} value={department.value}>
+                        {department.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="w-full">
