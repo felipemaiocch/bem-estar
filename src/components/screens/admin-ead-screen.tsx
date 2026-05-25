@@ -127,6 +127,16 @@ export function AdminEadScreen() {
     return courses.filter((course) => departmentFilter === "TODOS" || course.department === departmentFilter);
   }, [courses, departmentFilter]);
 
+  const coursesByDepartment = useMemo(() => {
+    return departmentOptions.reduce(
+      (acc, department) => ({
+        ...acc,
+        [department.value]: courses.filter((course) => course.department === department.value),
+      }),
+      {} as Record<DepartmentCode, AdminEadCourse[]>,
+    );
+  }, [courses]);
+
   async function createCourse(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busyAction) return;
@@ -443,6 +453,16 @@ export function AdminEadScreen() {
             <div>
               <h2 className="text-lg font-bold text-slate-950">Cursos cadastrados</h2>
               <p className="text-sm text-slate-500">Somente usuarios do departamento correspondente veem esses cursos.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {departmentOptions.map((department) => (
+                  <span
+                    key={department.value}
+                    className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
+                  >
+                    {department.label}: {coursesByDepartment[department.value]?.length ?? 0}
+                  </span>
+                ))}
+              </div>
             </div>
             <select
               className={cn(inputClassName, "md:w-56")}
@@ -468,69 +488,77 @@ export function AdminEadScreen() {
           ) : null}
 
           <div className="space-y-4">
-            {filteredCourses.map((course) => (
-              <div key={course.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-bold text-slate-950">{course.title}</h3>
-                      <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#0264af]">
-                        {course.departmentLabel}
-                      </span>
-                      <span className={cn(
-                        "rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider",
-                        course.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-500",
-                      )}>
-                        {course.isPublished ? "Publicado" : "Oculto"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-slate-500">{course.description}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={course.isPublished ? "outline" : "secondary"}
-                    onClick={() => void togglePublished("course", course.id, course.isPublished)}
-                    disabled={busyAction === `course-${course.id}`}
-                  >
-                    <Power size={14} />
-                    {course.isPublished ? "Ocultar" : "Publicar"}
-                  </Button>
-                </div>
+            {filteredCourses.map((course) => {
+              const departmentCourses = coursesByDepartment[course.department] ?? [];
+              const coursePosition = departmentCourses.findIndex((item) => item.id === course.id) + 1;
 
-                <div className="mt-4 grid gap-3">
-                  {course.lessons.map((lesson) => {
-                    const Icon = lessonKindIcon[lesson.kind];
-                    return (
-                      <div key={lesson.id} className="rounded-xl border border-white bg-white px-4 py-3">
-                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Icon className="h-4 w-4 text-[#0264af]" />
-                              <p className="font-bold text-slate-800">{lesson.title}</p>
-                              {lesson.isPublished ? (
-                                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                              ) : null}
-                            </div>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">{lesson.description}</p>
-                            <p className="mt-2 text-xs font-bold text-slate-400">
-                              {lesson.completionCount} conclusao{lesson.completionCount === 1 ? "" : "es"} · +{lesson.pointsReward} pts · +{lesson.coinsReward} drcoins
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant={lesson.isPublished ? "outline" : "secondary"}
-                            onClick={() => void togglePublished("lesson", lesson.id, lesson.isPublished)}
-                            disabled={busyAction === `lesson-${lesson.id}`}
-                          >
-                            {lesson.isPublished ? "Ocultar" : "Publicar"}
-                          </Button>
-                        </div>
+              return (
+                <div key={course.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-bold text-slate-950">{course.title}</h3>
+                        <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#0264af]">
+                          {course.departmentLabel}
+                        </span>
+                        <span className={cn(
+                          "rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider",
+                          course.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-500",
+                        )}>
+                          {course.isPublished ? "Publicado" : "Oculto"}
+                        </span>
                       </div>
-                    );
-                  })}
+                      <p className="mt-1 text-sm text-slate-500">{course.description}</p>
+                      <p className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Curso {coursePosition} de {departmentCourses.length} em {course.departmentLabel}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={course.isPublished ? "outline" : "secondary"}
+                      onClick={() => void togglePublished("course", course.id, course.isPublished)}
+                      disabled={busyAction === `course-${course.id}`}
+                    >
+                      <Power size={14} />
+                      {course.isPublished ? "Ocultar" : "Publicar"}
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 grid gap-3">
+                    {course.lessons.map((lesson) => {
+                      const Icon = lessonKindIcon[lesson.kind];
+                      return (
+                        <div key={lesson.id} className="rounded-xl border border-white bg-white px-4 py-3">
+                          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Icon className="h-4 w-4 text-[#0264af]" />
+                                <p className="font-bold text-slate-800">{lesson.title}</p>
+                                {lesson.isPublished ? (
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                ) : null}
+                              </div>
+                              <p className="mt-1 text-xs leading-5 text-slate-500">{lesson.description}</p>
+                              <p className="mt-2 text-xs font-bold text-slate-400">
+                                {lesson.completionCount} conclusao{lesson.completionCount === 1 ? "" : "es"} · +{lesson.pointsReward} pts · +{lesson.coinsReward} drcoins
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant={lesson.isPublished ? "outline" : "secondary"}
+                              onClick={() => void togglePublished("lesson", lesson.id, lesson.isPublished)}
+                              disabled={busyAction === `lesson-${lesson.id}`}
+                            >
+                              {lesson.isPublished ? "Ocultar" : "Publicar"}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       </div>

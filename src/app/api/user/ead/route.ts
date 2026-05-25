@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
       },
       courses: [],
       summary: {
+        totalCourses: 0,
+        completedCourses: 0,
         totalLessons: 0,
         completedLessons: 0,
         availablePoints: 0,
@@ -81,8 +83,11 @@ export async function GET(request: NextRequest) {
   let completedLessons = 0;
   let availablePoints = 0;
   let availableCoins = 0;
+  let completedCourses = 0;
+  let previousCoursesCompleted = true;
 
   const courseViews = courses.map((course) => {
+    const courseUnlocked = previousCoursesCompleted;
     const lessons = course.lessons.map((lesson) => {
       const completion = lesson.completions[0] ?? null;
       const completed = Boolean(completion);
@@ -97,14 +102,16 @@ export async function GET(request: NextRequest) {
 
       return {
         id: lesson.id,
-        title: lesson.title,
-        description: lesson.description,
+        title: courseUnlocked ? lesson.title : "Aula bloqueada",
+        description: courseUnlocked
+          ? lesson.description
+          : "Conclua o curso anterior para liberar este conteudo.",
         kind: lesson.kind,
-        videoUrl: lesson.videoUrl,
-        materialUrl: lesson.materialUrl,
+        videoUrl: courseUnlocked ? lesson.videoUrl : null,
+        materialUrl: courseUnlocked ? lesson.materialUrl : null,
         durationMinutes: lesson.durationMinutes,
-        quizQuestion: lesson.quizQuestion,
-        quizOptions: normalizeQuizOptions(lesson.quizOptions),
+        quizQuestion: courseUnlocked ? lesson.quizQuestion : null,
+        quizOptions: courseUnlocked ? normalizeQuizOptions(lesson.quizOptions) : [],
         pointsReward: lesson.pointsReward,
         coinsReward: lesson.coinsReward,
         completed,
@@ -120,6 +127,13 @@ export async function GET(request: NextRequest) {
     });
 
     const completedInCourse = lessons.filter((lesson) => lesson.completed).length;
+    const courseCompleted = lessons.length === 0 || completedInCourse === lessons.length;
+
+    if (courseCompleted) {
+      completedCourses += 1;
+    }
+
+    previousCoursesCompleted = previousCoursesCompleted && courseCompleted;
 
     return {
       id: course.id,
@@ -127,6 +141,9 @@ export async function GET(request: NextRequest) {
       description: course.description,
       department: course.department,
       departmentLabel: getDepartmentLabel(course.department),
+      isLocked: !courseUnlocked,
+      completedLessons: completedInCourse,
+      totalLessons: lessons.length,
       lessons,
       progress:
         lessons.length > 0
@@ -146,6 +163,8 @@ export async function GET(request: NextRequest) {
     },
     courses: courseViews,
     summary: {
+      totalCourses: courseViews.length,
+      completedCourses,
       totalLessons,
       completedLessons,
       availablePoints,

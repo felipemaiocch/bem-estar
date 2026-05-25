@@ -7,6 +7,7 @@ import {
   FileText,
   GraduationCap,
   Loader2,
+  Lock,
   PlayCircle,
   Trophy,
 } from "lucide-react";
@@ -44,6 +45,9 @@ interface EadCourse {
   title: string;
   description: string;
   departmentLabel: string;
+  isLocked: boolean;
+  completedLessons: number;
+  totalLessons: number;
   progress: number;
   lessons: EadLesson[];
 }
@@ -60,6 +64,8 @@ interface EadPayload {
   };
   courses: EadCourse[];
   summary: {
+    totalCourses: number;
+    completedCourses: number;
     totalLessons: number;
     completedLessons: number;
     availablePoints: number;
@@ -103,10 +109,27 @@ export function EadScreen() {
       }
 
       setData(payload);
-      const firstCourse = payload.courses[0] ?? null;
+      const firstCourse =
+        payload.courses.find((course) => !course.isLocked && course.progress < 100) ??
+        payload.courses.find((course) => !course.isLocked) ??
+        null;
       const firstLesson = firstCourse?.lessons[0] ?? null;
-      setSelectedCourseId((current) => current ?? firstCourse?.id ?? null);
-      setSelectedLessonId((current) => current ?? firstLesson?.id ?? null);
+      setSelectedCourseId((current) => {
+        const currentCourse = payload.courses.find((course) => course.id === current);
+        return currentCourse && !currentCourse.isLocked
+          ? current
+          : firstCourse?.id ?? null;
+      });
+      setSelectedLessonId((current) => {
+        const currentCourse = payload.courses.find((course) =>
+          course.lessons.some((lesson) => lesson.id === current),
+        );
+        const currentLessonAvailable =
+          currentCourse && !currentCourse.isLocked
+            ? currentCourse.lessons.some((lesson) => lesson.id === current)
+            : false;
+        return currentLessonAvailable ? current : firstLesson?.id ?? null;
+      });
     } catch {
       setFeedback("Falha de conexao ao carregar o EAD.");
     } finally {
@@ -119,7 +142,11 @@ export function EadScreen() {
   }, []);
 
   const selectedCourse = useMemo(() => {
-    return data?.courses.find((course) => course.id === selectedCourseId) ?? data?.courses[0] ?? null;
+    return (
+      data?.courses.find((course) => course.id === selectedCourseId && !course.isLocked) ??
+      data?.courses.find((course) => !course.isLocked) ??
+      null
+    );
   }, [data, selectedCourseId]);
 
   const selectedLesson = useMemo(() => {
@@ -222,7 +249,13 @@ export function EadScreen() {
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 sm:min-w-[420px]">
+        <div className="grid grid-cols-2 gap-3 sm:min-w-[520px] md:grid-cols-4">
+          <Card className="p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Cursos</p>
+            <p className="mt-2 text-2xl font-black text-slate-950">
+              {data.summary.completedCourses}/{data.summary.totalCourses}
+            </p>
+          </Card>
           <Card className="p-4">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Aulas</p>
             <p className="mt-2 text-2xl font-black text-slate-950">
@@ -254,11 +287,12 @@ export function EadScreen() {
 
       <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
         <div className="space-y-4">
-          {data.courses.map((course) => (
+          {data.courses.map((course, courseIndex) => (
             <Card
               key={course.id}
               className={cn(
                 "p-4 transition-colors",
+                course.isLocked ? "bg-slate-50 opacity-80" : "",
                 selectedCourse?.id === course.id ? "border-[#0264af]/40 bg-blue-50/40" : "",
               )}
             >
@@ -266,6 +300,11 @@ export function EadScreen() {
                 type="button"
                 className="w-full text-left"
                 onClick={() => {
+                  if (course.isLocked) {
+                    setFeedback("Conclua o curso anterior para liberar este curso.");
+                    return;
+                  }
+
                   setSelectedCourseId(course.id);
                   setSelectedLessonId(course.lessons[0]?.id ?? null);
                   setSelectedAnswerIndex(null);
@@ -275,17 +314,27 @@ export function EadScreen() {
                   <div>
                     <h2 className="font-bold text-slate-950">{course.title}</h2>
                     <p className="mt-1 text-xs leading-5 text-slate-500">{course.description}</p>
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Curso {courseIndex + 1} de {data.summary.totalCourses} · {course.completedLessons}/{course.totalLessons} aulas
+                    </p>
                   </div>
-                  <span className="rounded-full bg-white px-2 py-1 text-xs font-black text-[#0264af]">
-                    {course.progress}%
-                  </span>
+                  {course.isLocked ? (
+                    <span className="flex items-center gap-1 rounded-full bg-slate-200 px-2 py-1 text-xs font-black text-slate-500">
+                      <Lock size={12} />
+                      Bloqueado
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-white px-2 py-1 text-xs font-black text-[#0264af]">
+                      {course.progress}%
+                    </span>
+                  )}
                 </div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full bg-[#0264af]" style={{ width: `${course.progress}%` }} />
                 </div>
               </button>
 
-              {selectedCourse?.id === course.id ? (
+              {selectedCourse?.id === course.id && !course.isLocked ? (
                 <div className="mt-4 space-y-2">
                   {course.lessons.map((lesson) => {
                     const Icon = kindIcon[lesson.kind];

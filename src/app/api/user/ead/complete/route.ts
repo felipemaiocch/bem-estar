@@ -80,6 +80,47 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const departmentCourses = await prisma.eadCourse.findMany({
+    where: {
+      department: user.department,
+      isPublished: true,
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    include: {
+      lessons: {
+        where: { isPublished: true },
+        select: {
+          id: true,
+          completions: {
+            where: { userId: user.id },
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+
+  const currentCourseIndex = departmentCourses.findIndex(
+    (course) => course.id === lesson.course.id,
+  );
+  const previousCoursesCompleted = departmentCourses
+    .slice(0, Math.max(currentCourseIndex, 0))
+    .every(
+      (course) =>
+        course.lessons.length === 0 ||
+        course.lessons.every((courseLesson) => courseLesson.completions.length > 0),
+    );
+
+  if (!previousCoursesCompleted) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Conclua o curso anterior antes de avancar para esta aula.",
+      },
+      { status: 403 },
+    );
+  }
+
   const quizOptions = normalizeQuizOptions(lesson.quizOptions);
   const requiresAnswer = Boolean(lesson.quizQuestion && quizOptions.length > 0);
 
