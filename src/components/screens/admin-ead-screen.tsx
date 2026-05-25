@@ -1,6 +1,18 @@
 "use client";
 
-import { BookOpen, CheckCircle2, FileText, GraduationCap, Loader2, PlayCircle, Power } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle2,
+  FileText,
+  GraduationCap,
+  Loader2,
+  Pencil,
+  PlayCircle,
+  Power,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
@@ -25,6 +37,7 @@ interface AdminEadLesson {
   pointsReward: number;
   coinsReward: number;
   isPublished: boolean;
+  sortOrder: number;
   completionCount: number;
 }
 
@@ -35,6 +48,7 @@ interface AdminEadCourse {
   department: DepartmentCode;
   departmentLabel: string;
   isPublished: boolean;
+  sortOrder: number;
   lessonCount: number;
   lessons: AdminEadLesson[];
 }
@@ -46,6 +60,7 @@ const defaultCourseForm = {
   title: "",
   description: "",
   department: "COMERCIAL" as DepartmentCode,
+  sortOrder: "",
 };
 
 const defaultLessonForm = {
@@ -61,6 +76,7 @@ const defaultLessonForm = {
   correctAnswerIndex: "0",
   pointsReward: "20",
   coinsReward: "5",
+  sortOrder: "",
 };
 
 const lessonKindIcon = {
@@ -81,6 +97,21 @@ function getAdminEadErrorMessage(
   return error ?? fallback;
 }
 
+function splitQuizOptions(options: string) {
+  return options
+    .split("\n")
+    .map((option) => option.trim())
+    .filter(Boolean);
+}
+
+function optionalNumber(value: string) {
+  return value.trim() ? Number(value) : undefined;
+}
+
+function nullableNumber(value: string) {
+  return value.trim() ? Number(value) : null;
+}
+
 export function AdminEadScreen() {
   const [courses, setCourses] = useState<AdminEadCourse[]>([]);
   const [courseForm, setCourseForm] = useState(defaultCourseForm);
@@ -89,6 +120,10 @@ export function AdminEadScreen() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<DepartmentCode | "TODOS">("TODOS");
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [courseEditForm, setCourseEditForm] = useState(defaultCourseForm);
+  const [lessonEditForm, setLessonEditForm] = useState(defaultLessonForm);
 
   async function loadEad() {
     setLoading(true);
@@ -123,10 +158,6 @@ export function AdminEadScreen() {
     void loadEad();
   }, []);
 
-  const filteredCourses = useMemo(() => {
-    return courses.filter((course) => departmentFilter === "TODOS" || course.department === departmentFilter);
-  }, [courses, departmentFilter]);
-
   const coursesByDepartment = useMemo(() => {
     return departmentOptions.reduce(
       (acc, department) => ({
@@ -136,6 +167,49 @@ export function AdminEadScreen() {
       {} as Record<DepartmentCode, AdminEadCourse[]>,
     );
   }, [courses]);
+
+  const visibleDepartmentSections = useMemo(() => {
+    return departmentOptions
+      .filter((department) => departmentFilter === "TODOS" || department.value === departmentFilter)
+      .map((department) => ({
+        ...department,
+        courses: coursesByDepartment[department.value] ?? [],
+      }));
+  }, [coursesByDepartment, departmentFilter]);
+
+  function startEditCourse(course: AdminEadCourse) {
+    setEditingCourseId(course.id);
+    setEditingLessonId(null);
+    setCourseEditForm({
+      title: course.title,
+      description: course.description,
+      department: course.department,
+      sortOrder: String(course.sortOrder),
+    });
+    setFeedback(null);
+  }
+
+  function startEditLesson(courseId: string, lesson: AdminEadLesson) {
+    setEditingLessonId(lesson.id);
+    setEditingCourseId(null);
+    setLessonEditForm({
+      courseId,
+      title: lesson.title,
+      description: lesson.description,
+      kind: lesson.kind,
+      videoUrl: lesson.videoUrl ?? "",
+      materialUrl: lesson.materialUrl ?? "",
+      durationMinutes: lesson.durationMinutes ? String(lesson.durationMinutes) : "",
+      quizQuestion: lesson.quizQuestion ?? "",
+      quizOptions: lesson.quizOptions.join("\n"),
+      correctAnswerIndex:
+        lesson.correctAnswerIndex !== null ? String(lesson.correctAnswerIndex) : "",
+      pointsReward: String(lesson.pointsReward),
+      coinsReward: String(lesson.coinsReward),
+      sortOrder: String(lesson.sortOrder),
+    });
+    setFeedback(null);
+  }
 
   async function createCourse(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -154,6 +228,7 @@ export function AdminEadScreen() {
           title: courseForm.title,
           description: courseForm.description,
           department: courseForm.department,
+          sortOrder: optionalNumber(courseForm.sortOrder),
         }),
       });
       const data = await response.json();
@@ -177,10 +252,7 @@ export function AdminEadScreen() {
     event.preventDefault();
     if (busyAction) return;
 
-    const quizOptions = lessonForm.quizOptions
-      .split("\n")
-      .map((option) => option.trim())
-      .filter(Boolean);
+    const quizOptions = splitQuizOptions(lessonForm.quizOptions);
 
     setBusyAction("create-lesson");
     setFeedback(null);
@@ -204,6 +276,7 @@ export function AdminEadScreen() {
           correctAnswerIndex: Number(lessonForm.correctAnswerIndex),
           pointsReward: Number(lessonForm.pointsReward),
           coinsReward: Number(lessonForm.coinsReward),
+          sortOrder: optionalNumber(lessonForm.sortOrder),
         }),
       });
       const data = await response.json();
@@ -253,6 +326,136 @@ export function AdminEadScreen() {
       await loadEad();
     } catch {
       setFeedback("Falha de conexao ao atualizar EAD.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function updateCourse(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busyAction || !editingCourseId) return;
+
+    setBusyAction(`edit-course-${editingCourseId}`);
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/ead", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          entity: "course",
+          id: editingCourseId,
+          title: courseEditForm.title,
+          description: courseEditForm.description,
+          department: courseEditForm.department,
+          sortOrder: optionalNumber(courseEditForm.sortOrder),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(getAdminEadErrorMessage(response, data.error, "Nao foi possivel editar curso."));
+        return;
+      }
+
+      setEditingCourseId(null);
+      setFeedback("Curso atualizado com sucesso.");
+      await loadEad();
+    } catch {
+      setFeedback("Falha de conexao ao editar curso.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function updateLesson(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busyAction || !editingLessonId) return;
+
+    const quizOptions = splitQuizOptions(lessonEditForm.quizOptions);
+
+    setBusyAction(`edit-lesson-${editingLessonId}`);
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/ead", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          entity: "lesson",
+          id: editingLessonId,
+          courseId: lessonEditForm.courseId,
+          title: lessonEditForm.title,
+          description: lessonEditForm.description,
+          kind: lessonEditForm.kind,
+          videoUrl: lessonEditForm.videoUrl || null,
+          materialUrl: lessonEditForm.materialUrl || null,
+          durationMinutes: nullableNumber(lessonEditForm.durationMinutes),
+          quizQuestion: lessonEditForm.quizQuestion || null,
+          quizOptions: quizOptions.length ? quizOptions : null,
+          correctAnswerIndex: nullableNumber(lessonEditForm.correctAnswerIndex),
+          pointsReward: Number(lessonEditForm.pointsReward),
+          coinsReward: Number(lessonEditForm.coinsReward),
+          sortOrder: optionalNumber(lessonEditForm.sortOrder),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(getAdminEadErrorMessage(response, data.error, "Nao foi possivel editar aula."));
+        return;
+      }
+
+      setEditingLessonId(null);
+      setFeedback("Aula atualizada com sucesso.");
+      await loadEad();
+    } catch {
+      setFeedback("Falha de conexao ao editar aula.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function removeEadItem(entity: "course" | "lesson", id: string, label: string) {
+    if (busyAction) return;
+
+    const confirmed = window.confirm(
+      `Remover "${label}"? Essa acao so funciona para itens sem conclusao registrada.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyAction(`remove-${entity}-${id}`);
+    setFeedback(null);
+
+    try {
+      const params = new URLSearchParams({ entity, id });
+      const response = await fetch(`/api/admin/ead?${params.toString()}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(getAdminEadErrorMessage(response, data.error, "Nao foi possivel remover EAD."));
+        return;
+      }
+
+      if (entity === "course" && editingCourseId === id) {
+        setEditingCourseId(null);
+      }
+      if (entity === "lesson" && editingLessonId === id) {
+        setEditingLessonId(null);
+      }
+
+      setFeedback(entity === "course" ? "Curso removido com sucesso." : "Aula removida com sucesso.");
+      await loadEad();
+    } catch {
+      setFeedback("Falha de conexao ao remover EAD.");
     } finally {
       setBusyAction(null);
     }
@@ -311,6 +514,15 @@ export function AdminEadScreen() {
                   setCourseForm((current) => ({ ...current, description: event.target.value }))
                 }
                 required
+              />
+              <input
+                className={inputClassName}
+                placeholder="Ordem na trilha: 1, 2, 3..."
+                type="number"
+                value={courseForm.sortOrder}
+                onChange={(event) =>
+                  setCourseForm((current) => ({ ...current, sortOrder: event.target.value }))
+                }
               />
               <Button type="submit" disabled={busyAction === "create-course"}>
                 {busyAction === "create-course" ? "Criando..." : "Criar curso"}
@@ -421,6 +633,15 @@ export function AdminEadScreen() {
                   setLessonForm((current) => ({ ...current, correctAnswerIndex: event.target.value }))
                 }
               />
+              <input
+                className={inputClassName}
+                placeholder="Ordem da aula"
+                type="number"
+                value={lessonForm.sortOrder}
+                onChange={(event) =>
+                  setLessonForm((current) => ({ ...current, sortOrder: event.target.value }))
+                }
+              />
               <div className="grid grid-cols-2 gap-3">
                 <input
                   className={inputClassName}
@@ -487,78 +708,397 @@ export function AdminEadScreen() {
             </div>
           ) : null}
 
-          <div className="space-y-4">
-            {filteredCourses.map((course) => {
-              const departmentCourses = coursesByDepartment[course.department] ?? [];
-              const coursePosition = departmentCourses.findIndex((item) => item.id === course.id) + 1;
-
-              return (
-                <div key={course.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-bold text-slate-950">{course.title}</h3>
-                        <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#0264af]">
-                          {course.departmentLabel}
-                        </span>
-                        <span className={cn(
-                          "rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider",
-                          course.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-500",
-                        )}>
-                          {course.isPublished ? "Publicado" : "Oculto"}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-slate-500">{course.description}</p>
-                      <p className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Curso {coursePosition} de {departmentCourses.length} em {course.departmentLabel}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={course.isPublished ? "outline" : "secondary"}
-                      onClick={() => void togglePublished("course", course.id, course.isPublished)}
-                      disabled={busyAction === `course-${course.id}`}
-                    >
-                      <Power size={14} />
-                      {course.isPublished ? "Ocultar" : "Publicar"}
-                    </Button>
-                  </div>
-
-                  <div className="mt-4 grid gap-3">
-                    {course.lessons.map((lesson) => {
-                      const Icon = lessonKindIcon[lesson.kind];
-                      return (
-                        <div key={lesson.id} className="rounded-xl border border-white bg-white px-4 py-3">
-                          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Icon className="h-4 w-4 text-[#0264af]" />
-                                <p className="font-bold text-slate-800">{lesson.title}</p>
-                                {lesson.isPublished ? (
-                                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                ) : null}
-                              </div>
-                              <p className="mt-1 text-xs leading-5 text-slate-500">{lesson.description}</p>
-                              <p className="mt-2 text-xs font-bold text-slate-400">
-                                {lesson.completionCount} conclusao{lesson.completionCount === 1 ? "" : "es"} · +{lesson.pointsReward} pts · +{lesson.coinsReward} drcoins
-                              </p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant={lesson.isPublished ? "outline" : "secondary"}
-                              onClick={() => void togglePublished("lesson", lesson.id, lesson.isPublished)}
-                              disabled={busyAction === `lesson-${lesson.id}`}
-                            >
-                              {lesson.isPublished ? "Ocultar" : "Publicar"}
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+          <div className="space-y-6">
+            {visibleDepartmentSections.map((section) => (
+              <section key={section.value} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <div className="mb-4 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-base font-black text-slate-950">{section.label}</h3>
+                    <p className="text-sm text-slate-500">
+                      {section.courses.length} curso{section.courses.length === 1 ? "" : "s"} cadastrado{section.courses.length === 1 ? "" : "s"}.
+                    </p>
                   </div>
                 </div>
-              );
-            })}
+
+                {section.courses.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+                    Nenhum curso cadastrado neste departamento.
+                  </div>
+                ) : null}
+
+                <div className="space-y-4">
+                  {section.courses.map((course, courseIndex) => {
+                    const isEditingCourse = editingCourseId === course.id;
+                    const courseHasCompletions = course.lessons.some(
+                      (lesson) => lesson.completionCount > 0,
+                    );
+
+                    return (
+                      <div key={course.id} className="rounded-2xl border border-slate-100 bg-white p-4">
+                        {isEditingCourse ? (
+                          <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void updateCourse(event)}>
+                            <select
+                              className={inputClassName}
+                              value={courseEditForm.department}
+                              onChange={(event) =>
+                                setCourseEditForm((current) => ({
+                                  ...current,
+                                  department: event.target.value as DepartmentCode,
+                                }))
+                              }
+                            >
+                              {departmentOptions.map((department) => (
+                                <option key={department.value} value={department.value}>
+                                  {department.label}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              className={inputClassName}
+                              placeholder="Ordem"
+                              type="number"
+                              value={courseEditForm.sortOrder}
+                              onChange={(event) =>
+                                setCourseEditForm((current) => ({
+                                  ...current,
+                                  sortOrder: event.target.value,
+                                }))
+                              }
+                            />
+                            <input
+                              className={cn(inputClassName, "md:col-span-2")}
+                              placeholder="Titulo do curso"
+                              value={courseEditForm.title}
+                              onChange={(event) =>
+                                setCourseEditForm((current) => ({ ...current, title: event.target.value }))
+                              }
+                              required
+                            />
+                            <textarea
+                              className={cn(inputClassName, "min-h-20 resize-none md:col-span-2")}
+                              placeholder="Descricao"
+                              value={courseEditForm.description}
+                              onChange={(event) =>
+                                setCourseEditForm((current) => ({
+                                  ...current,
+                                  description: event.target.value,
+                                }))
+                              }
+                              required
+                            />
+                            <div className="flex flex-wrap gap-2 md:col-span-2">
+                              <Button type="submit" size="sm" disabled={busyAction === `edit-course-${course.id}`}>
+                                <Save size={14} />
+                                Salvar curso
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingCourseId(null)}
+                              >
+                                <X size={14} />
+                                Cancelar
+                              </Button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-bold text-slate-950">{course.title}</h4>
+                                <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#0264af]">
+                                  Curso {courseIndex + 1} de {section.courses.length}
+                                </span>
+                                <span className={cn(
+                                  "rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider",
+                                  course.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-500",
+                                )}>
+                                  {course.isPublished ? "Publicado" : "Oculto"}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-sm text-slate-500">{course.description}</p>
+                              <p className="mt-2 text-xs font-bold text-slate-400">
+                                Ordem {course.sortOrder} · {course.lessons.length} aula{course.lessons.length === 1 ? "" : "s"}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startEditCourse(course)}
+                              >
+                                <Pencil size={14} />
+                                Editar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={course.isPublished ? "outline" : "secondary"}
+                                onClick={() => void togglePublished("course", course.id, course.isPublished)}
+                                disabled={busyAction === `course-${course.id}`}
+                              >
+                                <Power size={14} />
+                                {course.isPublished ? "Ocultar" : "Publicar"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => void removeEadItem("course", course.id, course.title)}
+                                disabled={busyAction === `remove-course-${course.id}` || courseHasCompletions}
+                                title={courseHasCompletions ? "Curso com conclusoes deve ser ocultado." : undefined}
+                              >
+                                <Trash2 size={14} />
+                                Remover
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-4 grid gap-3">
+                          {course.lessons.map((lesson, lessonIndex) => {
+                            const Icon = lessonKindIcon[lesson.kind];
+                            const isEditingLesson = editingLessonId === lesson.id;
+
+                            return (
+                              <div key={lesson.id} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                                {isEditingLesson ? (
+                                  <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void updateLesson(event)}>
+                                    <select
+                                      className={cn(inputClassName, "md:col-span-2")}
+                                      value={lessonEditForm.courseId}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          courseId: event.target.value,
+                                        }))
+                                      }
+                                    >
+                                      {courses.map((courseOption) => (
+                                        <option key={courseOption.id} value={courseOption.id}>
+                                          {courseOption.departmentLabel} - {courseOption.title}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      className={inputClassName}
+                                      value={lessonEditForm.kind}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          kind: event.target.value as LessonKind,
+                                        }))
+                                      }
+                                    >
+                                      <option value="VIDEO">Videoaula</option>
+                                      <option value="PDF">PDF</option>
+                                      <option value="TUTORIAL">Tutorial</option>
+                                    </select>
+                                    <input
+                                      className={inputClassName}
+                                      placeholder="Ordem"
+                                      type="number"
+                                      value={lessonEditForm.sortOrder}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          sortOrder: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                    <input
+                                      className={cn(inputClassName, "md:col-span-2")}
+                                      placeholder="Titulo da aula"
+                                      value={lessonEditForm.title}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          title: event.target.value,
+                                        }))
+                                      }
+                                      required
+                                    />
+                                    <textarea
+                                      className={cn(inputClassName, "min-h-20 resize-none md:col-span-2")}
+                                      placeholder="Descricao"
+                                      value={lessonEditForm.description}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          description: event.target.value,
+                                        }))
+                                      }
+                                      required
+                                    />
+                                    <input
+                                      className={inputClassName}
+                                      placeholder="URL do video"
+                                      value={lessonEditForm.videoUrl}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          videoUrl: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                    <input
+                                      className={inputClassName}
+                                      placeholder="URL do PDF/material"
+                                      value={lessonEditForm.materialUrl}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          materialUrl: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                    <input
+                                      className={inputClassName}
+                                      placeholder="Duracao em minutos"
+                                      type="number"
+                                      value={lessonEditForm.durationMinutes}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          durationMinutes: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                    <input
+                                      className={inputClassName}
+                                      placeholder="Indice da resposta correta"
+                                      type="number"
+                                      value={lessonEditForm.correctAnswerIndex}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          correctAnswerIndex: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                    <input
+                                      className={cn(inputClassName, "md:col-span-2")}
+                                      placeholder="Pergunta"
+                                      value={lessonEditForm.quizQuestion}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          quizQuestion: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                    <textarea
+                                      className={cn(inputClassName, "min-h-20 resize-none md:col-span-2")}
+                                      placeholder="Opcoes da pergunta, uma por linha"
+                                      value={lessonEditForm.quizOptions}
+                                      onChange={(event) =>
+                                        setLessonEditForm((current) => ({
+                                          ...current,
+                                          quizOptions: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <input
+                                        className={inputClassName}
+                                        placeholder="Pontos"
+                                        type="number"
+                                        value={lessonEditForm.pointsReward}
+                                        onChange={(event) =>
+                                          setLessonEditForm((current) => ({
+                                            ...current,
+                                            pointsReward: event.target.value,
+                                          }))
+                                        }
+                                      />
+                                      <input
+                                        className={inputClassName}
+                                        placeholder="Drcoins"
+                                        type="number"
+                                        value={lessonEditForm.coinsReward}
+                                        onChange={(event) =>
+                                          setLessonEditForm((current) => ({
+                                            ...current,
+                                            coinsReward: event.target.value,
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 md:col-span-2">
+                                      <Button type="submit" size="sm" disabled={busyAction === `edit-lesson-${lesson.id}`}>
+                                        <Save size={14} />
+                                        Salvar aula
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setEditingLessonId(null)}
+                                      >
+                                        <X size={14} />
+                                        Cancelar
+                                      </Button>
+                                    </div>
+                                  </form>
+                                ) : (
+                                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                    <div>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Icon className="h-4 w-4 text-[#0264af]" />
+                                        <p className="font-bold text-slate-800">{lesson.title}</p>
+                                        <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                          Aula {lessonIndex + 1} de {course.lessons.length}
+                                        </span>
+                                        {lesson.isPublished ? (
+                                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                        ) : null}
+                                      </div>
+                                      <p className="mt-1 text-xs leading-5 text-slate-500">{lesson.description}</p>
+                                      <p className="mt-2 text-xs font-bold text-slate-400">
+                                        Ordem {lesson.sortOrder} · {lesson.completionCount} conclusao{lesson.completionCount === 1 ? "" : "es"} · +{lesson.pointsReward} pts · +{lesson.coinsReward} drcoins
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => startEditLesson(course.id, lesson)}
+                                      >
+                                        <Pencil size={14} />
+                                        Editar
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant={lesson.isPublished ? "outline" : "secondary"}
+                                        onClick={() => void togglePublished("lesson", lesson.id, lesson.isPublished)}
+                                        disabled={busyAction === `lesson-${lesson.id}`}
+                                      >
+                                        {lesson.isPublished ? "Ocultar" : "Publicar"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-red-600 hover:text-red-700"
+                                        onClick={() => void removeEadItem("lesson", lesson.id, lesson.title)}
+                                        disabled={busyAction === `remove-lesson-${lesson.id}` || lesson.completionCount > 0}
+                                        title={lesson.completionCount > 0 ? "Aula com conclusoes deve ser ocultada." : undefined}
+                                      >
+                                        <Trash2 size={14} />
+                                        Remover
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         </Card>
       </div>

@@ -37,10 +37,40 @@ const createLessonSchema = z.object({
 
 const createEadSchema = z.union([createCourseSchema, createLessonSchema]);
 
-const updateEadSchema = z.object({
+const updateCourseSchema = z.object({
+  entity: z.literal("course"),
+  id: z.string().min(1),
+  department: departmentSchema.optional(),
+  title: z.string().min(2).max(160).optional(),
+  description: z.string().min(2).max(500).optional(),
+  sortOrder: z.number().int().min(0).max(1000).optional(),
+  isPublished: z.boolean().optional(),
+});
+
+const updateLessonSchema = z.object({
+  entity: z.literal("lesson"),
+  id: z.string().min(1),
+  courseId: z.string().min(1).optional(),
+  title: z.string().min(2).max(160).optional(),
+  description: z.string().min(2).max(800).optional(),
+  kind: lessonKindSchema.optional(),
+  videoUrl: z.string().max(1000).nullable().optional(),
+  materialUrl: z.string().max(1000).nullable().optional(),
+  durationMinutes: z.number().int().min(1).max(600).nullable().optional(),
+  quizQuestion: z.string().max(300).nullable().optional(),
+  quizOptions: z.array(z.string().min(1).max(160)).max(6).nullable().optional(),
+  correctAnswerIndex: z.number().int().min(0).max(5).nullable().optional(),
+  pointsReward: z.number().int().min(0).max(5000).optional(),
+  coinsReward: z.number().int().min(0).max(5000).optional(),
+  sortOrder: z.number().int().min(0).max(1000).optional(),
+  isPublished: z.boolean().optional(),
+});
+
+const updateEadSchema = z.union([updateCourseSchema, updateLessonSchema]);
+
+const deleteEadSchema = z.object({
   entity: z.enum(["course", "lesson"]),
   id: z.string().min(1),
-  isPublished: z.boolean().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -240,6 +270,18 @@ export async function PATCH(request: NextRequest) {
       const course = await prisma.eadCourse.update({
         where: { id: parsed.data.id },
         data: {
+          ...(parsed.data.department !== undefined
+            ? { department: parsed.data.department }
+            : {}),
+          ...(parsed.data.title !== undefined
+            ? { title: parsed.data.title.trim() }
+            : {}),
+          ...(parsed.data.description !== undefined
+            ? { description: parsed.data.description.trim() }
+            : {}),
+          ...(parsed.data.sortOrder !== undefined
+            ? { sortOrder: parsed.data.sortOrder }
+            : {}),
           ...(parsed.data.isPublished !== undefined
             ? { isPublished: parsed.data.isPublished }
             : {}),
@@ -252,6 +294,49 @@ export async function PATCH(request: NextRequest) {
     const lesson = await prisma.eadLesson.update({
       where: { id: parsed.data.id },
       data: {
+        ...(parsed.data.courseId !== undefined
+          ? { courseId: parsed.data.courseId }
+          : {}),
+        ...(parsed.data.title !== undefined
+          ? { title: parsed.data.title.trim() }
+          : {}),
+        ...(parsed.data.description !== undefined
+          ? { description: parsed.data.description.trim() }
+          : {}),
+        ...(parsed.data.kind !== undefined
+          ? { kind: parsed.data.kind }
+          : {}),
+        ...(parsed.data.videoUrl !== undefined
+          ? { videoUrl: parsed.data.videoUrl?.trim() || null }
+          : {}),
+        ...(parsed.data.materialUrl !== undefined
+          ? { materialUrl: parsed.data.materialUrl?.trim() || null }
+          : {}),
+        ...(parsed.data.durationMinutes !== undefined
+          ? { durationMinutes: parsed.data.durationMinutes }
+          : {}),
+        ...(parsed.data.quizQuestion !== undefined
+          ? { quizQuestion: parsed.data.quizQuestion?.trim() || null }
+          : {}),
+        ...(parsed.data.quizOptions !== undefined
+          ? {
+              quizOptions: parsed.data.quizOptions?.length
+                ? (parsed.data.quizOptions as Prisma.InputJsonArray)
+                : Prisma.JsonNull,
+            }
+          : {}),
+        ...(parsed.data.correctAnswerIndex !== undefined
+          ? { correctAnswerIndex: parsed.data.correctAnswerIndex }
+          : {}),
+        ...(parsed.data.pointsReward !== undefined
+          ? { pointsReward: parsed.data.pointsReward }
+          : {}),
+        ...(parsed.data.coinsReward !== undefined
+          ? { coinsReward: parsed.data.coinsReward }
+          : {}),
+        ...(parsed.data.sortOrder !== undefined
+          ? { sortOrder: parsed.data.sortOrder }
+          : {}),
         ...(parsed.data.isPublished !== undefined
           ? { isPublished: parsed.data.isPublished }
           : {}),
@@ -259,9 +344,134 @@ export async function PATCH(request: NextRequest) {
     });
 
     return NextResponse.json({ ok: true, lesson });
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Ja existe um item de EAD com este titulo." },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json(
       { ok: false, error: "Nao foi possivel atualizar EAD." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const auth = await requireSession(request, "ADMIN");
+
+  if (auth.response) {
+    return auth.response;
+  }
+
+  const parsed = deleteEadSchema.safeParse({
+    entity: request.nextUrl.searchParams.get("entity"),
+    id: request.nextUrl.searchParams.get("id"),
+  });
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Dados invalidos para remover EAD.",
+        issues: parsed.error.flatten(),
+      },
+      { status: 400 },
+    );
+  }
+
+  try {
+    if (parsed.data.entity === "course") {
+      const completionCount = await prisma.eadLessonCompletion.count({
+        where: {
+          lesson: {
+            courseId: parsed.data.id,
+          },
+        },
+      });
+
+      if (completionCount > 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Este curso ja possui conclusoes. Oculte o curso para preservar o historico dos usuarios.",
+          },
+          { status: 409 },
+        );
+      }
+
+      const course = await prisma.eadCourse.delete({
+        where: { id: parsed.data.id },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: auth.session.sub,
+          action: "DELETE",
+          entity: "EAD_COURSE",
+          entityId: course.id,
+          metadata: {
+            department: course.department,
+            title: course.title,
+          } as Prisma.InputJsonObject,
+        },
+      });
+
+      return NextResponse.json({ ok: true, course });
+    }
+
+    const completionCount = await prisma.eadLessonCompletion.count({
+      where: { lessonId: parsed.data.id },
+    });
+
+    if (completionCount > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Esta aula ja possui conclusoes. Oculte a aula para preservar o historico dos usuarios.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const lesson = await prisma.eadLesson.delete({
+      where: { id: parsed.data.id },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: auth.session.sub,
+        action: "DELETE",
+        entity: "EAD_LESSON",
+        entityId: lesson.id,
+        metadata: {
+          courseId: lesson.courseId,
+          title: lesson.title,
+        } as Prisma.InputJsonObject,
+      },
+    });
+
+    return NextResponse.json({ ok: true, lesson });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Item de EAD nao encontrado." },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(
+      { ok: false, error: "Nao foi possivel remover EAD." },
       { status: 500 },
     );
   }
