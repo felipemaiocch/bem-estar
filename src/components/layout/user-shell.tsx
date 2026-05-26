@@ -215,10 +215,20 @@ export function UserShell({ children }: { children: ReactNode }) {
                   <Icon size={20} className={active ? "stroke-[2.5px]" : ""} />
                   {item.label}
                 </Link>
-                {item.href === "/usuario/ead" && active && user?.departmentLabel ? (
-                  <div className="ml-8 mt-1 rounded-xl border border-blue-50 bg-blue-50/60 px-3 py-2 text-xs font-semibold text-[#0264af]">
-                    {user.departmentLabel}
-                  </div>
+                {item.href === "/usuario/ead" &&
+                user?.departmentLabel &&
+                user.departmentLabel !== "Sem departamento" ? (
+                  <Link
+                    href="/usuario/ead"
+                    className={cn(
+                      "ml-8 mt-1 block rounded-xl border px-3 py-2 text-xs font-semibold transition-colors",
+                      active
+                        ? "border-blue-100 bg-blue-50/80 text-[#0264af]"
+                        : "border-gray-100 bg-gray-50 text-gray-500 hover:bg-blue-50/60 hover:text-[#0264af]",
+                    )}
+                  >
+                    Trilha {user.departmentLabel}
+                  </Link>
                 ) : null}
               </div>
             );

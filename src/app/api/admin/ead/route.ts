@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
 import { getDepartmentLabel } from "@/lib/departments";
-import { ensureDefaultEadContent, normalizeQuizOptions } from "@/lib/ead";
+import { normalizeQuizOptions } from "@/lib/ead";
 import { prisma } from "@/lib/prisma";
 
 const departmentSchema = z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO"]);
@@ -79,8 +79,6 @@ export async function GET(request: NextRequest) {
   if (auth.response) {
     return auth.response;
   }
-
-  await ensureDefaultEadContent();
 
   const courses = await prisma.eadCourse.findMany({
     orderBy: [{ department: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],

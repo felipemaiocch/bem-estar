@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { requireSession } from "@/lib/api-auth";
 import { getDepartmentDescription, getDepartmentLabel } from "@/lib/departments";
-import { ensureDefaultEadContent, normalizeQuizOptions } from "@/lib/ead";
+import { normalizeQuizOptions } from "@/lib/ead";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -11,8 +11,6 @@ export async function GET(request: NextRequest) {
   if (auth.response) {
     return auth.response;
   }
-
-  await ensureDefaultEadContent();
 
   const user = await prisma.user.findUnique({
     where: { id: auth.session.sub },
