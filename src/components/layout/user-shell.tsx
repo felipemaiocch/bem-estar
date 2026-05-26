@@ -34,6 +34,12 @@ export function UserShell({ children }: { children: ReactNode }) {
     drCoins: number;
     departmentLabel: string;
   } | null>(null);
+  const [eadDepartments, setEadDepartments] = useState<Array<{
+    department: string;
+    label: string;
+    courseCount: number;
+    courses: Array<{ id: string; title: string }>;
+  }>>([]);
   const [allowUserPosting, setAllowUserPosting] = useState(true);
 
   const loadGlobalAlert = useCallback(async () => {
@@ -74,10 +80,19 @@ export function UserShell({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  const loadEadNav = useCallback(async () => {
+    try {
+      const resp = await fetch("/api/user/ead/nav", { cache: "no-store" });
+      const data = await resp.json();
+      if (data.ok) setEadDepartments(data.departments ?? []);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     void loadGlobalAlert();
     void loadUser();
     void loadSettings();
+    void loadEadNav();
 
     // Sincronização em tempo real entre abas no mesmo navegador
     const channel = new BroadcastChannel("platform-settings");
@@ -97,7 +112,7 @@ export function UserShell({ children }: { children: ReactNode }) {
       channel.close();
       clearInterval(interval);
     };
-  }, [loadGlobalAlert, loadUser, loadSettings]);
+  }, [loadGlobalAlert, loadUser, loadSettings, loadEadNav]);
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -215,20 +230,38 @@ export function UserShell({ children }: { children: ReactNode }) {
                   <Icon size={20} className={active ? "stroke-[2.5px]" : ""} />
                   {item.label}
                 </Link>
-                {item.href === "/usuario/ead" &&
-                user?.departmentLabel &&
-                user.departmentLabel !== "Sem departamento" ? (
-                  <Link
-                    href="/usuario/ead"
-                    className={cn(
-                      "ml-8 mt-1 block rounded-xl border px-3 py-2 text-xs font-semibold transition-colors",
-                      active
-                        ? "border-blue-100 bg-blue-50/80 text-[#0264af]"
-                        : "border-gray-100 bg-gray-50 text-gray-500 hover:bg-blue-50/60 hover:text-[#0264af]",
-                    )}
-                  >
-                    Trilha {user.departmentLabel}
-                  </Link>
+                {item.href === "/usuario/ead" && eadDepartments.length > 0 ? (
+                  <div className="ml-8 mt-1 space-y-1">
+                    {eadDepartments.map((department) => (
+                      <div key={department.department}>
+                        <Link
+                          href="/usuario/ead"
+                          className={cn(
+                            "flex items-center justify-between rounded-xl border px-3 py-2 text-xs font-semibold transition-colors",
+                            active
+                              ? "border-blue-100 bg-blue-50/80 text-[#0264af]"
+                              : "border-gray-100 bg-gray-50 text-gray-500 hover:bg-blue-50/60 hover:text-[#0264af]",
+                          )}
+                        >
+                          <span>{department.label}</span>
+                          <span>{department.courseCount}</span>
+                        </Link>
+                        {active ? (
+                          <div className="mt-1 space-y-1">
+                            {department.courses.slice(0, 3).map((course) => (
+                              <Link
+                                key={course.id}
+                                href="/usuario/ead"
+                                className="block truncate rounded-lg px-3 py-1.5 text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-[#0264af]"
+                              >
+                                {course.title}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 ) : null}
               </div>
             );

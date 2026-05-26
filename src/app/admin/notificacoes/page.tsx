@@ -1,5 +1,5 @@
-import { AdminDashboardScreen } from "@/components/screens/admin-dashboard";
+import { AdminNotificationsScreen } from "@/components/screens/admin-section-screens";
 
 export default function AdminNotificacoesPage() {
-  return <AdminDashboardScreen />;
+  return <AdminNotificationsScreen />;
 }

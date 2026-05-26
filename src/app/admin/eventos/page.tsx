@@ -1,5 +1,5 @@
-import { AdminDashboardScreen } from "@/components/screens/admin-dashboard";
+import { AdminEventsScreen } from "@/components/screens/admin-section-screens";
 
 export default function AdminEventosPage() {
-  return <AdminDashboardScreen />;
+  return <AdminEventsScreen />;
 }

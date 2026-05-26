@@ -1,5 +1,5 @@
-import { AdminDashboardScreen } from "@/components/screens/admin-dashboard";
+import { AdminModerationScreen } from "@/components/screens/admin-section-screens";
 
 export default function AdminModeracaoPage() {
-  return <AdminDashboardScreen />;
+  return <AdminModerationScreen />;
 }
