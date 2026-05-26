@@ -25,28 +25,22 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const courses = await prisma.eadCourse.findMany({
+  const courseCount = await prisma.eadCourse.count({
     where: {
       department: user.department,
       isPublished: true,
-    },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: {
-      id: true,
-      title: true,
     },
   });
 
   return NextResponse.json({
     ok: true,
     departments:
-      courses.length > 0
+      courseCount > 0
         ? [
             {
               department: user.department,
               label: getDepartmentLabel(user.department),
-              courseCount: courses.length,
-              courses,
+              courseCount,
             },
           ]
         : [],

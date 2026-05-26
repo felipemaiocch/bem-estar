@@ -38,7 +38,6 @@ export function UserShell({ children }: { children: ReactNode }) {
     department: string;
     label: string;
     courseCount: number;
-    courses: Array<{ id: string; title: string }>;
   }>>([]);
   const [allowUserPosting, setAllowUserPosting] = useState(true);
 
@@ -246,19 +245,6 @@ export function UserShell({ children }: { children: ReactNode }) {
                           <span>{department.label}</span>
                           <span>{department.courseCount}</span>
                         </Link>
-                        {active ? (
-                          <div className="mt-1 space-y-1">
-                            {department.courses.slice(0, 3).map((course) => (
-                              <Link
-                                key={course.id}
-                                href="/usuario/ead"
-                                className="block truncate rounded-lg px-3 py-1.5 text-[11px] font-medium text-gray-500 hover:bg-gray-50 hover:text-[#0264af]"
-                              >
-                                {course.title}
-                              </Link>
-                            ))}
-                          </div>
-                        ) : null}
                       </div>
                     ))}
                   </div>
