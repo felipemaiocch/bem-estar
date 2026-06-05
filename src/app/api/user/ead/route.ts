@@ -29,34 +29,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!user.department) {
-    return NextResponse.json({
-      ok: true,
-      user: {
-        department: null,
-        departmentLabel: getDepartmentLabel(null),
-        departmentDescription: getDepartmentDescription(null),
-        score: user.score,
-        drCoins: user.drCoins,
-      },
-      courses: [],
-      summary: {
-        totalCourses: 0,
-        completedCourses: 0,
-        totalLessons: 0,
-        completedLessons: 0,
-        availablePoints: 0,
-        availableCoins: 0,
-      },
-    });
-  }
-
   const courses = await prisma.eadCourse.findMany({
     where: {
-      department: user.department,
+      OR: [
+        ...(user.department ? [{ department: user.department }] : []),
+        { isGlobal: true },
+      ],
       isPublished: true,
     },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ department: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     include: {
       lessons: {
         where: { isPublished: true },
@@ -139,6 +120,7 @@ export async function GET(request: NextRequest) {
       description: course.description,
       department: course.department,
       departmentLabel: getDepartmentLabel(course.department),
+      isGlobal: course.isGlobal,
       isLocked: !courseUnlocked,
       completedLessons: completedInCourse,
       totalLessons: lessons.length,

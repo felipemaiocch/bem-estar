@@ -15,6 +15,7 @@ const createCourseSchema = z.object({
   department: departmentSchema,
   title: z.string().min(2).max(160),
   description: z.string().min(2).max(500),
+  isGlobal: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(1000).optional(),
 });
 
@@ -43,6 +44,7 @@ const updateCourseSchema = z.object({
   department: departmentSchema.optional(),
   title: z.string().min(2).max(160).optional(),
   description: z.string().min(2).max(500).optional(),
+  isGlobal: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(1000).optional(),
   isPublished: z.boolean().optional(),
 });
@@ -109,6 +111,7 @@ export async function GET(request: NextRequest) {
       description: course.description,
       department: course.department,
       departmentLabel: getDepartmentLabel(course.department),
+      isGlobal: course.isGlobal,
       isPublished: course.isPublished,
       sortOrder: course.sortOrder,
       lessonCount: course._count.lessons,
@@ -160,6 +163,7 @@ export async function POST(request: NextRequest) {
           department: parsed.data.department,
           title: parsed.data.title.trim(),
           description: parsed.data.description.trim(),
+          isGlobal: parsed.data.isGlobal ?? false,
           sortOrder: parsed.data.sortOrder ?? 0,
         },
       });
@@ -172,6 +176,7 @@ export async function POST(request: NextRequest) {
           entityId: course.id,
           metadata: {
             department: course.department,
+            isGlobal: course.isGlobal,
             title: course.title,
           } as Prisma.InputJsonObject,
         },
@@ -276,6 +281,9 @@ export async function PATCH(request: NextRequest) {
             : {}),
           ...(parsed.data.description !== undefined
             ? { description: parsed.data.description.trim() }
+            : {}),
+          ...(parsed.data.isGlobal !== undefined
+            ? { isGlobal: parsed.data.isGlobal }
             : {}),
           ...(parsed.data.sortOrder !== undefined
             ? { sortOrder: parsed.data.sortOrder }
@@ -416,6 +424,7 @@ export async function DELETE(request: NextRequest) {
           entityId: course.id,
           metadata: {
             department: course.department,
+            isGlobal: course.isGlobal,
             title: course.title,
           } as Prisma.InputJsonObject,
         },

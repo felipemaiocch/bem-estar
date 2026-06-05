@@ -46,13 +46,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!user.department) {
-    return NextResponse.json(
-      { ok: false, error: "Defina um departamento antes de acessar o EAD." },
-      { status: 403 },
-    );
-  }
-
   const lesson = await prisma.eadLesson.findUnique({
     where: { id: parsed.data.lessonId },
     include: {
@@ -60,6 +53,7 @@ export async function POST(request: NextRequest) {
         select: {
           id: true,
           department: true,
+          isGlobal: true,
           isPublished: true,
         },
       },
@@ -73,7 +67,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (lesson.course.department !== user.department) {
+  if (!lesson.course.isGlobal && lesson.course.department !== user.department) {
     return NextResponse.json(
       { ok: false, error: "Esta aula pertence a outro departamento." },
       { status: 403 },
@@ -82,10 +76,13 @@ export async function POST(request: NextRequest) {
 
   const departmentCourses = await prisma.eadCourse.findMany({
     where: {
-      department: user.department,
+      OR: [
+        ...(user.department ? [{ department: user.department }] : []),
+        { isGlobal: true },
+      ],
       isPublished: true,
     },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ department: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     include: {
       lessons: {
         where: { isPublished: true },

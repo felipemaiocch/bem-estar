@@ -18,31 +18,41 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  if (!user?.department) {
-    return NextResponse.json({
-      ok: true,
-      departments: [],
-    });
-  }
-
-  const courseCount = await prisma.eadCourse.count({
+  const courses = await prisma.eadCourse.findMany({
     where: {
-      department: user.department,
+      OR: [
+        ...(user?.department ? [{ department: user.department }] : []),
+        { isGlobal: true },
+      ],
       isPublished: true,
+    },
+    select: {
+      department: true,
+      _count: {
+        select: {
+          lessons: true,
+        },
+      },
     },
   });
 
+  const departments = Array.from(
+    courses.reduce((acc, course) => {
+      const current = acc.get(course.department) ?? { courseCount: 0, lessonCount: 0 };
+      acc.set(course.department, {
+        courseCount: current.courseCount + 1,
+        lessonCount: current.lessonCount + course._count.lessons,
+      });
+      return acc;
+    }, new Map<string, { courseCount: number; lessonCount: number }>()),
+  ).map(([department, counts]) => ({
+    department,
+    label: getDepartmentLabel(department),
+    ...counts,
+  }));
+
   return NextResponse.json({
     ok: true,
-    departments:
-      courseCount > 0
-        ? [
-            {
-              department: user.department,
-              label: getDepartmentLabel(user.department),
-              courseCount,
-            },
-          ]
-        : [],
+    departments,
   });
 }

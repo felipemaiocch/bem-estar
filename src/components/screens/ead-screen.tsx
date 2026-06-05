@@ -44,7 +44,9 @@ interface EadCourse {
   id: string;
   title: string;
   description: string;
+  department: string;
   departmentLabel: string;
+  isGlobal: boolean;
   isLocked: boolean;
   completedLessons: number;
   totalLessons: number;
@@ -88,6 +90,7 @@ const kindIcon = {
 export function EadScreen() {
   const [data, setData] = useState<EadPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
@@ -109,27 +112,9 @@ export function EadScreen() {
       }
 
       setData(payload);
-      const firstCourse =
-        payload.courses.find((course) => !course.isLocked && course.progress < 100) ??
-        payload.courses.find((course) => !course.isLocked) ??
-        null;
-      const firstLesson = firstCourse?.lessons[0] ?? null;
-      setSelectedCourseId((current) => {
-        const currentCourse = payload.courses.find((course) => course.id === current);
-        return currentCourse && !currentCourse.isLocked
-          ? current
-          : firstCourse?.id ?? null;
-      });
-      setSelectedLessonId((current) => {
-        const currentCourse = payload.courses.find((course) =>
-          course.lessons.some((lesson) => lesson.id === current),
-        );
-        const currentLessonAvailable =
-          currentCourse && !currentCourse.isLocked
-            ? currentCourse.lessons.some((lesson) => lesson.id === current)
-            : false;
-        return currentLessonAvailable ? current : firstLesson?.id ?? null;
-      });
+      setSelectedDepartment(null);
+      setSelectedCourseId(null);
+      setSelectedLessonId(null);
     } catch {
       setFeedback("Falha de conexao ao carregar o EAD.");
     } finally {
@@ -141,13 +126,52 @@ export function EadScreen() {
     void loadEad();
   }, []);
 
+  const departmentSections = useMemo(() => {
+    if (!data) return [];
+
+    const sections = new Map<
+      string,
+      {
+        department: string;
+        label: string;
+        courseCount: number;
+        lessonCount: number;
+        globalCount: number;
+      }
+    >();
+
+    data.courses.forEach((course) => {
+      const current = sections.get(course.department) ?? {
+        department: course.department,
+        label: course.departmentLabel,
+        courseCount: 0,
+        lessonCount: 0,
+        globalCount: 0,
+      };
+
+      sections.set(course.department, {
+        ...current,
+        courseCount: current.courseCount + 1,
+        lessonCount: current.lessonCount + course.totalLessons,
+        globalCount: current.globalCount + (course.isGlobal ? 1 : 0),
+      });
+    });
+
+    return Array.from(sections.values());
+  }, [data]);
+
+  const visibleCourses = useMemo(() => {
+    if (!data || !selectedDepartment) return [];
+    return data.courses.filter((course) => course.department === selectedDepartment);
+  }, [data, selectedDepartment]);
+
   const selectedCourse = useMemo(() => {
     return (
-      data?.courses.find((course) => course.id === selectedCourseId && !course.isLocked) ??
-      data?.courses.find((course) => !course.isLocked) ??
+      visibleCourses.find((course) => course.id === selectedCourseId && !course.isLocked) ??
+      visibleCourses.find((course) => !course.isLocked) ??
       null
     );
-  }, [data, selectedCourseId]);
+  }, [visibleCourses, selectedCourseId]);
 
   const selectedLesson = useMemo(() => {
     return selectedCourse?.lessons.find((lesson) => lesson.id === selectedLessonId) ?? selectedCourse?.lessons[0] ?? null;
@@ -218,21 +242,6 @@ export function EadScreen() {
     );
   }
 
-  if (!data.user.department) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#0264af]">EAD</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">Departamento pendente</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Seu cadastro ainda nao possui departamento. Peça para o administrador definir Comercial,
-            Financeiro ou Atendimento para liberar os cursos corretos.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -242,10 +251,16 @@ export function EadScreen() {
             EAD
           </p>
           <h1 className="mt-2 text-3xl font-black text-slate-950">
-            Trilha de {data.user.departmentLabel}
+            {selectedDepartment
+              ? `Trilha de ${departmentSections.find((section) => section.department === selectedDepartment)?.label ?? "EAD"}`
+              : "Departamentos EAD"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            {data.user.departmentDescription}
+            {selectedDepartment
+              ? "Escolha um curso para acessar as aulas e materiais disponíveis."
+              : data.user.department
+                ? "Selecione um departamento para ver os cursos liberados para o seu perfil."
+                : "Seu cadastro ainda nao possui departamento. Voce ainda pode acessar cursos liberados para todos os usuarios."}
           </p>
         </div>
 
@@ -285,9 +300,66 @@ export function EadScreen() {
         </div>
       ) : null}
 
+      {!selectedDepartment ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {departmentSections.map((section) => (
+            <Card key={section.department} className="p-5 transition-all hover:border-[#0264af]/40 hover:shadow-lg">
+              <button
+                type="button"
+                className="w-full text-left"
+                onClick={() => {
+                  const firstCourse =
+                    data.courses.find((course) => course.department === section.department && !course.isLocked && course.progress < 100) ??
+                    data.courses.find((course) => course.department === section.department && !course.isLocked) ??
+                    null;
+
+                  setSelectedDepartment(section.department);
+                  setSelectedCourseId(firstCourse?.id ?? null);
+                  setSelectedLessonId(firstCourse?.lessons[0]?.id ?? null);
+                  setSelectedAnswerIndex(null);
+                  setFeedback(null);
+                }}
+              >
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-[#0264af]">
+                  <GraduationCap size={22} />
+                </div>
+                <h2 className="text-xl font-black text-slate-950">{section.label}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  {section.courseCount} curso{section.courseCount === 1 ? "" : "s"} · {section.lessonCount} aula{section.lessonCount === 1 ? "" : "s"}
+                </p>
+                {section.globalCount > 0 ? (
+                  <span className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#0264af]">
+                    {section.globalCount} liberado{section.globalCount === 1 ? "" : "s"} para todos
+                  </span>
+                ) : null}
+              </button>
+            </Card>
+          ))}
+
+          {departmentSections.length === 0 ? (
+            <Card className="p-6 md:col-span-2 xl:col-span-3">
+              <p className="text-sm text-slate-500">Nenhum curso EAD liberado para o seu perfil neste momento.</p>
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
+
+      {selectedDepartment ? (
       <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
         <div className="space-y-4">
-          {data.courses.map((course, courseIndex) => (
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={() => {
+              setSelectedDepartment(null);
+              setSelectedCourseId(null);
+              setSelectedLessonId(null);
+              setSelectedAnswerIndex(null);
+            }}
+          >
+            Voltar aos departamentos
+          </Button>
+          {visibleCourses.map((course, courseIndex) => (
             <Card
               key={course.id}
               className={cn(
@@ -315,8 +387,13 @@ export function EadScreen() {
                     <h2 className="font-bold text-slate-950">{course.title}</h2>
                     <p className="mt-1 text-xs leading-5 text-slate-500">{course.description}</p>
                     <p className="mt-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Curso {courseIndex + 1} de {data.summary.totalCourses} · {course.completedLessons}/{course.totalLessons} aulas
+                      Curso {courseIndex + 1} de {visibleCourses.length} · {course.completedLessons}/{course.totalLessons} aulas
                     </p>
+                    {course.isGlobal ? (
+                      <span className="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#0264af]">
+                        Liberado para todos
+                      </span>
+                    ) : null}
                   </div>
                   {course.isLocked ? (
                     <span className="flex items-center gap-1 rounded-full bg-slate-200 px-2 py-1 text-xs font-black text-slate-500">
@@ -485,6 +562,7 @@ export function EadScreen() {
           )}
         </Card>
       </div>
+      ) : null}
     </div>
   );
 }

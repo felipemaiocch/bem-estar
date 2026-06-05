@@ -47,6 +47,7 @@ interface AdminEadCourse {
   description: string;
   department: DepartmentCode;
   departmentLabel: string;
+  isGlobal: boolean;
   isPublished: boolean;
   sortOrder: number;
   lessonCount: number;
@@ -60,6 +61,7 @@ const defaultCourseForm = {
   title: "",
   description: "",
   department: "COMERCIAL" as DepartmentCode,
+  isGlobal: false,
   sortOrder: "",
 };
 
@@ -184,6 +186,7 @@ export function AdminEadScreen() {
       title: course.title,
       description: course.description,
       department: course.department,
+      isGlobal: course.isGlobal,
       sortOrder: String(course.sortOrder),
     });
     setFeedback(null);
@@ -228,6 +231,7 @@ export function AdminEadScreen() {
           title: courseForm.title,
           description: courseForm.description,
           department: courseForm.department,
+          isGlobal: courseForm.isGlobal,
           sortOrder: optionalNumber(courseForm.sortOrder),
         }),
       });
@@ -349,6 +353,7 @@ export function AdminEadScreen() {
           title: courseEditForm.title,
           description: courseEditForm.description,
           department: courseEditForm.department,
+          isGlobal: courseEditForm.isGlobal,
           sortOrder: optionalNumber(courseEditForm.sortOrder),
         }),
       });
@@ -515,6 +520,20 @@ export function AdminEadScreen() {
                 }
                 required
               />
+              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3">
+                <span>
+                  <span className="block text-sm font-bold text-slate-900">Liberar curso para todos</span>
+                  <span className="block text-xs text-slate-500">Quando ativo, usuarios de qualquer departamento conseguem ver este curso.</span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-[#0264af]"
+                  checked={courseForm.isGlobal}
+                  onChange={(event) =>
+                    setCourseForm((current) => ({ ...current, isGlobal: event.target.checked }))
+                  }
+                />
+              </label>
               <input
                 className={inputClassName}
                 placeholder="Ordem na trilha: 1, 2, 3..."
@@ -786,6 +805,23 @@ export function AdminEadScreen() {
                               }
                               required
                             />
+                            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 md:col-span-2">
+                              <span>
+                                <span className="block text-sm font-bold text-slate-900">Liberar curso para todos</span>
+                                <span className="block text-xs text-slate-500">Mantem o departamento para organizacao, mas libera acesso geral.</span>
+                              </span>
+                              <input
+                                type="checkbox"
+                                className="h-5 w-5 accent-[#0264af]"
+                                checked={courseEditForm.isGlobal}
+                                onChange={(event) =>
+                                  setCourseEditForm((current) => ({
+                                    ...current,
+                                    isGlobal: event.target.checked,
+                                  }))
+                                }
+                              />
+                            </label>
                             <div className="flex flex-wrap gap-2 md:col-span-2">
                               <Button type="submit" size="sm" disabled={busyAction === `edit-course-${course.id}`}>
                                 <Save size={14} />
@@ -816,6 +852,11 @@ export function AdminEadScreen() {
                                 )}>
                                   {course.isPublished ? "Publicado" : "Oculto"}
                                 </span>
+                                {course.isGlobal ? (
+                                  <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#0264af]">
+                                    Todos os usuarios
+                                  </span>
+                                ) : null}
                               </div>
                               <p className="mt-1 text-sm text-slate-500">{course.description}</p>
                               <p className="mt-2 text-xs font-bold text-slate-400">

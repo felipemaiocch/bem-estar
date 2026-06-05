@@ -403,6 +403,7 @@ model EadCourse {
   department  Department
   title       String
   description String
+  isGlobal    Boolean     @default(false)
   isPublished Boolean     @default(true)
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
@@ -411,6 +412,7 @@ model EadCourse {
 
   @@unique([department, title])
   @@index([department, isPublished, sortOrder])
+  @@index([isGlobal, isPublished, sortOrder])
 }
 
 model EadLesson {
