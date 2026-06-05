@@ -8,9 +8,15 @@ import {
   FileText,
   Loader2,
   Megaphone,
+  Pencil,
+  Save,
+  Search,
   Send,
   Shield,
   Stethoscope,
+  Trash2,
+  UserX,
+  X,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -18,7 +24,7 @@ import {
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getDepartmentLabel } from "@/lib/departments";
+import { departmentOptions, getDepartmentLabel, type DepartmentCode } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 
 type AdminUser = {
@@ -28,9 +34,22 @@ type AdminUser = {
   role: "USER" | "PROFESSIONAL" | "ADMIN";
   isActive: boolean;
   approvalStatus: "PENDING" | "APPROVED" | "REJECTED";
+  company: string | null;
   department: string | null;
   score: number;
   drCoins: number;
+  groupNames?: string[];
+};
+
+type UserDepartmentTab = "TODOS" | "SEM_DEPARTAMENTO" | "PENDING" | DepartmentCode;
+
+type UserEditForm = {
+  name: string;
+  email: string;
+  role: AdminUser["role"];
+  company: string;
+  department: DepartmentCode | "";
+  score: string;
 };
 
 type AdminProfessional = {
@@ -188,51 +207,395 @@ export function AdminOverviewScreen() {
 export function AdminUsersScreen() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<UserDepartmentTab>("TODOS");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<UserEditForm | null>(null);
 
-  useEffect(() => {
-    async function load() {
+  async function loadUsers() {
+    setLoading(true);
+    try {
       const response = await fetch("/api/admin/users", { cache: "no-store" });
       const data = await response.json();
       if (data.ok) setUsers(data.users ?? []);
+    } finally {
       setLoading(false);
     }
+  }
 
-    void load();
+  useEffect(() => {
+    void loadUsers();
   }, []);
 
   const groupedUsers = useMemo(
     () => ({
       pending: users.filter((user) => user.approvalStatus === "PENDING"),
       active: users.filter((user) => user.approvalStatus === "APPROVED"),
+      inactive: users.filter((user) => !user.isActive),
     }),
     [users],
   );
 
+  const departmentTabs = useMemo(
+    () => [
+      { value: "TODOS" as const, label: "Todos", count: users.length },
+      ...departmentOptions.map((department) => ({
+        value: department.value,
+        label: department.label,
+        count: users.filter((user) => user.department === department.value).length,
+      })),
+      {
+        value: "SEM_DEPARTAMENTO" as const,
+        label: "Sem departamento",
+        count: users.filter((user) => !user.department).length,
+      },
+      {
+        value: "PENDING" as const,
+        label: "Pendentes",
+        count: groupedUsers.pending.length,
+      },
+    ],
+    [groupedUsers.pending.length, users],
+  );
+
+  const filteredUsers = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return users.filter((user) => {
+      const matchesTab =
+        activeTab === "TODOS" ||
+        (activeTab === "SEM_DEPARTAMENTO" && !user.department) ||
+        (activeTab === "PENDING" && user.approvalStatus === "PENDING") ||
+        user.department === activeTab;
+
+      if (!matchesTab) return false;
+      if (!normalizedSearch) return true;
+
+      return (
+        user.name.toLowerCase().includes(normalizedSearch) ||
+        user.email.toLowerCase().includes(normalizedSearch) ||
+        (user.company ?? "").toLowerCase().includes(normalizedSearch) ||
+        getDepartmentLabel(user.department).toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [activeTab, search, users]);
+
+  function startEditUser(user: AdminUser) {
+    setEditingUserId(user.id);
+    setEditForm({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      company: user.company ?? "",
+      department: (user.department as DepartmentCode | null) ?? "",
+      score: String(user.score),
+    });
+  }
+
+  function cancelEditUser() {
+    setEditingUserId(null);
+    setEditForm(null);
+  }
+
+  async function patchUser(userId: string, payload: Record<string, unknown>, actionKey: string) {
+    setBusyAction(actionKey);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error ?? "Não foi possível atualizar usuário.");
+      }
+
+      setUsers((current) =>
+        current.map((user) => (user.id === userId ? { ...user, ...data.user } : user)),
+      );
+      return true;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Não foi possível atualizar usuário.");
+      return false;
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function saveEditUser(userId: string) {
+    if (!editForm) return;
+
+    const score = Number.parseInt(editForm.score || "0", 10);
+    const saved = await patchUser(
+      userId,
+      {
+        name: editForm.name,
+        email: editForm.email,
+        role: editForm.role,
+        company: editForm.company,
+        department: editForm.department || null,
+        score: Number.isFinite(score) ? score : 0,
+      },
+      `save-user-${userId}`,
+    );
+
+    if (saved) {
+      cancelEditUser();
+    }
+  }
+
+  async function updateUserApproval(user: AdminUser, approvalStatus: "APPROVED" | "REJECTED") {
+    await patchUser(user.id, { approvalStatus }, `${approvalStatus.toLowerCase()}-user-${user.id}`);
+  }
+
+  async function toggleUserStatus(user: AdminUser) {
+    await patchUser(user.id, { isActive: !user.isActive }, `toggle-user-${user.id}`);
+  }
+
+  async function deleteUser(user: AdminUser) {
+    const confirmed = window.confirm(`Excluir o usuário ${user.name}? Essa ação não pode ser desfeita.`);
+    if (!confirmed) return;
+
+    setBusyAction(`delete-user-${user.id}`);
+    try {
+      const response = await fetch(`/api/admin/users?id=${user.id}`, { method: "DELETE" });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error ?? "Não foi possível excluir usuário.");
+      }
+
+      setUsers((current) => current.filter((item) => item.id !== user.id));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Não foi possível excluir usuário.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   return (
     <BackofficeShell badge="Usuários" title="Gestão de usuários" description="Cadastros, aprovação, departamentos e pontuação dos usuários.">
       {loading ? <LoadingState /> : null}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <MetricCard icon={Users} label="Total" value={users.length} detail="Cadastros no sistema" />
         <MetricCard icon={UserCheck} label="Aprovados" value={groupedUsers.active.length} detail="Liberados para acesso" />
         <MetricCard icon={Shield} label="Pendentes" value={groupedUsers.pending.length} detail="Aguardando aprovação" />
+        <MetricCard icon={UserX} label="Inativos" value={groupedUsers.inactive.length} detail="Bloqueados no acesso" />
       </div>
+
+      <Card className="mt-6 p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {departmentTabs.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setActiveTab(tab.value)}
+                className={cn(
+                  "rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider transition-colors",
+                  activeTab === tab.value
+                    ? "bg-[#0264af] text-white shadow-[0_10px_24px_-16px_rgba(2,100,175,0.75)]"
+                    : "bg-slate-50 text-slate-500 hover:bg-slate-100",
+                )}
+              >
+                {tab.label} · {tab.count}
+              </button>
+            ))}
+          </div>
+          <div className="relative w-full xl:w-80">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-semibold text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-[#0264af] focus:bg-white"
+              placeholder="Pesquisar por nome, e-mail ou setor..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+        </div>
+      </Card>
+
       <div className="mt-6 grid gap-3">
         {users.length === 0 && !loading ? <EmptyState text="Nenhum usuário cadastrado." /> : null}
-        {users.map((user) => (
-          <Card key={user.id} className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-bold text-slate-950">{user.name}</h2>
-                <StatusPill value={user.approvalStatus} />
-                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-500">{user.role}</span>
-              </div>
-              <p className="mt-1 text-sm text-slate-500">{user.email}</p>
-            </div>
-            <div className="text-sm font-semibold text-slate-500">
-              {getDepartmentLabel(user.department)} · {user.score} pts · {user.drCoins} drcoins
-            </div>
-          </Card>
-        ))}
+        {filteredUsers.map((user) => {
+          const isEditing = editingUserId === user.id && editForm;
+
+          return (
+            <Card key={user.id} className="p-4">
+              {isEditing ? (
+                <div className="grid gap-3 lg:grid-cols-12">
+                  <input
+                    className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white lg:col-span-2"
+                    value={editForm.name}
+                    onChange={(event) => setEditForm((current) => current ? { ...current, name: event.target.value } : current)}
+                    placeholder="Nome"
+                  />
+                  <input
+                    className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white lg:col-span-3"
+                    value={editForm.email}
+                    onChange={(event) => setEditForm((current) => current ? { ...current, email: event.target.value } : current)}
+                    placeholder="E-mail"
+                    type="email"
+                  />
+                  <select
+                    className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white lg:col-span-2"
+                    value={editForm.role}
+                    onChange={(event) =>
+                      setEditForm((current) =>
+                        current ? { ...current, role: event.target.value as AdminUser["role"] } : current,
+                      )
+                    }
+                  >
+                    <option value="USER">Usuário</option>
+                    <option value="PROFESSIONAL">Profissional</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                  <select
+                    className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white lg:col-span-2"
+                    value={editForm.department}
+                    onChange={(event) =>
+                      setEditForm((current) =>
+                        current ? { ...current, department: event.target.value as DepartmentCode | "" } : current,
+                      )
+                    }
+                  >
+                    <option value="">Sem departamento</option>
+                    {departmentOptions.map((department) => (
+                      <option key={department.value} value={department.value}>
+                        {department.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white lg:col-span-2"
+                    value={editForm.company}
+                    onChange={(event) => setEditForm((current) => current ? { ...current, company: event.target.value } : current)}
+                    placeholder="Empresa/área"
+                  />
+                  <input
+                    className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white lg:col-span-1"
+                    value={editForm.score}
+                    onChange={(event) => setEditForm((current) => current ? { ...current, score: event.target.value } : current)}
+                    placeholder="Pontos"
+                    inputMode="numeric"
+                  />
+                  <div className="flex flex-wrap gap-2 lg:col-span-12">
+                    <Button size="sm" onClick={() => void saveEditUser(user.id)} disabled={busyAction === `save-user-${user.id}`}>
+                      <Save size={14} />
+                      Salvar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={cancelEditUser}>
+                      <X size={14} />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-bold text-slate-950">{user.name}</h2>
+                      <StatusPill value={user.approvalStatus} />
+                      <span className={cn(
+                        "rounded-full px-2 py-1 text-[10px] font-black uppercase",
+                        user.role === "ADMIN"
+                          ? "bg-purple-50 text-purple-700"
+                          : user.role === "PROFESSIONAL"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-blue-50 text-blue-700",
+                      )}>
+                        {user.role}
+                      </span>
+                      {!user.isActive ? (
+                        <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-black uppercase text-rose-700">
+                          Inativo
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {user.email}
+                      {user.company ? ` · ${user.company}` : ""}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
+                      <span className={cn(
+                        "rounded-lg px-2 py-1",
+                        user.department ? "bg-[#0264af]/10 text-[#0264af]" : "bg-amber-50 text-amber-700",
+                      )}>
+                        EAD: {getDepartmentLabel(user.department)}
+                      </span>
+                      <span className="rounded-lg bg-slate-50 px-2 py-1 text-slate-500">
+                        {user.score} pts
+                      </span>
+                      <span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-600">
+                        {user.drCoins} drcoins
+                      </span>
+                    </div>
+                    {user.groupNames?.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {user.groupNames.map((groupName) => (
+                          <span key={groupName} className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            {groupName}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {user.approvalStatus === "PENDING" ? (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => void updateUserApproval(user, "APPROVED")}
+                          disabled={busyAction === `approved-user-${user.id}`}
+                        >
+                          <UserCheck size={14} />
+                          Aprovar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void updateUserApproval(user, "REJECTED")}
+                          disabled={busyAction === `rejected-user-${user.id}`}
+                          className="text-rose-600 hover:text-rose-600"
+                        >
+                          <UserX size={14} />
+                          Rejeitar
+                        </Button>
+                      </>
+                    ) : null}
+                    <Button size="sm" variant="outline" onClick={() => startEditUser(user)}>
+                      <Pencil size={14} />
+                      Editar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={user.isActive ? "outline" : "secondary"}
+                      onClick={() => void toggleUserStatus(user)}
+                      disabled={busyAction === `toggle-user-${user.id}`}
+                    >
+                      {user.isActive ? "Inativar" : "Ativar"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void deleteUser(user)}
+                      disabled={busyAction === `delete-user-${user.id}`}
+                      className="text-rose-600 hover:text-rose-600"
+                    >
+                      <Trash2 size={14} />
+                      Excluir
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          );
+        })}
+        {filteredUsers.length === 0 && users.length > 0 && !loading ? (
+          <EmptyState text="Nenhum usuário encontrado com esses filtros." />
+        ) : null}
       </div>
     </BackofficeShell>
   );

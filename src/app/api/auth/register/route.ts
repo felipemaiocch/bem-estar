@@ -11,7 +11,7 @@ const registerSchema = z.object({
   name: z.string().min(2),
   email: z.email(),
   password: z.string().min(6),
-  department: z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO"]),
+  department: z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO", "SAC"]),
   goal: z
     .enum(["WEIGHT_LOSS", "MENTAL_HEALTH", "PERFORMANCE", "HABITS"])
     .optional(),

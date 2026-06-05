@@ -1,0 +1,1 @@
+ALTER TYPE "Department" ADD VALUE IF NOT EXISTS 'SAC';

@@ -24,6 +24,7 @@ enum Department {
   COMERCIAL
   FINANCEIRO
   ATENDIMENTO
+  SAC
 }
 
 enum GroupKind {

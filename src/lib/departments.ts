@@ -14,6 +14,11 @@ export const departmentOptions = [
     label: "Atendimento",
     description: "Padrões de suporte, relacionamento e experiência do cliente.",
   },
+  {
+    value: "SAC",
+    label: "SAC",
+    description: "Relacionamento, chamados, suporte e satisfação do cliente.",
+  },
 ] as const;
 
 export type DepartmentCode = (typeof departmentOptions)[number]["value"];

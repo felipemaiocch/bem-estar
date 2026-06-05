@@ -7,7 +7,7 @@ import { getDepartmentLabel } from "@/lib/departments";
 import { normalizeQuizOptions } from "@/lib/ead";
 import { prisma } from "@/lib/prisma";
 
-const departmentSchema = z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO"]);
+const departmentSchema = z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO", "SAC"]);
 const lessonKindSchema = z.enum(["VIDEO", "PDF", "TUTORIAL"]);
 
 const createCourseSchema = z.object({
