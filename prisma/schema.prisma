@@ -14,6 +14,21 @@ enum UserRole {
   ADMIN
 }
 
+enum AdminPermission {
+  USERS
+  EAD
+  LIBRARY
+  EVENTS
+  PROFESSIONALS
+  CONTENTS
+  GAMIFICATION
+  REPORTS
+  COMPLIANCE
+  MODERATION
+  NOTIFICATIONS
+  DASHBOARD
+}
+
 enum UserApprovalStatus {
   PENDING
   APPROVED
@@ -191,6 +206,7 @@ model User {
   desiredWeeklyFrequency    Int?
   company                   String?
   department                Department?
+  adminPermissions          AdminPermission[]        @default([])
   avatarUrl                 String?
   score                     Int                      @default(0)
   drCoins                   Int                      @default(0)

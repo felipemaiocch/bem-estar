@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { requireSession } from "@/lib/api-auth";
+import { requireAdminPermission } from "@/lib/admin-permissions";
 import { libraryKindValues, listLibraryAdminData } from "@/lib/library";
 import { prisma } from "@/lib/prisma";
 
@@ -29,7 +29,7 @@ const createItemSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "LIBRARY");
 
   if (auth.response) {
     return auth.response;
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "LIBRARY");
 
   if (auth.response) {
     return auth.response;

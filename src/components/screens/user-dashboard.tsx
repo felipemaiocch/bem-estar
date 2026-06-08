@@ -337,6 +337,7 @@ export function UserDashboardScreen() {
 
       setCheckInFeedback(data.message ?? "Check-in salvo. +5 pontos adicionados ao seu ranking.");
       await loadSummary();
+      window.dispatchEvent(new Event("user-data-changed"));
     } catch {
       setCheckInFeedback("Falha de conexão ao salvar check-in.");
     } finally {

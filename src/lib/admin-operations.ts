@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import type {
+  AdminPermission,
   Department,
   EventKind,
   EventStatus,
@@ -27,6 +28,7 @@ export interface AdminUserView {
   createdAtIso: string;
   groupIds: string[];
   groupNames: string[];
+  adminPermissions: AdminPermission[];
 }
 
 export interface AdminProfessionalView {
@@ -78,6 +80,7 @@ interface AdminCreateUserInput {
   specialty?: string;
   licenseCode?: string;
   groupIds?: string[];
+  adminPermissions?: AdminPermission[];
 }
 
 interface AdminUpdateUserInput {
@@ -91,6 +94,7 @@ interface AdminUpdateUserInput {
   department?: Department | null;
   score?: number;
   groupIds?: string[];
+  adminPermissions?: AdminPermission[];
 }
 
 interface AdminCreateProfessionalInput {
@@ -173,6 +177,7 @@ type DemoUser = {
   rejectedAtIso?: string | null;
   approvalNote?: string | null;
   groupIds?: string[];
+  adminPermissions?: AdminPermission[];
   specialty?: string;
   licenseCode?: string | null;
   attendanceRate?: number;
@@ -229,7 +234,7 @@ function normalizeSlug(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function uniqueStrings(values: string[] = []) {
+function uniqueStrings<T extends string>(values: T[] = []) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
@@ -409,6 +414,7 @@ function toAdminUserView(user: DemoUser): AdminUserView {
     createdAtIso: user.createdAtIso,
     groupIds,
     groupNames: groupIds.map((groupId) => groupMap.get(groupId)).filter((name): name is string => Boolean(name)),
+    adminPermissions: user.adminPermissions ?? [],
   };
 }
 
@@ -570,6 +576,7 @@ export async function listAdminUsers(filters?: { search?: string; role?: UserRol
     createdAtIso: user.createdAt.toISOString(),
     groupIds: user.groupMemberships.map((membership) => membership.group.id),
     groupNames: user.groupMemberships.map((membership) => membership.group.name),
+    adminPermissions: user.adminPermissions,
   }));
 }
 
@@ -599,6 +606,7 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
       approvalStatus: "APPROVED",
       approvedAtIso: nowIso(),
       groupIds: uniqueStrings(input.groupIds),
+      adminPermissions: input.role === "ADMIN" ? uniqueStrings(input.adminPermissions) : [],
       specialty: input.specialty,
       licenseCode: input.licenseCode ?? null,
       attendanceRate: 0,
@@ -638,6 +646,7 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
             })),
           }
         : undefined,
+      adminPermissions: input.role === "ADMIN" ? uniqueStrings(input.adminPermissions) : [],
     },
   });
 
@@ -674,6 +683,7 @@ export async function createAdminUser(actorId: string, input: AdminCreateUserInp
     createdAtIso: created.createdAt.toISOString(),
     groupIds: uniqueStrings(input.groupIds),
     groupNames: [],
+    adminPermissions: created.adminPermissions,
   };
 }
 
@@ -705,6 +715,9 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
       ...(input.company !== undefined ? { company: input.company?.trim() || null } : {}),
       ...(input.department !== undefined ? { department: input.department } : {}),
       ...(input.score !== undefined ? { score: input.score } : {}),
+      ...(input.adminPermissions !== undefined
+        ? { adminPermissions: target.role === "ADMIN" || input.role === "ADMIN" ? uniqueStrings(input.adminPermissions) : [] }
+        : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       ...(input.approvalStatus
         ? {
@@ -725,6 +738,17 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
 
     return toAdminUserView(target);
   }
+
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  if (!currentUser) {
+    throw new Error("Usuário não encontrado.");
+  }
+
+  const targetRole = input.role ?? currentUser.role;
 
   const approvalData =
     input.approvalStatus === "APPROVED"
@@ -763,6 +787,9 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
       ...(input.company !== undefined ? { company: input.company?.trim() || null } : {}),
       ...(input.department !== undefined ? { department: input.department } : {}),
       ...(input.score !== undefined ? { score: input.score } : {}),
+      ...(input.adminPermissions !== undefined
+        ? { adminPermissions: targetRole === "ADMIN" ? uniqueStrings(input.adminPermissions) : [] }
+        : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       ...approvalData,
     },
@@ -813,6 +840,7 @@ export async function updateAdminUser(actorId: string, userId: string, input: Ad
     createdAtIso: updated.createdAt.toISOString(),
     groupIds: input.groupIds ?? updated.groupMemberships.map((membership) => membership.group.id),
     groupNames: input.groupIds ? [] : updated.groupMemberships.map((membership) => membership.group.name),
+    adminPermissions: updated.adminPermissions,
   };
 }
 

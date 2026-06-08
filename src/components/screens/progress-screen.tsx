@@ -133,6 +133,7 @@ export function ProgressScreen() {
       if (data.entry) {
         setHistory((prev) => [data.entry!, ...prev]);
       }
+      window.dispatchEvent(new Event("user-data-changed"));
     } catch {
       setSaveFeedback("Falha de conexão ao salvar evolução.");
     } finally {

@@ -24,8 +24,10 @@ import {
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { adminPermissionOptions } from "@/lib/admin-permission-options";
 import { departmentOptions, getDepartmentLabel, type DepartmentCode } from "@/lib/departments";
 import { cn } from "@/lib/utils";
+import type { AdminPermission } from "@prisma/client";
 
 type AdminUser = {
   id: string;
@@ -39,6 +41,7 @@ type AdminUser = {
   score: number;
   drCoins: number;
   groupNames?: string[];
+  adminPermissions: AdminPermission[];
 };
 
 type UserDepartmentTab = "TODOS" | "SEM_DEPARTAMENTO" | "PENDING" | DepartmentCode;
@@ -50,6 +53,18 @@ type UserEditForm = {
   company: string;
   department: DepartmentCode | "";
   score: string;
+  adminPermissions: AdminPermission[];
+};
+
+const defaultCreateUserForm = {
+  name: "",
+  email: "",
+  role: "USER" as AdminUser["role"],
+  department: "COMERCIAL" as DepartmentCode,
+  company: "",
+  specialty: "",
+  password: "",
+  adminPermissions: [] as AdminPermission[],
 };
 
 type AdminProfessional = {
@@ -212,6 +227,7 @@ export function AdminUsersScreen() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<UserEditForm | null>(null);
+  const [createForm, setCreateForm] = useState(defaultCreateUserForm);
 
   async function loadUsers() {
     setLoading(true);
@@ -227,6 +243,40 @@ export function AdminUsersScreen() {
   useEffect(() => {
     void loadUsers();
   }, []);
+
+  async function createUser(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusyAction("create-user");
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createForm.name,
+          email: createForm.email,
+          role: createForm.role,
+          department: createForm.role === "USER" ? createForm.department : undefined,
+          company: createForm.role === "PROFESSIONAL" ? undefined : createForm.company || undefined,
+          specialty: createForm.role === "PROFESSIONAL" ? createForm.specialty || undefined : undefined,
+          password: createForm.password || undefined,
+          adminPermissions: createForm.role === "ADMIN" ? createForm.adminPermissions : undefined,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error ?? "Não foi possível cadastrar usuário.");
+      }
+
+      setCreateForm(defaultCreateUserForm);
+      await loadUsers();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Não foi possível cadastrar usuário.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
 
   const groupedUsers = useMemo(
     () => ({
@@ -290,6 +340,7 @@ export function AdminUsersScreen() {
       company: user.company ?? "",
       department: (user.department as DepartmentCode | null) ?? "",
       score: String(user.score),
+      adminPermissions: user.adminPermissions ?? [],
     });
   }
 
@@ -337,6 +388,7 @@ export function AdminUsersScreen() {
         company: editForm.company,
         department: editForm.department || null,
         score: Number.isFinite(score) ? score : 0,
+        adminPermissions: editForm.role === "ADMIN" ? editForm.adminPermissions : [],
       },
       `save-user-${userId}`,
     );
@@ -384,6 +436,109 @@ export function AdminUsersScreen() {
         <MetricCard icon={Shield} label="Pendentes" value={groupedUsers.pending.length} detail="Aguardando aprovação" />
         <MetricCard icon={UserX} label="Inativos" value={groupedUsers.inactive.length} detail="Bloqueados no acesso" />
       </div>
+
+      <Card className="mt-6 p-5">
+        <h2 className="mb-4 text-lg font-black text-slate-950">Cadastrar usuário, profissional ou admin</h2>
+        <form className="grid gap-3 lg:grid-cols-6" onSubmit={(event) => void createUser(event)}>
+          <input
+            className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white"
+            placeholder="Nome"
+            value={createForm.name}
+            onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
+            required
+          />
+          <input
+            className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white"
+            placeholder="E-mail"
+            type="email"
+            value={createForm.email}
+            onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
+            required
+          />
+          <select
+            className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white"
+            value={createForm.role}
+            onChange={(event) =>
+              setCreateForm((current) => ({ ...current, role: event.target.value as AdminUser["role"] }))
+            }
+          >
+            <option value="USER">Usuário</option>
+            <option value="PROFESSIONAL">Profissional</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+          {createForm.role === "USER" ? (
+            <select
+              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white"
+              value={createForm.department}
+              onChange={(event) => setCreateForm((current) => ({ ...current, department: event.target.value as DepartmentCode }))}
+            >
+              {departmentOptions.map((department) => (
+                <option key={department.value} value={department.value}>
+                  {department.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white"
+              placeholder={createForm.role === "PROFESSIONAL" ? "Especialidade" : "Área/empresa"}
+              value={createForm.role === "PROFESSIONAL" ? createForm.specialty : createForm.company}
+              onChange={(event) =>
+                setCreateForm((current) =>
+                  current.role === "PROFESSIONAL"
+                    ? { ...current, specialty: event.target.value }
+                    : { ...current, company: event.target.value },
+                )
+              }
+            />
+          )}
+          <input
+            className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-[#0264af] focus:bg-white"
+            placeholder="Senha inicial"
+            type="password"
+            value={createForm.password}
+            onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
+          />
+          <Button type="submit" disabled={busyAction === "create-user"}>
+            {busyAction === "create-user" ? "Salvando..." : "Cadastrar"}
+          </Button>
+          {createForm.role === "ADMIN" ? (
+            <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-3 lg:col-span-6">
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-purple-700">
+                Permissões do admin
+              </p>
+              <p className="mb-3 text-xs text-slate-500">Sem permissões marcadas = admin master com acesso total.</p>
+              <div className="flex flex-wrap gap-2">
+                {adminPermissionOptions.map((permission) => {
+                  const selected = createForm.adminPermissions.includes(permission.value);
+                  return (
+                    <button
+                      key={permission.value}
+                      type="button"
+                      onClick={() =>
+                        setCreateForm((current) => ({
+                          ...current,
+                          adminPermissions: selected
+                            ? current.adminPermissions.filter((item) => item !== permission.value)
+                            : [...current.adminPermissions, permission.value],
+                        }))
+                      }
+                      className={cn(
+                        "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors",
+                        selected
+                          ? "border-purple-600 bg-purple-600 text-white"
+                          : "border-purple-100 bg-white text-purple-700 hover:border-purple-300",
+                      )}
+                    >
+                      {permission.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </form>
+      </Card>
 
       <Card className="mt-6 p-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -480,6 +635,47 @@ export function AdminUsersScreen() {
                     placeholder="Pontos"
                     inputMode="numeric"
                   />
+                  {editForm.role === "ADMIN" ? (
+                    <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-3 lg:col-span-12">
+                      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-purple-700">
+                        Permissões do admin
+                      </p>
+                      <p className="mb-3 text-xs text-slate-500">
+                        Sem permissões marcadas = admin master com acesso total.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {adminPermissionOptions.map((permission) => {
+                          const selected = editForm.adminPermissions.includes(permission.value);
+                          return (
+                            <button
+                              key={permission.value}
+                              type="button"
+                              onClick={() =>
+                                setEditForm((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        adminPermissions: selected
+                                          ? current.adminPermissions.filter((item) => item !== permission.value)
+                                          : [...current.adminPermissions, permission.value],
+                                      }
+                                    : current,
+                                )
+                              }
+                              className={cn(
+                                "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors",
+                                selected
+                                  ? "border-purple-600 bg-purple-600 text-white"
+                                  : "border-purple-100 bg-white text-purple-700 hover:border-purple-300",
+                              )}
+                            >
+                              {permission.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap gap-2 lg:col-span-12">
                     <Button size="sm" onClick={() => void saveEditUser(user.id)} disabled={busyAction === `save-user-${user.id}`}>
                       <Save size={14} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, Bookmark, Clock3, ExternalLink, FileText, Search } from "lucide-react";
+import { BookOpen, Bookmark, Clock3, ExternalLink, FileText, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -61,6 +61,7 @@ export function LibraryScreen() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
 
   const physicalItems = useMemo(() => items.filter((item) => !item.isDigital), [items]);
   const repositoryItems = useMemo(() => items.filter((item) => item.isDigital || item.materialUrl), [items]);
@@ -220,7 +221,13 @@ export function LibraryScreen() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {featuredItems.map((item) => (
-                  <LibraryCard key={item.id} item={item} pending={pendingItemId === item.id} onReserve={reserveItem} />
+                  <LibraryCard
+                    key={item.id}
+                    item={item}
+                    pending={pendingItemId === item.id}
+                    onReserve={reserveItem}
+                    onOpen={setSelectedItem}
+                  />
                 ))}
               </div>
             )}
@@ -315,21 +322,88 @@ export function LibraryScreen() {
           </Card>
         </aside>
       </div>
+
+      {selectedItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-[#0264af]">{selectedItem.kindLabel}</p>
+                <h2 className="text-xl font-black text-slate-950">{selectedItem.title}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedItem(null)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="grid max-h-[78vh] gap-6 overflow-y-auto p-6 md:grid-cols-[260px_minmax(0,1fr)]">
+              <BookCover title={selectedItem.title} coverUrl={selectedItem.coverUrl} />
+              <div className="space-y-5">
+                <div>
+                  <h3 className="text-lg font-black text-slate-950">Sobre este material</h3>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    {selectedItem.description ||
+                      "Resumo ainda não cadastrado. O admin pode adicionar uma descrição para explicar o conteúdo, objetivo e indicação deste material."}
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <InfoRow label="Autor" value={selectedItem.author ?? "Não informado"} />
+                  <InfoRow label="Ano" value={selectedItem.year ? String(selectedItem.year) : "Não informado"} />
+                  <InfoRow label="Categoria" value={selectedItem.category} />
+                  <InfoRow label="Local" value={selectedItem.location ?? "Biblioteca da empresa"} />
+                  <InfoRow label="Disponibilidade" value={`${selectedItem.availableCopies}/${selectedItem.totalCopies} exemplar(es)`} />
+                  <InfoRow label="Reservas ativas" value={String(selectedItem.activeReservationsCount)} />
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {selectedItem.materialUrl ? (
+                    <Button variant="outline" onClick={() => window.open(selectedItem.materialUrl!, "_blank")}>
+                      <ExternalLink size={16} />
+                      Abrir material
+                    </Button>
+                  ) : null}
+                  <Button
+                    disabled={!selectedItem.isReservable || selectedItem.availableCopies <= 0 || pendingItemId === selectedItem.id}
+                    onClick={() => void reserveItem(selectedItem.id)}
+                  >
+                    <Bookmark size={16} />
+                    {pendingItemId === selectedItem.id ? "Reservando..." : "Reservar livro"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function LibraryCard({ item, pending, onReserve }: { item: LibraryItem; pending: boolean; onReserve: (itemId: string) => void }) {
+function LibraryCard({
+  item,
+  pending,
+  onReserve,
+  onOpen,
+}: {
+  item: LibraryItem;
+  pending: boolean;
+  onReserve: (itemId: string) => void;
+  onOpen: (item: LibraryItem) => void;
+}) {
   const available = item.availableCopies > 0 && item.isReservable;
 
   return (
     <Card className="overflow-hidden p-0">
-      <BookCover title={item.title} coverUrl={item.coverUrl} />
+      <button type="button" onClick={() => onOpen(item)} className="block w-full text-left">
+        <BookCover title={item.title} coverUrl={item.coverUrl} />
+      </button>
       <div className="space-y-3 p-4">
-        <div>
+        <button type="button" onClick={() => onOpen(item)} className="block w-full text-left">
           <p className="line-clamp-2 font-black leading-tight text-slate-950">{item.title}</p>
           <p className="mt-1 truncate text-sm text-slate-500">{item.author ?? "Sem autor"}</p>
-        </div>
+        </button>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase text-[#0264af]">{item.category}</span>
           <span className={cn("rounded-full px-2 py-1 text-[10px] font-black uppercase", available ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700")}>
@@ -347,6 +421,15 @@ function LibraryCard({ item, pending, onReserve }: { item: LibraryItem; pending:
         </Button>
       </div>
     </Card>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-bold text-slate-800">{value}</p>
+    </div>
   );
 }
 

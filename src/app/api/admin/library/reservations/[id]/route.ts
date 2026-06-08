@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { requireSession } from "@/lib/api-auth";
+import { requireAdminPermission } from "@/lib/admin-permissions";
 import { libraryReservationStatusValues } from "@/lib/library";
 import { prisma } from "@/lib/prisma";
 
@@ -16,7 +16,7 @@ function getReservationId(pathname: string) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "LIBRARY");
 
   if (auth.response) {
     return auth.response;

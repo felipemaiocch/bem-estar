@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { requireSession } from "@/lib/api-auth";
+import { requireAdminPermission } from "@/lib/admin-permissions";
 import { departmentValues, getDepartmentLabel } from "@/lib/departments";
 import { normalizeQuizOptions } from "@/lib/ead";
 import { prisma } from "@/lib/prisma";
@@ -109,7 +109,7 @@ const deleteEadSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "EAD");
 
   if (auth.response) {
     return auth.response;
@@ -274,7 +274,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "EAD");
 
   if (auth.response) {
     return auth.response;
@@ -423,7 +423,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "EAD");
 
   if (auth.response) {
     return auth.response;
@@ -585,7 +585,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "EAD");
 
   if (auth.response) {
     return auth.response;

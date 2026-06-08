@@ -7,8 +7,10 @@ import Link from "next/link";
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { adminPermissionOptions } from "@/lib/admin-permission-options";
 import { departmentOptions, getDepartmentLabel, type DepartmentCode } from "@/lib/departments";
 import { cn } from "@/lib/utils";
+import type { AdminPermission } from "@prisma/client";
 
 interface AdminUserItem {
   id: string;
@@ -26,6 +28,7 @@ interface AdminUserItem {
   createdAtIso: string;
   groupIds: string[];
   groupNames: string[];
+  adminPermissions: AdminPermission[];
 }
 
 interface AdminProfessionalItem {
@@ -105,6 +108,7 @@ const defaultUserForm = {
   specialty: "",
   password: "",
   groupIds: [] as string[],
+  adminPermissions: [] as AdminPermission[],
 };
 
 const defaultProfessionalForm = {
@@ -264,6 +268,7 @@ export function AdminDashboardScreen() {
           specialty: userForm.role === "PROFESSIONAL" ? userForm.specialty || undefined : undefined,
           password: userForm.password || undefined,
           groupIds: userForm.groupIds,
+          adminPermissions: userForm.role === "ADMIN" ? userForm.adminPermissions : undefined,
         }),
       });
 
@@ -1066,6 +1071,43 @@ export function AdminDashboardScreen() {
                   </div>
                 </div>
               ) : null}
+              {userForm.role === "ADMIN" ? (
+                <div className="md:col-span-6 rounded-xl border border-purple-100 bg-purple-50/50 p-3">
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wider text-purple-700">
+                    Permissões do admin
+                  </p>
+                  <p className="mb-3 text-xs text-slate-500">
+                    Se não marcar nenhuma, este admin será master e verá todos os módulos.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {adminPermissionOptions.map((permission) => {
+                      const selected = userForm.adminPermissions.includes(permission.value);
+                      return (
+                        <button
+                          key={permission.value}
+                          type="button"
+                          onClick={() =>
+                            setUserForm((current) => ({
+                              ...current,
+                              adminPermissions: selected
+                                ? current.adminPermissions.filter((item) => item !== permission.value)
+                                : [...current.adminPermissions, permission.value],
+                            }))
+                          }
+                          className={cn(
+                            "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors",
+                            selected
+                              ? "border-purple-600 bg-purple-600 text-white"
+                              : "border-purple-100 bg-white text-purple-700 hover:border-purple-300",
+                          )}
+                        >
+                          {permission.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </form>
 
             <div className="mt-8 space-y-4">
@@ -1552,6 +1594,7 @@ export function AdminDashboardScreen() {
                            createdAtIso: "",
                            groupIds: [],
                            groupNames: [],
+                           adminPermissions: [],
                          })}
                          disabled={busyAction === `toggle-user-${professional.userId}`}
                        >

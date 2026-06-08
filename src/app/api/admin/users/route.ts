@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { requireSession } from "@/lib/api-auth";
+import { requireAdminPermission } from "@/lib/admin-permissions";
+import { adminPermissionValues } from "@/lib/admin-permission-options";
 import { createAdminUser, listAdminUsers } from "@/lib/admin-operations";
 import { departmentValues } from "@/lib/departments";
 
@@ -15,6 +16,7 @@ const createAdminUserSchema = z.object({
   specialty: z.string().max(160).optional(),
   licenseCode: z.string().max(120).optional(),
   groupIds: z.array(z.string().min(1)).optional(),
+  adminPermissions: z.array(z.enum(adminPermissionValues)).optional(),
 });
 
 const usersQuerySchema = z.object({
@@ -23,7 +25,7 @@ const usersQuerySchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "USERS");
 
   if (auth.response) {
     return auth.response;
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "USERS");
 
   if (auth.response) {
     return auth.response;
@@ -92,7 +94,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await requireSession(request, "ADMIN");
+  const auth = await requireAdminPermission(request, "USERS");
 
   if (auth.response) {
     return auth.response;

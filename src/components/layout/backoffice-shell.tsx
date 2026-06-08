@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { appMeta } from "@/lib/constants";
+import type { AdminPermission } from "@prisma/client";
 import { cn } from "@/lib/utils";
 
 interface BackofficeShellProps {
@@ -30,18 +31,18 @@ interface BackofficeShellProps {
 }
 
 const adminNavItems = [
-  { label: "Dashboard", href: "/admin", icon: Shield },
-  { label: "Usuários", href: "/admin/usuarios", icon: Users },
-  { label: "EAD", href: "/admin/ead", icon: GraduationCap },
-  { label: "Biblioteca", href: "/admin/biblioteca", icon: BookOpen },
-  { label: "Eventos", href: "/admin/eventos", icon: CalendarDays },
-  { label: "Profissionais", href: "/admin/profissionais", icon: Stethoscope },
-  { label: "Conteúdos", href: "/admin/conteudos", icon: FileText },
-  { label: "Gamificação", href: "/admin/gamificacao", icon: Trophy },
-  { label: "Relatórios", href: "/admin/relatorios", icon: BarChart3 },
-  { label: "Compliance", href: "/admin/compliance", icon: Shield },
-  { label: "Moderação", href: "/admin/moderacao", icon: Activity },
-  { label: "Notificações", href: "/admin/notificacoes", icon: Bell },
+  { label: "Dashboard", href: "/admin", icon: Shield, permission: "DASHBOARD" as AdminPermission },
+  { label: "Usuários", href: "/admin/usuarios", icon: Users, permission: "USERS" as AdminPermission },
+  { label: "EAD", href: "/admin/ead", icon: GraduationCap, permission: "EAD" as AdminPermission },
+  { label: "Biblioteca", href: "/admin/biblioteca", icon: BookOpen, permission: "LIBRARY" as AdminPermission },
+  { label: "Eventos", href: "/admin/eventos", icon: CalendarDays, permission: "EVENTS" as AdminPermission },
+  { label: "Profissionais", href: "/admin/profissionais", icon: Stethoscope, permission: "PROFESSIONALS" as AdminPermission },
+  { label: "Conteúdos", href: "/admin/conteudos", icon: FileText, permission: "CONTENTS" as AdminPermission },
+  { label: "Gamificação", href: "/admin/gamificacao", icon: Trophy, permission: "GAMIFICATION" as AdminPermission },
+  { label: "Relatórios", href: "/admin/relatorios", icon: BarChart3, permission: "REPORTS" as AdminPermission },
+  { label: "Compliance", href: "/admin/compliance", icon: Shield, permission: "COMPLIANCE" as AdminPermission },
+  { label: "Moderação", href: "/admin/moderacao", icon: Activity, permission: "MODERATION" as AdminPermission },
+  { label: "Notificações", href: "/admin/notificacoes", icon: Bell, permission: "NOTIFICATIONS" as AdminPermission },
 ];
 
 const professionalNavItems = [
@@ -60,9 +61,31 @@ export function BackofficeShell({
   const pathname = usePathname();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [adminPermissions, setAdminPermissions] = useState<AdminPermission[] | null>(null);
   const isAdmin = pathname.startsWith("/admin");
-  const navItems = isAdmin ? adminNavItems : professionalNavItems;
+  const navItems = isAdmin
+    ? adminNavItems.filter((item) => !adminPermissions || adminPermissions.includes(item.permission))
+    : professionalNavItems;
   const shellLabel = isAdmin ? "admin" : "profissional";
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    async function loadPermissions() {
+      try {
+        const response = await fetch("/api/admin/me/permissions", { cache: "no-store" });
+        const data = await response.json();
+
+        if (data.ok) {
+          setAdminPermissions(data.permissions ?? []);
+        }
+      } catch {
+        setAdminPermissions(null);
+      }
+    }
+
+    void loadPermissions();
+  }, [isAdmin]);
 
   async function handleSignOut() {
     if (isSigningOut) {
