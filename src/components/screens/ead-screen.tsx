@@ -159,6 +159,15 @@ function getYouTubeVideoId(url: string) {
   return null;
 }
 
+function isDirectVideoUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return /\.(mp4|webm|ogg|ogv|mov|m4v|m3u8)(\?.*)?$/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
 function loadYouTubeApi() {
   if (youtubeApiPromise) return youtubeApiPromise;
 
@@ -376,6 +385,12 @@ export function EadScreen() {
     selectedLesson?.kind === "VIDEO" &&
     Boolean(selectedLesson.videoUrl) &&
     !selectedLesson.completed;
+  const selectedVideoUrl = selectedLesson?.videoUrl ?? "";
+  const isExternalVideoPage =
+    selectedLesson?.kind === "VIDEO" &&
+    Boolean(selectedVideoUrl) &&
+    !getYouTubeVideoId(selectedVideoUrl) &&
+    !isDirectVideoUrl(selectedVideoUrl);
   const canAnswerLesson =
     selectedLesson !== null &&
     !selectedLesson.completed &&
@@ -752,7 +767,7 @@ export function EadScreen() {
                           setVideoEnded((current) => ({ ...current, [selectedLesson.id]: true }))
                         }
                       />
-                    ) : (
+                    ) : isDirectVideoUrl(selectedLesson.videoUrl) ? (
                       <video
                         className="aspect-video w-full rounded-2xl bg-slate-950"
                         controls
@@ -767,6 +782,28 @@ export function EadScreen() {
                         <source src={selectedLesson.videoUrl} />
                         Seu navegador nao suporta reproducao de video.
                       </video>
+                    ) : (
+                      <div className="space-y-3">
+                        <iframe
+                          className="aspect-video w-full rounded-2xl border-0 bg-slate-950"
+                          src={selectedLesson.videoUrl}
+                          title={selectedLesson.title}
+                          allow="autoplay; fullscreen; picture-in-picture"
+                        />
+                        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                          Este video vem de um servidor externo. Quando terminar de assistir, confirme abaixo para liberar a pergunta.
+                        </div>
+                        <Button
+                          type="button"
+                          variant={videoEnded[selectedLesson.id] ? "secondary" : "outline"}
+                          onClick={() =>
+                            setVideoEnded((current) => ({ ...current, [selectedLesson.id]: true }))
+                          }
+                        >
+                          {videoEnded[selectedLesson.id] ? "Video confirmado" : "Já assisti ao video"}
+                          <CheckCircle2 size={18} />
+                        </Button>
+                      </div>
                     )
                   ) : (
                     <div className="flex aspect-video w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
@@ -865,7 +902,9 @@ export function EadScreen() {
                   <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                     {mustWatchVideo && !videoEnded[selectedLesson.id] ? (
                       <p className="mb-4 text-sm font-semibold text-slate-500">
-                        Assista ao video ate o fim para liberar a pergunta.
+                        {isExternalVideoPage
+                          ? "Assista ao video e confirme acima para liberar a pergunta."
+                          : "Assista ao video ate o fim para liberar a pergunta."}
                       </p>
                     ) : null}
 
