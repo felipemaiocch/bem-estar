@@ -151,6 +151,36 @@ enum EadResourceKind {
   VIDEO
 }
 
+enum LibraryItemKind {
+  BOOK
+  ARTICLE
+  LEGISLATION
+  THESIS
+  VIDEO
+  MOVIE
+  DOCUMENT
+  HANDOUT
+  COURSE
+  LECTURE
+  EXTERNAL_SITE
+  ASSESSMENT
+  TRAINING
+}
+
+enum LibraryItemStatus {
+  AVAILABLE
+  UNAVAILABLE
+  ARCHIVED
+}
+
+enum LibraryReservationStatus {
+  RESERVED
+  BORROWED
+  RETURNED
+  CANCELED
+  OVERDUE
+}
+
 model User {
   id                        String                   @id @default(cuid())
   name                      String
@@ -200,6 +230,8 @@ model User {
   eadLessonCompletions      EadLessonCompletion[]
   eadLessonRatings          EadLessonRating[]
   eadResourcesCreated       EadResource[]             @relation("EadResourceCreator")
+  libraryReservations       LibraryReservation[]
+  libraryItemsCreated       LibraryItem[]             @relation("LibraryItemCreator")
 }
 
 model ProfessionalProfile {
@@ -290,6 +322,51 @@ model WellnessEntry {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+model LibraryItem {
+  id             String                @id @default(cuid())
+  title          String
+  author         String?
+  publisher      String?
+  year           Int?
+  isbn           String?
+  category       String
+  kind           LibraryItemKind       @default(BOOK)
+  description    String?
+  coverUrl       String?
+  materialUrl    String?
+  location       String?
+  totalCopies    Int                   @default(1)
+  availableCopies Int                  @default(1)
+  isReservable   Boolean               @default(true)
+  isDigital      Boolean               @default(false)
+  status         LibraryItemStatus     @default(AVAILABLE)
+  createdById    String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  reservations   LibraryReservation[]
+  creator        User?                 @relation("LibraryItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([kind, category, status])
+  @@index([title])
+}
+
+model LibraryReservation {
+  id            String                   @id @default(cuid())
+  itemId        String
+  userId        String
+  status        LibraryReservationStatus @default(RESERVED)
+  reservedAt    DateTime                 @default(now())
+  borrowedAt    DateTime?
+  dueAt         DateTime?
+  returnedAt    DateTime?
+  notes         String?
+  item          LibraryItem              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, status])
+  @@index([userId, status, reservedAt])
 }
 
 model Notification {
