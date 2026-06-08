@@ -1,9 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type { Department } from "@prisma/client";
 
 import { requireSession } from "@/lib/api-auth";
 import { getDepartmentDescription, getDepartmentLabel } from "@/lib/departments";
 import { normalizeQuizOptions } from "@/lib/ead";
 import { prisma } from "@/lib/prisma";
+
+function visibleEadWhere(userDepartment?: Department | null) {
+  return {
+    OR: [
+      ...(userDepartment ? [{ department: userDepartment }] : []),
+      ...(userDepartment ? [{ allowedDepartments: { has: userDepartment } }] : []),
+      { isGlobal: true },
+    ],
+    isPublished: true,
+  };
+}
 
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request, "USER");
@@ -30,15 +42,13 @@ export async function GET(request: NextRequest) {
   }
 
   const courses = await prisma.eadCourse.findMany({
-    where: {
-      OR: [
-        ...(user.department ? [{ department: user.department }] : []),
-        { isGlobal: true },
-      ],
-      isPublished: true,
-    },
+    where: visibleEadWhere(user.department),
     orderBy: [{ department: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     include: {
+      resources: {
+        where: { isPublished: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
       lessons: {
         where: { isPublished: true },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -53,9 +63,25 @@ export async function GET(request: NextRequest) {
               isCorrect: true,
             },
           },
+          ratings: {
+            where: { userId: user.id },
+            select: {
+              rating: true,
+              comment: true,
+            },
+          },
+          resources: {
+            where: { isPublished: true },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          },
         },
       },
     },
+  });
+
+  const resources = await prisma.eadResource.findMany({
+    where: visibleEadWhere(user.department),
+    orderBy: [{ department: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
   });
 
   let totalLessons = 0;
@@ -67,9 +93,12 @@ export async function GET(request: NextRequest) {
 
   const courseViews = courses.map((course) => {
     const courseUnlocked = previousCoursesCompleted;
+    let previousLessonsCompleted = true;
     const lessons = course.lessons.map((lesson) => {
       const completion = lesson.completions[0] ?? null;
       const completed = Boolean(completion);
+      const lessonUnlocked = courseUnlocked && previousLessonsCompleted;
+      const rating = lesson.ratings[0] ?? null;
 
       totalLessons += 1;
       if (completed) {
@@ -79,20 +108,23 @@ export async function GET(request: NextRequest) {
         availableCoins += lesson.coinsReward;
       }
 
-      return {
+      const lessonView = {
         id: lesson.id,
-        title: courseUnlocked ? lesson.title : "Aula bloqueada",
-        description: courseUnlocked
+        title: lessonUnlocked ? lesson.title : "Aula bloqueada",
+        description: lessonUnlocked
           ? lesson.description
-          : "Conclua o curso anterior para liberar este conteudo.",
+          : courseUnlocked
+            ? "Conclua a aula anterior para liberar este conteudo."
+            : "Conclua o curso anterior para liberar este conteudo.",
         kind: lesson.kind,
-        videoUrl: courseUnlocked ? lesson.videoUrl : null,
-        materialUrl: courseUnlocked ? lesson.materialUrl : null,
+        videoUrl: lessonUnlocked ? lesson.videoUrl : null,
+        materialUrl: lessonUnlocked ? lesson.materialUrl : null,
         durationMinutes: lesson.durationMinutes,
-        quizQuestion: courseUnlocked ? lesson.quizQuestion : null,
-        quizOptions: courseUnlocked ? normalizeQuizOptions(lesson.quizOptions) : [],
+        quizQuestion: lessonUnlocked ? lesson.quizQuestion : null,
+        quizOptions: lessonUnlocked ? normalizeQuizOptions(lesson.quizOptions) : [],
         pointsReward: lesson.pointsReward,
         coinsReward: lesson.coinsReward,
+        isLocked: !lessonUnlocked,
         completed,
         completion: completion
           ? {
@@ -102,7 +134,23 @@ export async function GET(request: NextRequest) {
               isCorrect: completion.isCorrect,
             }
           : null,
+        rating: rating
+          ? {
+              rating: rating.rating,
+              comment: rating.comment,
+            }
+          : null,
+        resources: lesson.resources.map((resource) => ({
+          id: resource.id,
+          title: resource.title,
+          description: resource.description,
+          kind: resource.kind,
+          url: resource.url,
+        })),
       };
+
+      previousLessonsCompleted = previousLessonsCompleted && completed;
+      return lessonView;
     });
 
     const completedInCourse = lessons.filter((lesson) => lesson.completed).length;
@@ -121,9 +169,20 @@ export async function GET(request: NextRequest) {
       department: course.department,
       departmentLabel: getDepartmentLabel(course.department),
       isGlobal: course.isGlobal,
+      allowedDepartments: course.allowedDepartments,
+      allowedDepartmentLabels: course.allowedDepartments.map((department) =>
+        getDepartmentLabel(department),
+      ),
       isLocked: !courseUnlocked,
       completedLessons: completedInCourse,
       totalLessons: lessons.length,
+      resources: course.resources.map((resource) => ({
+        id: resource.id,
+        title: resource.title,
+        description: resource.description,
+        kind: resource.kind,
+        url: resource.url,
+      })),
       lessons,
       progress:
         lessons.length > 0
@@ -150,5 +209,17 @@ export async function GET(request: NextRequest) {
       availablePoints,
       availableCoins,
     },
+    resources: resources.map((resource) => ({
+      id: resource.id,
+      title: resource.title,
+      description: resource.description,
+      kind: resource.kind,
+      url: resource.url,
+      department: resource.department,
+      departmentLabel: getDepartmentLabel(resource.department),
+      isGlobal: resource.isGlobal,
+      courseId: resource.courseId,
+      lessonId: resource.lessonId,
+    })),
   });
 }

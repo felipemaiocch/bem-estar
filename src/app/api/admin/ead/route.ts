@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 
 const departmentSchema = z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO", "SAC"]);
 const lessonKindSchema = z.enum(["VIDEO", "PDF", "TUTORIAL"]);
+const resourceKindSchema = z.enum(["PDF", "DOCUMENT", "LINK", "VIDEO"]);
 
 const createCourseSchema = z.object({
   type: z.literal("course"),
@@ -16,6 +17,7 @@ const createCourseSchema = z.object({
   title: z.string().min(2).max(160),
   description: z.string().min(2).max(500),
   isGlobal: z.boolean().optional(),
+  allowedDepartments: z.array(departmentSchema).optional(),
   sortOrder: z.number().int().min(0).max(1000).optional(),
 });
 
@@ -36,7 +38,21 @@ const createLessonSchema = z.object({
   sortOrder: z.number().int().min(0).max(1000).optional(),
 });
 
-const createEadSchema = z.union([createCourseSchema, createLessonSchema]);
+const createResourceSchema = z.object({
+  type: z.literal("resource"),
+  title: z.string().min(2).max(160),
+  description: z.string().max(500).optional(),
+  kind: resourceKindSchema,
+  url: z.string().min(3).max(1000),
+  department: departmentSchema,
+  allowedDepartments: z.array(departmentSchema).optional(),
+  isGlobal: z.boolean().optional(),
+  courseId: z.string().min(1).nullable().optional(),
+  lessonId: z.string().min(1).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(1000).optional(),
+});
+
+const createEadSchema = z.union([createCourseSchema, createLessonSchema, createResourceSchema]);
 
 const updateCourseSchema = z.object({
   entity: z.literal("course"),
@@ -45,6 +61,7 @@ const updateCourseSchema = z.object({
   title: z.string().min(2).max(160).optional(),
   description: z.string().min(2).max(500).optional(),
   isGlobal: z.boolean().optional(),
+  allowedDepartments: z.array(departmentSchema).optional(),
   sortOrder: z.number().int().min(0).max(1000).optional(),
   isPublished: z.boolean().optional(),
 });
@@ -68,10 +85,26 @@ const updateLessonSchema = z.object({
   isPublished: z.boolean().optional(),
 });
 
-const updateEadSchema = z.union([updateCourseSchema, updateLessonSchema]);
+const updateResourceSchema = z.object({
+  entity: z.literal("resource"),
+  id: z.string().min(1),
+  title: z.string().min(2).max(160).optional(),
+  description: z.string().max(500).nullable().optional(),
+  kind: resourceKindSchema.optional(),
+  url: z.string().min(3).max(1000).optional(),
+  department: departmentSchema.optional(),
+  allowedDepartments: z.array(departmentSchema).optional(),
+  isGlobal: z.boolean().optional(),
+  isPublished: z.boolean().optional(),
+  courseId: z.string().min(1).nullable().optional(),
+  lessonId: z.string().min(1).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(1000).optional(),
+});
+
+const updateEadSchema = z.union([updateCourseSchema, updateLessonSchema, updateResourceSchema]);
 
 const deleteEadSchema = z.object({
-  entity: z.enum(["course", "lesson"]),
+  entity: z.enum(["course", "lesson", "resource"]),
   id: z.string().min(1),
 });
 
@@ -88,16 +121,55 @@ export async function GET(request: NextRequest) {
       lessons: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         include: {
+          ratings: {
+            select: {
+              rating: true,
+              comment: true,
+              createdAt: true,
+              user: {
+                select: {
+                  name: true,
+                  department: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
           _count: {
             select: {
               completions: true,
+              ratings: true,
             },
           },
         },
       },
+      resources: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
       _count: {
         select: {
           lessons: true,
+        },
+      },
+    },
+  });
+
+  const resources = await prisma.eadResource.findMany({
+    orderBy: [{ department: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    include: {
+      course: {
+        select: {
+          title: true,
+        },
+      },
+      lesson: {
+        select: {
+          title: true,
+        },
+      },
+      createdBy: {
+        select: {
+          name: true,
         },
       },
     },
@@ -112,8 +184,13 @@ export async function GET(request: NextRequest) {
       department: course.department,
       departmentLabel: getDepartmentLabel(course.department),
       isGlobal: course.isGlobal,
+      allowedDepartments: course.allowedDepartments,
+      allowedDepartmentLabels: course.allowedDepartments.map((department) =>
+        getDepartmentLabel(department),
+      ),
       isPublished: course.isPublished,
       sortOrder: course.sortOrder,
+      createdAtIso: course.createdAt.toISOString(),
       lessonCount: course._count.lessons,
       lessons: course.lessons.map((lesson) => ({
         id: lesson.id,
@@ -131,7 +208,67 @@ export async function GET(request: NextRequest) {
         isPublished: lesson.isPublished,
         sortOrder: lesson.sortOrder,
         completionCount: lesson._count.completions,
+        ratingCount: lesson._count.ratings,
+        averageRating:
+          lesson.ratings.length > 0
+            ? Math.round(
+                (lesson.ratings.reduce((sum, rating) => sum + rating.rating, 0) /
+                  lesson.ratings.length) *
+                  10,
+              ) / 10
+            : null,
+        lowRatingComments: lesson.ratings
+          .filter((rating) => rating.rating <= 2 && rating.comment)
+          .slice(0, 5)
+          .map((rating) => ({
+            rating: rating.rating,
+            comment: rating.comment,
+            userName: rating.user.name,
+            departmentLabel: getDepartmentLabel(rating.user.department),
+            createdAtIso: rating.createdAt.toISOString(),
+          })),
       })),
+      resources: course.resources.map((resource) => ({
+        id: resource.id,
+        title: resource.title,
+        description: resource.description,
+        kind: resource.kind,
+        url: resource.url,
+        department: resource.department,
+        departmentLabel: getDepartmentLabel(resource.department),
+        allowedDepartments: resource.allowedDepartments,
+        allowedDepartmentLabels: resource.allowedDepartments.map((department) =>
+          getDepartmentLabel(department),
+        ),
+        isGlobal: resource.isGlobal,
+        isPublished: resource.isPublished,
+        courseId: resource.courseId,
+        lessonId: resource.lessonId,
+        sortOrder: resource.sortOrder,
+        createdAtIso: resource.createdAt.toISOString(),
+      })),
+    })),
+    resources: resources.map((resource) => ({
+      id: resource.id,
+      title: resource.title,
+      description: resource.description,
+      kind: resource.kind,
+      url: resource.url,
+      department: resource.department,
+      departmentLabel: getDepartmentLabel(resource.department),
+      allowedDepartments: resource.allowedDepartments,
+      allowedDepartmentLabels: resource.allowedDepartments.map((department) =>
+        getDepartmentLabel(department),
+      ),
+      isGlobal: resource.isGlobal,
+      isPublished: resource.isPublished,
+      courseId: resource.courseId,
+      courseTitle: resource.course?.title ?? null,
+      lessonId: resource.lessonId,
+      lessonTitle: resource.lesson?.title ?? null,
+      sortOrder: resource.sortOrder,
+      createdByName: resource.createdBy?.name ?? null,
+      createdAtIso: resource.createdAt.toISOString(),
     })),
   });
 }
@@ -164,6 +301,7 @@ export async function POST(request: NextRequest) {
           title: parsed.data.title.trim(),
           description: parsed.data.description.trim(),
           isGlobal: parsed.data.isGlobal ?? false,
+          allowedDepartments: parsed.data.allowedDepartments ?? [],
           sortOrder: parsed.data.sortOrder ?? 0,
         },
       });
@@ -177,12 +315,48 @@ export async function POST(request: NextRequest) {
           metadata: {
             department: course.department,
             isGlobal: course.isGlobal,
+            allowedDepartments: course.allowedDepartments,
             title: course.title,
           } as Prisma.InputJsonObject,
         },
       });
 
       return NextResponse.json({ ok: true, course });
+    }
+
+    if (parsed.data.type === "resource") {
+      const resource = await prisma.eadResource.create({
+        data: {
+          title: parsed.data.title.trim(),
+          description: parsed.data.description?.trim() || null,
+          kind: parsed.data.kind,
+          url: parsed.data.url.trim(),
+          department: parsed.data.department,
+          allowedDepartments: parsed.data.allowedDepartments ?? [],
+          isGlobal: parsed.data.isGlobal ?? false,
+          courseId: parsed.data.courseId ?? null,
+          lessonId: parsed.data.lessonId ?? null,
+          sortOrder: parsed.data.sortOrder ?? 0,
+          createdById: auth.session.sub,
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: auth.session.sub,
+          action: "CREATE",
+          entity: "EAD_RESOURCE",
+          entityId: resource.id,
+          metadata: {
+            department: resource.department,
+            isGlobal: resource.isGlobal,
+            allowedDepartments: resource.allowedDepartments,
+            title: resource.title,
+          } as Prisma.InputJsonObject,
+        },
+      });
+
+      return NextResponse.json({ ok: true, resource });
     }
 
     const lastLesson = await prisma.eadLesson.findFirst({
@@ -285,6 +459,9 @@ export async function PATCH(request: NextRequest) {
           ...(parsed.data.isGlobal !== undefined
             ? { isGlobal: parsed.data.isGlobal }
             : {}),
+          ...(parsed.data.allowedDepartments !== undefined
+            ? { allowedDepartments: parsed.data.allowedDepartments }
+            : {}),
           ...(parsed.data.sortOrder !== undefined
             ? { sortOrder: parsed.data.sortOrder }
             : {}),
@@ -295,6 +472,45 @@ export async function PATCH(request: NextRequest) {
       });
 
       return NextResponse.json({ ok: true, course });
+    }
+
+    if (parsed.data.entity === "resource") {
+      const resource = await prisma.eadResource.update({
+        where: { id: parsed.data.id },
+        data: {
+          ...(parsed.data.title !== undefined
+            ? { title: parsed.data.title.trim() }
+            : {}),
+          ...(parsed.data.description !== undefined
+            ? { description: parsed.data.description?.trim() || null }
+            : {}),
+          ...(parsed.data.kind !== undefined ? { kind: parsed.data.kind } : {}),
+          ...(parsed.data.url !== undefined ? { url: parsed.data.url.trim() } : {}),
+          ...(parsed.data.department !== undefined
+            ? { department: parsed.data.department }
+            : {}),
+          ...(parsed.data.allowedDepartments !== undefined
+            ? { allowedDepartments: parsed.data.allowedDepartments }
+            : {}),
+          ...(parsed.data.isGlobal !== undefined
+            ? { isGlobal: parsed.data.isGlobal }
+            : {}),
+          ...(parsed.data.isPublished !== undefined
+            ? { isPublished: parsed.data.isPublished }
+            : {}),
+          ...(parsed.data.courseId !== undefined
+            ? { courseId: parsed.data.courseId }
+            : {}),
+          ...(parsed.data.lessonId !== undefined
+            ? { lessonId: parsed.data.lessonId }
+            : {}),
+          ...(parsed.data.sortOrder !== undefined
+            ? { sortOrder: parsed.data.sortOrder }
+            : {}),
+        },
+      });
+
+      return NextResponse.json({ ok: true, resource });
     }
 
     const lesson = await prisma.eadLesson.update({
@@ -392,6 +608,27 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
+    if (parsed.data.entity === "resource") {
+      const resource = await prisma.eadResource.delete({
+        where: { id: parsed.data.id },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: auth.session.sub,
+          action: "DELETE",
+          entity: "EAD_RESOURCE",
+          entityId: resource.id,
+          metadata: {
+            department: resource.department,
+            title: resource.title,
+          } as Prisma.InputJsonObject,
+        },
+      });
+
+      return NextResponse.json({ ok: true, resource });
+    }
+
     if (parsed.data.entity === "course") {
       const completionCount = await prisma.eadLessonCompletion.count({
         where: {

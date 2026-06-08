@@ -22,6 +22,7 @@ import { departmentOptions, type DepartmentCode } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 
 type LessonKind = "VIDEO" | "PDF" | "TUTORIAL";
+type ResourceKind = "PDF" | "DOCUMENT" | "LINK" | "VIDEO";
 
 interface AdminEadLesson {
   id: string;
@@ -39,6 +40,36 @@ interface AdminEadLesson {
   isPublished: boolean;
   sortOrder: number;
   completionCount: number;
+  ratingCount: number;
+  averageRating: number | null;
+  lowRatingComments: Array<{
+    rating: number;
+    comment: string;
+    userName: string;
+    departmentLabel: string;
+    createdAtIso: string;
+  }>;
+}
+
+interface AdminEadResource {
+  id: string;
+  title: string;
+  description: string | null;
+  kind: ResourceKind;
+  url: string;
+  department: DepartmentCode;
+  departmentLabel: string;
+  allowedDepartments: DepartmentCode[];
+  allowedDepartmentLabels: string[];
+  isGlobal: boolean;
+  isPublished: boolean;
+  courseId: string | null;
+  courseTitle?: string | null;
+  lessonId: string | null;
+  lessonTitle?: string | null;
+  sortOrder: number;
+  createdByName?: string | null;
+  createdAtIso: string;
 }
 
 interface AdminEadCourse {
@@ -48,10 +79,14 @@ interface AdminEadCourse {
   department: DepartmentCode;
   departmentLabel: string;
   isGlobal: boolean;
+  allowedDepartments: DepartmentCode[];
+  allowedDepartmentLabels: string[];
   isPublished: boolean;
   sortOrder: number;
+  createdAtIso: string;
   lessonCount: number;
   lessons: AdminEadLesson[];
+  resources: AdminEadResource[];
 }
 
 const inputClassName =
@@ -62,6 +97,7 @@ const defaultCourseForm = {
   description: "",
   department: "COMERCIAL" as DepartmentCode,
   isGlobal: false,
+  allowedDepartments: [] as DepartmentCode[],
   sortOrder: "",
 };
 
@@ -78,6 +114,19 @@ const defaultLessonForm = {
   correctAnswerIndex: "0",
   pointsReward: "20",
   coinsReward: "5",
+  sortOrder: "",
+};
+
+const defaultResourceForm = {
+  title: "",
+  description: "",
+  kind: "PDF" as ResourceKind,
+  url: "",
+  department: "COMERCIAL" as DepartmentCode,
+  isGlobal: false,
+  allowedDepartments: [] as DepartmentCode[],
+  courseId: "",
+  lessonId: "",
   sortOrder: "",
 };
 
@@ -116,8 +165,10 @@ function nullableNumber(value: string) {
 
 export function AdminEadScreen() {
   const [courses, setCourses] = useState<AdminEadCourse[]>([]);
+  const [resources, setResources] = useState<AdminEadResource[]>([]);
   const [courseForm, setCourseForm] = useState(defaultCourseForm);
   const [lessonForm, setLessonForm] = useState(defaultLessonForm);
+  const [resourceForm, setResourceForm] = useState(defaultResourceForm);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -145,6 +196,7 @@ export function AdminEadScreen() {
 
       const loadedCourses = (data.courses ?? []) as AdminEadCourse[];
       setCourses(loadedCourses);
+      setResources((data.resources ?? []) as AdminEadResource[]);
       setLessonForm((current) => ({
         ...current,
         courseId: current.courseId || loadedCourses[0]?.id || "",
@@ -179,6 +231,37 @@ export function AdminEadScreen() {
       }));
   }, [coursesByDepartment, departmentFilter]);
 
+  const eadReport = useMemo(() => {
+    const lessons = courses.flatMap((course) => course.lessons);
+    const completionCount = lessons.reduce((sum, lesson) => sum + lesson.completionCount, 0);
+    const ratedLessons = lessons.filter((lesson) => lesson.averageRating !== null);
+    const averageRating = ratedLessons.length
+      ? Math.round(
+          (ratedLessons.reduce((sum, lesson) => sum + (lesson.averageRating ?? 0), 0) /
+            ratedLessons.length) *
+            10,
+        ) / 10
+      : null;
+
+    return {
+      courses: courses.length,
+      lessons: lessons.length,
+      completionCount,
+      ratingCount: lessons.reduce((sum, lesson) => sum + lesson.ratingCount, 0),
+      averageRating,
+      resources: resources.length,
+    };
+  }, [courses, resources]);
+
+  function toggleDepartmentSelection(
+    current: DepartmentCode[],
+    department: DepartmentCode,
+  ) {
+    return current.includes(department)
+      ? current.filter((item) => item !== department)
+      : [...current, department];
+  }
+
   function startEditCourse(course: AdminEadCourse) {
     setEditingCourseId(course.id);
     setEditingLessonId(null);
@@ -187,6 +270,7 @@ export function AdminEadScreen() {
       description: course.description,
       department: course.department,
       isGlobal: course.isGlobal,
+      allowedDepartments: course.allowedDepartments ?? [],
       sortOrder: String(course.sortOrder),
     });
     setFeedback(null);
@@ -232,6 +316,7 @@ export function AdminEadScreen() {
           description: courseForm.description,
           department: courseForm.department,
           isGlobal: courseForm.isGlobal,
+          allowedDepartments: courseForm.allowedDepartments,
           sortOrder: optionalNumber(courseForm.sortOrder),
         }),
       });
@@ -303,7 +388,50 @@ export function AdminEadScreen() {
     }
   }
 
-  async function togglePublished(entity: "course" | "lesson", id: string, isPublished: boolean) {
+  async function createResource(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busyAction) return;
+
+    setBusyAction("create-resource");
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/ead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          type: "resource",
+          title: resourceForm.title,
+          description: resourceForm.description || undefined,
+          kind: resourceForm.kind,
+          url: resourceForm.url,
+          department: resourceForm.department,
+          isGlobal: resourceForm.isGlobal,
+          allowedDepartments: resourceForm.allowedDepartments,
+          courseId: resourceForm.courseId || null,
+          lessonId: resourceForm.lessonId || null,
+          sortOrder: optionalNumber(resourceForm.sortOrder),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(getAdminEadErrorMessage(response, data.error, "Nao foi possivel criar documento."));
+        return;
+      }
+
+      setResourceForm(defaultResourceForm);
+      setFeedback("Documento adicionado ao acervo.");
+      await loadEad();
+    } catch {
+      setFeedback("Falha de conexao ao criar documento.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function togglePublished(entity: "course" | "lesson" | "resource", id: string, isPublished: boolean) {
     if (busyAction) return;
 
     setBusyAction(`${entity}-${id}`);
@@ -354,6 +482,7 @@ export function AdminEadScreen() {
           description: courseEditForm.description,
           department: courseEditForm.department,
           isGlobal: courseEditForm.isGlobal,
+          allowedDepartments: courseEditForm.allowedDepartments,
           sortOrder: optionalNumber(courseEditForm.sortOrder),
         }),
       });
@@ -423,7 +552,7 @@ export function AdminEadScreen() {
     }
   }
 
-  async function removeEadItem(entity: "course" | "lesson", id: string, label: string) {
+  async function removeEadItem(entity: "course" | "lesson" | "resource", id: string, label: string) {
     if (busyAction) return;
 
     const confirmed = window.confirm(
@@ -479,7 +608,23 @@ export function AdminEadScreen() {
           </div>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+          {[
+            ["Cursos", eadReport.courses],
+            ["Aulas", eadReport.lessons],
+            ["Conclusoes", eadReport.completionCount],
+            ["Avaliacoes", eadReport.ratingCount],
+            ["NPS medio", eadReport.averageRating ?? "-"],
+            ["Acervo", eadReport.resources],
+          ].map(([label, value]) => (
+            <Card key={label} className="p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}</p>
+              <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-3">
           <Card className="p-6">
             <div className="mb-4 flex items-center gap-2">
               <GraduationCap className="h-5 w-5 text-[#0264af]" />
@@ -534,6 +679,41 @@ export function AdminEadScreen() {
                   }
                 />
               </label>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Departamentos extras que tambem podem assistir
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {departmentOptions
+                    .filter((department) => department.value !== courseForm.department)
+                    .map((department) => {
+                      const selected = courseForm.allowedDepartments.includes(department.value);
+                      return (
+                        <button
+                          key={department.value}
+                          type="button"
+                          onClick={() =>
+                            setCourseForm((current) => ({
+                              ...current,
+                              allowedDepartments: toggleDepartmentSelection(
+                                current.allowedDepartments,
+                                department.value,
+                              ),
+                            }))
+                          }
+                          className={cn(
+                            "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors",
+                            selected
+                              ? "border-[#0264af] bg-[#0264af] text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-[#0264af]/30",
+                          )}
+                        >
+                          {department.label}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
               <input
                 className={inputClassName}
                 placeholder="Ordem na trilha: 1, 2, 3..."
@@ -686,7 +866,226 @@ export function AdminEadScreen() {
               </Button>
             </form>
           </Card>
+
+          <Card className="p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-[#0264af]" />
+              <h2 className="text-lg font-bold text-slate-950">Novo item do acervo</h2>
+            </div>
+            <form className="space-y-3" onSubmit={(event) => void createResource(event)}>
+              <input
+                className={inputClassName}
+                placeholder="Titulo do documento"
+                value={resourceForm.title}
+                onChange={(event) =>
+                  setResourceForm((current) => ({ ...current, title: event.target.value }))
+                }
+                required
+              />
+              <textarea
+                className={cn(inputClassName, "min-h-20 resize-none")}
+                placeholder="Descricao opcional"
+                value={resourceForm.description}
+                onChange={(event) =>
+                  setResourceForm((current) => ({ ...current, description: event.target.value }))
+                }
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  className={inputClassName}
+                  value={resourceForm.kind}
+                  onChange={(event) =>
+                    setResourceForm((current) => ({
+                      ...current,
+                      kind: event.target.value as ResourceKind,
+                    }))
+                  }
+                >
+                  <option value="PDF">PDF</option>
+                  <option value="DOCUMENT">Documento</option>
+                  <option value="LINK">Link</option>
+                  <option value="VIDEO">Video</option>
+                </select>
+                <select
+                  className={inputClassName}
+                  value={resourceForm.department}
+                  onChange={(event) =>
+                    setResourceForm((current) => ({
+                      ...current,
+                      department: event.target.value as DepartmentCode,
+                    }))
+                  }
+                >
+                  {departmentOptions.map((department) => (
+                    <option key={department.value} value={department.value}>
+                      {department.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <input
+                className={inputClassName}
+                placeholder="URL do arquivo ou documento"
+                value={resourceForm.url}
+                onChange={(event) =>
+                  setResourceForm((current) => ({ ...current, url: event.target.value }))
+                }
+                required
+              />
+              <select
+                className={inputClassName}
+                value={resourceForm.courseId}
+                onChange={(event) =>
+                  setResourceForm((current) => ({ ...current, courseId: event.target.value, lessonId: "" }))
+                }
+              >
+                <option value="">Acervo geral</option>
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.departmentLabel} - {course.title}
+                  </option>
+                ))}
+              </select>
+              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3">
+                <span>
+                  <span className="block text-sm font-bold text-slate-900">Liberar documento para todos</span>
+                  <span className="block text-xs text-slate-500">Quando ativo, aparece no acervo de qualquer usuário.</span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-[#0264af]"
+                  checked={resourceForm.isGlobal}
+                  onChange={(event) =>
+                    setResourceForm((current) => ({ ...current, isGlobal: event.target.checked }))
+                  }
+                />
+              </label>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Departamentos extras
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {departmentOptions
+                    .filter((department) => department.value !== resourceForm.department)
+                    .map((department) => {
+                      const selected = resourceForm.allowedDepartments.includes(department.value);
+                      return (
+                        <button
+                          key={department.value}
+                          type="button"
+                          onClick={() =>
+                            setResourceForm((current) => ({
+                              ...current,
+                              allowedDepartments: toggleDepartmentSelection(
+                                current.allowedDepartments,
+                                department.value,
+                              ),
+                            }))
+                          }
+                          className={cn(
+                            "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors",
+                            selected
+                              ? "border-[#0264af] bg-[#0264af] text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-[#0264af]/30",
+                          )}
+                        >
+                          {department.label}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+              <Button type="submit" disabled={busyAction === "create-resource"}>
+                {busyAction === "create-resource" ? "Salvando..." : "Adicionar ao acervo"}
+              </Button>
+            </form>
+          </Card>
         </div>
+
+        <Card className="p-6">
+          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">Acervo cadastrado</h2>
+              <p className="text-sm text-slate-500">Documentos e links visíveis dentro do EAD, com as mesmas regras de departamento dos cursos.</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+              {resources.length} item{resources.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          {resources.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+              Nenhum documento cadastrado no acervo.
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {resources.map((resource) => (
+                <div key={resource.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-bold text-slate-950">{resource.title}</h3>
+                        <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                          {resource.kind}
+                        </span>
+                        <span className={cn(
+                          "rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider",
+                          resource.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-500",
+                        )}>
+                          {resource.isPublished ? "Publicado" : "Oculto"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        {resource.description || "Sem descricao."}
+                      </p>
+                      <p className="mt-2 text-xs font-bold text-slate-400">
+                        {resource.departmentLabel}
+                        {resource.isGlobal ? " · todos usuarios" : ""}
+                        {resource.allowedDepartmentLabels.length > 0
+                          ? ` · extra: ${resource.allowedDepartmentLabels.join(", ")}`
+                          : ""}
+                      </p>
+                      {resource.courseTitle ? (
+                        <p className="mt-1 text-xs font-semibold text-[#0264af]">
+                          Vinculado ao curso: {resource.courseTitle}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <a
+                      href={resource.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-9 items-center justify-center rounded-xl bg-white px-3 text-xs font-semibold text-[#0264af] ring-1 ring-slate-200 hover:bg-blue-50"
+                    >
+                      Abrir
+                    </a>
+                    <Button
+                      size="sm"
+                      variant={resource.isPublished ? "outline" : "secondary"}
+                      onClick={() => void togglePublished("resource", resource.id, resource.isPublished)}
+                      disabled={busyAction === `resource-${resource.id}`}
+                    >
+                      <Power size={14} />
+                      {resource.isPublished ? "Ocultar" : "Publicar"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => void removeEadItem("resource", resource.id, resource.title)}
+                      disabled={busyAction === `remove-resource-${resource.id}`}
+                    >
+                      <Trash2 size={14} />
+                      Remover
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         <Card className="p-6">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -822,6 +1221,41 @@ export function AdminEadScreen() {
                                 }
                               />
                             </label>
+                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 md:col-span-2">
+                              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Departamentos extras que tambem podem assistir
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {departmentOptions
+                                  .filter((department) => department.value !== courseEditForm.department)
+                                  .map((department) => {
+                                    const selected = courseEditForm.allowedDepartments.includes(department.value);
+                                    return (
+                                      <button
+                                        key={department.value}
+                                        type="button"
+                                        onClick={() =>
+                                          setCourseEditForm((current) => ({
+                                            ...current,
+                                            allowedDepartments: toggleDepartmentSelection(
+                                              current.allowedDepartments,
+                                              department.value,
+                                            ),
+                                          }))
+                                        }
+                                        className={cn(
+                                          "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors",
+                                          selected
+                                            ? "border-[#0264af] bg-[#0264af] text-white"
+                                            : "border-slate-200 bg-white text-slate-600 hover:border-[#0264af]/30",
+                                        )}
+                                      >
+                                        {department.label}
+                                      </button>
+                                    );
+                                  })}
+                              </div>
+                            </div>
                             <div className="flex flex-wrap gap-2 md:col-span-2">
                               <Button type="submit" size="sm" disabled={busyAction === `edit-course-${course.id}`}>
                                 <Save size={14} />
@@ -855,6 +1289,11 @@ export function AdminEadScreen() {
                                 {course.isGlobal ? (
                                   <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#0264af]">
                                     Todos os usuarios
+                                  </span>
+                                ) : null}
+                                {course.allowedDepartmentLabels.length > 0 ? (
+                                  <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-700">
+                                    Extra: {course.allowedDepartmentLabels.join(", ")}
                                   </span>
                                 ) : null}
                               </div>
@@ -1097,7 +1536,13 @@ export function AdminEadScreen() {
                                       <p className="mt-1 text-xs leading-5 text-slate-500">{lesson.description}</p>
                                       <p className="mt-2 text-xs font-bold text-slate-400">
                                         Ordem {lesson.sortOrder} · {lesson.completionCount} conclusao{lesson.completionCount === 1 ? "" : "es"} · +{lesson.pointsReward} pts · +{lesson.coinsReward} drcoins
+                                        {lesson.averageRating !== null ? ` · NPS ${lesson.averageRating}/5` : " · sem NPS"}
                                       </p>
+                                      {lesson.lowRatingComments.length > 0 ? (
+                                        <p className="mt-1 text-xs font-semibold text-amber-700">
+                                          {lesson.lowRatingComments.length} comentario(s) de nota baixa no relatorio.
+                                        </p>
+                                      ) : null}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                       <Button

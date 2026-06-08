@@ -129,6 +129,13 @@ enum EadLessonKind {
   TUTORIAL
 }
 
+enum EadResourceKind {
+  PDF
+  DOCUMENT
+  LINK
+  VIDEO
+}
+
 model User {
   id                        String                   @id @default(cuid())
   name                      String
@@ -176,6 +183,8 @@ model User {
   groupMemberships          UserGroupMembership[]
   acceptances               UserAcceptance[]
   eadLessonCompletions      EadLessonCompletion[]
+  eadLessonRatings          EadLessonRating[]
+  eadResourcesCreated       EadResource[]             @relation("EadResourceCreator")
 }
 
 model ProfessionalProfile {
@@ -400,16 +409,18 @@ model ScoringRule {
 }
 
 model EadCourse {
-  id          String      @id @default(cuid())
-  department  Department
-  title       String
-  description String
-  isGlobal    Boolean     @default(false)
-  isPublished Boolean     @default(true)
-  sortOrder   Int         @default(0)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  lessons     EadLesson[]
+  id                 String        @id @default(cuid())
+  department         Department
+  allowedDepartments Department[]  @default([])
+  title              String
+  description        String
+  isGlobal           Boolean       @default(false)
+  isPublished        Boolean       @default(true)
+  sortOrder          Int           @default(0)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  lessons            EadLesson[]
+  resources          EadResource[]
 
   @@unique([department, title])
   @@index([department, isPublished, sortOrder])
@@ -436,6 +447,8 @@ model EadLesson {
   updatedAt          DateTime              @updatedAt
   course             EadCourse             @relation(fields: [courseId], references: [id], onDelete: Cascade)
   completions        EadLessonCompletion[]
+  ratings            EadLessonRating[]
+  resources          EadResource[]
 
   @@unique([courseId, title])
   @@index([courseId, isPublished, sortOrder])
@@ -456,6 +469,48 @@ model EadLessonCompletion {
 
   @@unique([lessonId, userId])
   @@index([userId, completedAt])
+  @@index([lessonId])
+}
+
+model EadLessonRating {
+  id        String    @id @default(cuid())
+  lessonId  String
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  lesson    EadLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, userId])
+  @@index([lessonId, rating])
+  @@index([userId, createdAt])
+}
+
+model EadResource {
+  id                 String          @id @default(cuid())
+  title              String
+  description        String?
+  kind               EadResourceKind @default(PDF)
+  url                String
+  department         Department
+  allowedDepartments Department[]    @default([])
+  isGlobal           Boolean         @default(false)
+  isPublished        Boolean         @default(true)
+  courseId           String?
+  lessonId           String?
+  sortOrder          Int             @default(0)
+  createdById        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  course             EadCourse?      @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  lesson             EadLesson?      @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  createdBy          User?           @relation("EadResourceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([department, isPublished, sortOrder])
+  @@index([isGlobal, isPublished, sortOrder])
+  @@index([courseId])
   @@index([lessonId])
 }
 

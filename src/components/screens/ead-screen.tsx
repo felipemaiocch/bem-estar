@@ -9,6 +9,7 @@ import {
   Loader2,
   Lock,
   PlayCircle,
+  Star,
   Trophy,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -18,6 +19,20 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type LessonKind = "VIDEO" | "PDF" | "TUTORIAL";
+type ResourceKind = "PDF" | "DOCUMENT" | "LINK" | "VIDEO";
+
+interface EadResource {
+  id: string;
+  title: string;
+  description: string | null;
+  kind: ResourceKind;
+  url: string;
+  department?: string;
+  departmentLabel?: string;
+  isGlobal?: boolean;
+  courseId?: string | null;
+  lessonId?: string | null;
+}
 
 interface EadLesson {
   id: string;
@@ -31,6 +46,7 @@ interface EadLesson {
   quizOptions: string[];
   pointsReward: number;
   coinsReward: number;
+  isLocked: boolean;
   completed: boolean;
   completion: {
     completedAtIso: string;
@@ -38,6 +54,11 @@ interface EadLesson {
     coinsAwarded: number;
     isCorrect: boolean;
   } | null;
+  rating: {
+    rating: number;
+    comment: string | null;
+  } | null;
+  resources: EadResource[];
 }
 
 interface EadCourse {
@@ -47,10 +68,13 @@ interface EadCourse {
   department: string;
   departmentLabel: string;
   isGlobal: boolean;
+  allowedDepartments: string[];
+  allowedDepartmentLabels: string[];
   isLocked: boolean;
   completedLessons: number;
   totalLessons: number;
   progress: number;
+  resources: EadResource[];
   lessons: EadLesson[];
 }
 
@@ -73,6 +97,7 @@ interface EadPayload {
     availablePoints: number;
     availableCoins: number;
   };
+  resources: EadResource[];
 }
 
 const kindLabel: Record<LessonKind, string> = {
@@ -94,6 +119,8 @@ export function EadScreen() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
+  const [ratingValue, setRatingValue] = useState<number | null>(null);
+  const [ratingComment, setRatingComment] = useState("");
   const [videoEnded, setVideoEnded] = useState<Record<string, boolean>>({});
   const [feedback, setFeedback] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -115,6 +142,8 @@ export function EadScreen() {
       setSelectedDepartment(null);
       setSelectedCourseId(null);
       setSelectedLessonId(null);
+      setRatingValue(null);
+      setRatingComment("");
     } catch {
       setFeedback("Falha de conexao ao carregar o EAD.");
     } finally {
@@ -136,6 +165,7 @@ export function EadScreen() {
         label: string;
         courseCount: number;
         lessonCount: number;
+        resourceCount: number;
         globalCount: number;
       }
     >();
@@ -146,6 +176,7 @@ export function EadScreen() {
         label: course.departmentLabel,
         courseCount: 0,
         lessonCount: 0,
+        resourceCount: 0,
         globalCount: 0,
       };
 
@@ -153,7 +184,25 @@ export function EadScreen() {
         ...current,
         courseCount: current.courseCount + 1,
         lessonCount: current.lessonCount + course.totalLessons,
+        resourceCount: current.resourceCount,
         globalCount: current.globalCount + (course.isGlobal ? 1 : 0),
+      });
+    });
+
+    data.resources.forEach((resource) => {
+      if (!resource.department || !resource.departmentLabel) return;
+      const current = sections.get(resource.department) ?? {
+        department: resource.department,
+        label: resource.departmentLabel,
+        courseCount: 0,
+        lessonCount: 0,
+        resourceCount: 0,
+        globalCount: 0,
+      };
+
+      sections.set(resource.department, {
+        ...current,
+        resourceCount: current.resourceCount + 1,
       });
     });
 
@@ -163,6 +212,11 @@ export function EadScreen() {
   const visibleCourses = useMemo(() => {
     if (!data || !selectedDepartment) return [];
     return data.courses.filter((course) => course.department === selectedDepartment);
+  }, [data, selectedDepartment]);
+
+  const visibleResources = useMemo(() => {
+    if (!data || !selectedDepartment) return [];
+    return data.resources.filter((resource) => resource.department === selectedDepartment);
   }, [data, selectedDepartment]);
 
   const selectedCourse = useMemo(() => {
@@ -176,6 +230,11 @@ export function EadScreen() {
   const selectedLesson = useMemo(() => {
     return selectedCourse?.lessons.find((lesson) => lesson.id === selectedLessonId) ?? selectedCourse?.lessons[0] ?? null;
   }, [selectedCourse, selectedLessonId]);
+
+  useEffect(() => {
+    setRatingValue(selectedLesson?.rating?.rating ?? null);
+    setRatingComment(selectedLesson?.rating?.comment ?? "");
+  }, [selectedLesson?.id, selectedLesson?.rating?.comment, selectedLesson?.rating?.rating]);
 
   const mustWatchVideo =
     selectedLesson?.kind === "VIDEO" &&
@@ -220,6 +279,38 @@ export function EadScreen() {
       await loadEad();
     } catch {
       setFeedback("Falha de conexao ao concluir aula.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rateLesson() {
+    if (!selectedLesson || ratingValue === null) return;
+
+    setBusy(true);
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/user/ead/rating", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lessonId: selectedLesson.id,
+          rating: ratingValue,
+          comment: ratingComment || undefined,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.ok) {
+        setFeedback(payload.error ?? "Nao foi possivel avaliar a aula.");
+        return;
+      }
+
+      setFeedback(payload.message ?? "Avaliacao registrada.");
+      await loadEad();
+    } catch {
+      setFeedback("Falha de conexao ao avaliar aula.");
     } finally {
       setBusy(false);
     }
@@ -325,7 +416,7 @@ export function EadScreen() {
                 </div>
                 <h2 className="text-xl font-black text-slate-950">{section.label}</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {section.courseCount} curso{section.courseCount === 1 ? "" : "s"} · {section.lessonCount} aula{section.lessonCount === 1 ? "" : "s"}
+                  {section.courseCount} curso{section.courseCount === 1 ? "" : "s"} · {section.lessonCount} aula{section.lessonCount === 1 ? "" : "s"} · {section.resourceCount} documento{section.resourceCount === 1 ? "" : "s"}
                 </p>
                 {section.globalCount > 0 ? (
                   <span className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#0264af]">
@@ -421,6 +512,10 @@ export function EadScreen() {
                         key={lesson.id}
                         type="button"
                         onClick={() => {
+                          if (lesson.isLocked) {
+                            setFeedback("Conclua a aula anterior para liberar esta aula.");
+                            return;
+                          }
                           setSelectedLessonId(lesson.id);
                           setSelectedAnswerIndex(null);
                           setFeedback(null);
@@ -429,11 +524,14 @@ export function EadScreen() {
                           "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm transition-colors",
                           active
                             ? "border-[#0264af] bg-white text-[#0264af]"
+                            : lesson.isLocked
+                              ? "border-slate-100 bg-slate-50 text-slate-400"
                             : "border-slate-100 bg-white text-slate-600 hover:border-slate-200",
                         )}
                       >
                         <Icon size={18} />
                         <span className="flex-1 font-semibold">{lesson.title}</span>
+                        {lesson.isLocked ? <Lock className="text-slate-400" size={16} /> : null}
                         {lesson.completed ? <CheckCircle2 className="text-emerald-500" size={18} /> : null}
                       </button>
                     );
@@ -442,6 +540,35 @@ export function EadScreen() {
               ) : null}
             </Card>
           ))}
+
+          <Card className="p-4">
+            <h2 className="font-bold text-slate-950">Acervo</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Documentos e materiais liberados para este departamento.
+            </p>
+            <div className="mt-4 space-y-2">
+              {visibleResources.map((resource) => (
+                <a
+                  key={resource.id}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-[#0264af]/30 hover:text-[#0264af]"
+                >
+                  <FileText size={18} />
+                  <span className="flex-1">{resource.title}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-500">
+                    {resource.kind}
+                  </span>
+                </a>
+              ))}
+              {visibleResources.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs text-slate-500">
+                  Nenhum documento liberado ainda.
+                </p>
+              ) : null}
+            </div>
+          </Card>
         </div>
 
         <Card className="overflow-hidden">
@@ -509,9 +636,73 @@ export function EadScreen() {
                   )
                 ) : null}
 
+                {selectedLesson.resources.length > 0 ? (
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <h3 className="font-bold text-slate-950">Materiais desta aula</h3>
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      {selectedLesson.resources.map((resource) => (
+                        <a
+                          key={resource.id}
+                          href={resource.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-[#0264af]/30 hover:text-[#0264af]"
+                        >
+                          <FileText size={18} />
+                          <span className="flex-1">{resource.title}</span>
+                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase text-slate-500">
+                            {resource.kind}
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 {selectedLesson.completed ? (
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
-                    Aula concluida. Recompensa ja registrada no seu historico.
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
+                      Aula concluida. Recompensa ja registrada no seu historico.
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                      <h3 className="font-bold text-slate-950">Avalie esta aula</h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Sua nota ajuda a melhorar os proximos conteudos.
+                      </p>
+                      <div className="mt-3 flex gap-1">
+                        {[0, 1, 2, 3, 4, 5].map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setRatingValue(value)}
+                            className={cn(
+                              "flex h-10 min-w-10 items-center justify-center rounded-xl border text-sm font-black transition-colors",
+                              ratingValue === value
+                                ? "border-amber-300 bg-amber-50 text-amber-600"
+                                : "border-slate-200 bg-white text-slate-400 hover:border-amber-200 hover:text-amber-500",
+                            )}
+                          >
+                            {value === 0 ? "0" : <Star size={17} className={ratingValue !== null && value <= ratingValue ? "fill-current" : ""} />}
+                          </button>
+                        ))}
+                      </div>
+                      {ratingValue !== null && ratingValue <= 2 ? (
+                        <textarea
+                          className="mt-3 min-h-20 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#0264af]"
+                          maxLength={200}
+                          placeholder="Conte em ate 200 caracteres o motivo da nota baixa."
+                          value={ratingComment}
+                          onChange={(event) => setRatingComment(event.target.value)}
+                        />
+                      ) : null}
+                      <Button
+                        className="mt-3"
+                        disabled={ratingValue === null || busy || (ratingValue <= 2 && !ratingComment.trim())}
+                        onClick={() => void rateLesson()}
+                      >
+                        Salvar avaliacao
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">

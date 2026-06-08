@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { Department } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -10,6 +11,17 @@ const completeLessonSchema = z.object({
   lessonId: z.string().min(1),
   selectedAnswerIndex: z.number().int().min(0).optional(),
 });
+
+function visibleEadWhere(userDepartment?: Department | null) {
+  return {
+    OR: [
+      ...(userDepartment ? [{ department: userDepartment }] : []),
+      ...(userDepartment ? [{ allowedDepartments: { has: userDepartment } }] : []),
+      { isGlobal: true },
+    ],
+    isPublished: true,
+  };
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request, "USER");
@@ -53,6 +65,7 @@ export async function POST(request: NextRequest) {
         select: {
           id: true,
           department: true,
+          allowedDepartments: true,
           isGlobal: true,
           isPublished: true,
         },
@@ -67,7 +80,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!lesson.course.isGlobal && lesson.course.department !== user.department) {
+  const hasDepartmentAccess =
+    lesson.course.department === user.department ||
+    (user.department ? lesson.course.allowedDepartments.includes(user.department) : false);
+
+  if (!lesson.course.isGlobal && !hasDepartmentAccess) {
     return NextResponse.json(
       { ok: false, error: "Esta aula pertence a outro departamento." },
       { status: 403 },
@@ -75,13 +92,7 @@ export async function POST(request: NextRequest) {
   }
 
   const departmentCourses = await prisma.eadCourse.findMany({
-    where: {
-      OR: [
-        ...(user.department ? [{ department: user.department }] : []),
-        { isGlobal: true },
-      ],
-      isPublished: true,
-    },
+    where: visibleEadWhere(user.department),
     orderBy: [{ department: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     include: {
       lessons: {
@@ -113,6 +124,41 @@ export async function POST(request: NextRequest) {
       {
         ok: false,
         error: "Conclua o curso anterior antes de avancar para esta aula.",
+      },
+      { status: 403 },
+    );
+  }
+
+  const previousLessons = await prisma.eadLesson.findMany({
+    where: {
+      courseId: lesson.courseId,
+      isPublished: true,
+      OR: [
+        { sortOrder: { lt: lesson.sortOrder } },
+        {
+          sortOrder: lesson.sortOrder,
+          createdAt: { lt: lesson.createdAt },
+        },
+      ],
+    },
+    select: {
+      id: true,
+      completions: {
+        where: { userId: user.id },
+        select: { id: true },
+      },
+    },
+  });
+
+  const previousLessonsCompleted = previousLessons.every(
+    (previousLesson) => previousLesson.completions.length > 0,
+  );
+
+  if (!previousLessonsCompleted) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Conclua a aula anterior antes de avancar.",
       },
       { status: 403 },
     );
