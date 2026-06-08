@@ -11,6 +11,7 @@ import {
   PlayCircle,
   Star,
   Trophy,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -255,6 +256,7 @@ export function EadScreen() {
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [ratingValue, setRatingValue] = useState<number | null>(null);
   const [ratingComment, setRatingComment] = useState("");
+  const [openResource, setOpenResource] = useState<EadResource | null>(null);
   const [videoEnded, setVideoEnded] = useState<Record<string, boolean>>({});
   const [feedback, setFeedback] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -477,12 +479,12 @@ export function EadScreen() {
           </p>
           <h1 className="mt-2 text-3xl font-black text-slate-950">
             {selectedDepartment
-              ? `Trilha de ${departmentSections.find((section) => section.department === selectedDepartment)?.label ?? "EAD"}`
+              ? `${departmentSections.find((section) => section.department === selectedDepartment)?.label ?? "EAD"}`
               : "Departamentos EAD"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
             {selectedDepartment
-              ? "Escolha um curso para acessar as aulas e materiais disponíveis."
+              ? "Acesse os cursos e consulte a biblioteca de documentos deste departamento."
               : data.user.department
                 ? "Selecione um departamento para ver os cursos liberados para o seu perfil."
                 : "Seu cadastro ainda nao possui departamento. Voce ainda pode acessar cursos liberados para todos os usuarios."}
@@ -546,14 +548,17 @@ export function EadScreen() {
                 }}
               >
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-[#0264af]">
-                  <GraduationCap size={22} />
+                  <BookOpen size={22} />
                 </div>
                 <h2 className="text-xl font-black text-slate-950">{section.label}</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
                   {section.courseCount} curso{section.courseCount === 1 ? "" : "s"} · {section.lessonCount} aula{section.lessonCount === 1 ? "" : "s"} · {section.resourceCount} documento{section.resourceCount === 1 ? "" : "s"}
                 </p>
+                <span className="mt-4 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                  Cursos e biblioteca
+                </span>
                 {section.globalCount > 0 ? (
-                  <span className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#0264af]">
+                  <span className="mt-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#0264af]">
                     {section.globalCount} liberado{section.globalCount === 1 ? "" : "s"} para todos
                   </span>
                 ) : null}
@@ -676,25 +681,34 @@ export function EadScreen() {
           ))}
 
           <Card className="p-4">
-            <h2 className="font-bold text-slate-950">Acervo</h2>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-bold text-slate-950">Biblioteca</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Acervo de documentos deste departamento.
+                </p>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#0264af]">
+                <BookOpen size={18} />
+              </div>
+            </div>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              Documentos e materiais liberados para este departamento.
+              Clique no documento para ler dentro da plataforma.
             </p>
             <div className="mt-4 space-y-2">
               {visibleResources.map((resource) => (
-                <a
+                <button
                   key={resource.id}
-                  href={resource.url}
-                  target="_blank"
-                  rel="noreferrer"
+                  type="button"
+                  onClick={() => setOpenResource(resource)}
                   className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-[#0264af]/30 hover:text-[#0264af]"
                 >
                   <FileText size={18} />
-                  <span className="flex-1">{resource.title}</span>
+                  <span className="flex-1 text-left">{resource.title}</span>
                   <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-500">
                     {resource.kind}
                   </span>
-                </a>
+                </button>
               ))}
               {visibleResources.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs text-slate-500">
@@ -896,6 +910,39 @@ export function EadScreen() {
           )}
         </Card>
       </div>
+      ) : null}
+
+      {openResource ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
+              <div>
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#0264af]">
+                  {openResource.kind}
+                </span>
+                <h2 className="mt-2 text-xl font-black text-slate-950">{openResource.title}</h2>
+                {openResource.description ? (
+                  <p className="mt-1 text-sm text-slate-500">{openResource.description}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenResource(null)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
+                aria-label="Fechar documento"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="h-[72vh] bg-slate-100">
+              <iframe
+                src={openResource.url}
+                title={openResource.title}
+                className="h-full w-full border-0"
+              />
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

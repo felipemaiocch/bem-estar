@@ -870,7 +870,7 @@ export function AdminEadScreen() {
           <Card className="p-6">
             <div className="mb-4 flex items-center gap-2">
               <FileText className="h-5 w-5 text-[#0264af]" />
-              <h2 className="text-lg font-bold text-slate-950">Novo item do acervo</h2>
+              <h2 className="text-lg font-bold text-slate-950">Novo documento da biblioteca</h2>
             </div>
             <form className="space-y-3" onSubmit={(event) => void createResource(event)}>
               <input
@@ -925,7 +925,7 @@ export function AdminEadScreen() {
               </div>
               <input
                 className={inputClassName}
-                placeholder="URL do arquivo ou documento"
+                placeholder="URL do PDF ou documento"
                 value={resourceForm.url}
                 onChange={(event) =>
                   setResourceForm((current) => ({ ...current, url: event.target.value }))
@@ -939,7 +939,7 @@ export function AdminEadScreen() {
                   setResourceForm((current) => ({ ...current, courseId: event.target.value, lessonId: "" }))
                 }
               >
-                <option value="">Acervo geral</option>
+                <option value="">Biblioteca geral do departamento</option>
                 {courses.map((course) => (
                   <option key={course.id} value={course.id}>
                     {course.departmentLabel} - {course.title}
@@ -1005,8 +1005,8 @@ export function AdminEadScreen() {
         <Card className="p-6">
           <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-slate-950">Acervo cadastrado</h2>
-              <p className="text-sm text-slate-500">Documentos e links visíveis dentro do EAD, com as mesmas regras de departamento dos cursos.</p>
+              <h2 className="text-lg font-bold text-slate-950">Biblioteca cadastrada</h2>
+              <p className="text-sm text-slate-500">Documentos visíveis no EAD por departamento. O usuário lê em modal dentro da plataforma.</p>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
               {resources.length} item{resources.length === 1 ? "" : "s"}
