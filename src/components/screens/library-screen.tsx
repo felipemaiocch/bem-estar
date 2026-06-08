@@ -17,11 +17,29 @@ type LibraryItem = {
   id: string;
   title: string;
   author: string | null;
+  mainAuthor: string | null;
+  entityAuthor: string | null;
+  secondaryAuthor: string | null;
+  secondaryEntity: string | null;
+  originalTitle: string | null;
+  translatedTitle: string | null;
+  originalLanguage: string | null;
+  translationLanguage: string | null;
+  edition: string | null;
+  publisher: string | null;
+  publicationPlace: string | null;
   year: number | null;
+  isbn: string | null;
   category: string;
+  subject: string | null;
   kind: string;
   kindLabel: string;
   description: string | null;
+  physicalDescription: string | null;
+  seriesCollection: string | null;
+  generalNote: string | null;
+  bibliography: string | null;
+  summary: string | null;
   coverUrl: string | null;
   materialUrl: string | null;
   location: string | null;
@@ -271,7 +289,7 @@ export function LibraryScreen() {
               {myReservations.map((reservation) => (
                 <div key={reservation.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <p className="font-black text-slate-950">{reservation.item.title}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{reservation.item.author ?? "Sem autor"}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{reservation.item.mainAuthor ?? reservation.item.author ?? "Sem autor"}</p>
                   <div className="mt-3 flex items-center justify-between text-xs font-bold">
                     <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-700">{reservation.statusLabel}</span>
                     {reservation.dueAt ? (
@@ -350,13 +368,35 @@ export function LibraryScreen() {
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <InfoRow label="Autor" value={selectedItem.author ?? "Não informado"} />
-                  <InfoRow label="Ano" value={selectedItem.year ? String(selectedItem.year) : "Não informado"} />
+                  <InfoRow label="SBN / ISBN" value={selectedItem.isbn ?? "Não informado"} />
+                  <InfoRow label="Edição" value={selectedItem.edition ?? "Não informado"} />
+                  <InfoRow label="Título original" value={selectedItem.originalTitle ?? "Não informado"} />
+                  <InfoRow label="Título traduzido" value={selectedItem.translatedTitle ?? "Não informado"} />
+                  <InfoRow label="Idioma original" value={selectedItem.originalLanguage ?? "Não informado"} />
+                  <InfoRow label="Idioma da tradução" value={selectedItem.translationLanguage ?? "Não informado"} />
+                  <InfoRow label="Autor principal" value={selectedItem.mainAuthor ?? selectedItem.author ?? "Não informado"} />
+                  <InfoRow label="Autor entidade" value={selectedItem.entityAuthor ?? "Não informado"} />
+                  <InfoRow label="Autor secundário" value={selectedItem.secondaryAuthor ?? "Não informado"} />
+                  <InfoRow label="Entidade secundária" value={selectedItem.secondaryEntity ?? "Não informado"} />
+                  <InfoRow
+                    label="Publicação"
+                    value={[
+                      selectedItem.publicationPlace,
+                      selectedItem.publisher,
+                      selectedItem.year ? String(selectedItem.year) : null,
+                    ].filter(Boolean).join(", ") || "Não informado"}
+                  />
+                  <InfoRow label="Descrição física" value={selectedItem.physicalDescription ?? "Não informado"} />
+                  <InfoRow label="Série ou coleção" value={selectedItem.seriesCollection ?? "Não informado"} />
                   <InfoRow label="Categoria" value={selectedItem.category} />
+                  <InfoRow label="Assunto" value={selectedItem.subject ?? "Não informado"} />
                   <InfoRow label="Local" value={selectedItem.location ?? "Biblioteca da empresa"} />
                   <InfoRow label="Disponibilidade" value={`${selectedItem.availableCopies}/${selectedItem.totalCopies} exemplar(es)`} />
                   <InfoRow label="Reservas ativas" value={String(selectedItem.activeReservationsCount)} />
                 </div>
+                <LongInfo label="Nota geral" value={selectedItem.generalNote} />
+                <LongInfo label="Bibliografia" value={selectedItem.bibliography} />
+                <LongInfo label="Sumário" value={selectedItem.summary} />
                 <div className="flex flex-wrap gap-3">
                   {selectedItem.materialUrl ? (
                     <Button variant="outline" onClick={() => window.open(selectedItem.materialUrl!, "_blank")}>
@@ -402,7 +442,7 @@ function LibraryCard({
       <div className="space-y-3 p-4">
         <button type="button" onClick={() => onOpen(item)} className="block w-full text-left">
           <p className="line-clamp-2 font-black leading-tight text-slate-950">{item.title}</p>
-          <p className="mt-1 truncate text-sm text-slate-500">{item.author ?? "Sem autor"}</p>
+          <p className="mt-1 truncate text-sm text-slate-500">{item.mainAuthor ?? item.author ?? "Sem autor"}</p>
         </button>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black uppercase text-[#0264af]">{item.category}</span>
@@ -429,6 +469,17 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
       <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{label}</p>
       <p className="mt-1 text-sm font-bold text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function LongInfo({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700">{value}</p>
     </div>
   );
 }

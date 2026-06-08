@@ -66,9 +66,16 @@ export async function listLibraryForUser(userId: string, options?: { search?: st
             OR: [
               { title: { contains: search, mode: "insensitive" } },
               { author: { contains: search, mode: "insensitive" } },
+              { mainAuthor: { contains: search, mode: "insensitive" } },
+              { secondaryAuthor: { contains: search, mode: "insensitive" } },
+              { entityAuthor: { contains: search, mode: "insensitive" } },
+              { secondaryEntity: { contains: search, mode: "insensitive" } },
+              { originalTitle: { contains: search, mode: "insensitive" } },
+              { translatedTitle: { contains: search, mode: "insensitive" } },
               { publisher: { contains: search, mode: "insensitive" } },
               { isbn: { contains: search, mode: "insensitive" } },
               { category: { contains: search, mode: "insensitive" } },
+              { subject: { contains: search, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -214,7 +221,11 @@ export async function listLibraryAdminData(options?: { search?: string; kind?: L
               OR: [
                 { title: { contains: search, mode: "insensitive" } },
                 { author: { contains: search, mode: "insensitive" } },
+                { mainAuthor: { contains: search, mode: "insensitive" } },
+                { originalTitle: { contains: search, mode: "insensitive" } },
+                { translatedTitle: { contains: search, mode: "insensitive" } },
                 { category: { contains: search, mode: "insensitive" } },
+                { subject: { contains: search, mode: "insensitive" } },
               ],
             }
           : {}),

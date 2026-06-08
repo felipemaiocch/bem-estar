@@ -344,12 +344,28 @@ model LibraryItem {
   id             String                @id @default(cuid())
   title          String
   author         String?
+  mainAuthor     String?
+  entityAuthor   String?
+  secondaryAuthor String?
+  secondaryEntity String?
+  originalTitle  String?
+  translatedTitle String?
+  originalLanguage String?
+  translationLanguage String?
+  edition        String?
   publisher      String?
+  publicationPlace String?
   year           Int?
   isbn           String?
   category       String
+  subject        String?
   kind           LibraryItemKind       @default(BOOK)
   description    String?
+  physicalDescription String?
+  seriesCollection String?
+  generalNote    String?
+  bibliography   String?
+  summary        String?
   coverUrl       String?
   materialUrl    String?
   location       String?

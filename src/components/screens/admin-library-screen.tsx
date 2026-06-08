@@ -18,11 +18,29 @@ type AdminLibraryItem = {
   id: string;
   title: string;
   author: string | null;
+  mainAuthor: string | null;
+  entityAuthor: string | null;
+  secondaryAuthor: string | null;
+  secondaryEntity: string | null;
+  originalTitle: string | null;
+  translatedTitle: string | null;
+  originalLanguage: string | null;
+  translationLanguage: string | null;
+  edition: string | null;
   publisher: string | null;
+  publicationPlace: string | null;
   year: number | null;
+  isbn: string | null;
   category: string;
+  subject: string | null;
   kind: string;
   kindLabel: string;
+  description: string | null;
+  physicalDescription: string | null;
+  seriesCollection: string | null;
+  generalNote: string | null;
+  bibliography: string | null;
+  summary: string | null;
   coverUrl: string | null;
   materialUrl: string | null;
   location: string | null;
@@ -51,12 +69,28 @@ type AdminReservation = {
 const defaultForm = {
   title: "",
   author: "",
+  mainAuthor: "",
+  entityAuthor: "",
+  secondaryAuthor: "",
+  secondaryEntity: "",
+  originalTitle: "",
+  translatedTitle: "",
+  originalLanguage: "",
+  translationLanguage: "",
+  edition: "",
   publisher: "",
+  publicationPlace: "",
   year: "",
   isbn: "",
   category: "",
+  subject: "",
   kind: "BOOK",
   description: "",
+  physicalDescription: "",
+  seriesCollection: "",
+  generalNote: "",
+  bibliography: "",
+  summary: "",
   coverUrl: "",
   materialUrl: "",
   location: "",
@@ -143,12 +177,28 @@ export function AdminLibraryScreen() {
         body: JSON.stringify({
           title: form.title,
           author: form.author || undefined,
+          mainAuthor: form.mainAuthor || undefined,
+          entityAuthor: form.entityAuthor || undefined,
+          secondaryAuthor: form.secondaryAuthor || undefined,
+          secondaryEntity: form.secondaryEntity || undefined,
+          originalTitle: form.originalTitle || undefined,
+          translatedTitle: form.translatedTitle || undefined,
+          originalLanguage: form.originalLanguage || undefined,
+          translationLanguage: form.translationLanguage || undefined,
+          edition: form.edition || undefined,
           publisher: form.publisher || undefined,
+          publicationPlace: form.publicationPlace || undefined,
           year: form.year ? Number(form.year) : undefined,
           isbn: form.isbn || undefined,
           category: form.category,
+          subject: form.subject || undefined,
           kind: form.kind,
           description: form.description || undefined,
+          physicalDescription: form.physicalDescription || undefined,
+          seriesCollection: form.seriesCollection || undefined,
+          generalNote: form.generalNote || undefined,
+          bibliography: form.bibliography || undefined,
+          summary: form.summary || undefined,
           coverUrl: form.coverUrl || undefined,
           materialUrl: form.materialUrl || undefined,
           location: form.location || undefined,
@@ -246,15 +296,38 @@ export function AdminLibraryScreen() {
               <h2 className="text-lg font-black text-slate-950">Catalogar material</h2>
             </div>
             <form className="space-y-3" onSubmit={(event) => void createItem(event)}>
-              <input className={inputClassName} placeholder="Nome do livro/material" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
+              <p className="text-xs font-black uppercase tracking-wider text-slate-400">Identificação</p>
+              <input className={inputClassName} placeholder="Título para exibição no card" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
               <div className="grid grid-cols-2 gap-3">
-                <input className={inputClassName} placeholder="Autor" value={form.author} onChange={(event) => setForm((current) => ({ ...current, author: event.target.value }))} />
+                <input className={inputClassName} placeholder="SBN / ISBN" value={form.isbn} onChange={(event) => setForm((current) => ({ ...current, isbn: event.target.value }))} />
+                <input className={inputClassName} placeholder="Edição" value={form.edition} onChange={(event) => setForm((current) => ({ ...current, edition: event.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input className={inputClassName} placeholder="Título original" value={form.originalTitle} onChange={(event) => setForm((current) => ({ ...current, originalTitle: event.target.value }))} />
+                <input className={inputClassName} placeholder="Título traduzido" value={form.translatedTitle} onChange={(event) => setForm((current) => ({ ...current, translatedTitle: event.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input className={inputClassName} placeholder="Idioma original" value={form.originalLanguage} onChange={(event) => setForm((current) => ({ ...current, originalLanguage: event.target.value }))} />
+                <input className={inputClassName} placeholder="Idioma da tradução" value={form.translationLanguage} onChange={(event) => setForm((current) => ({ ...current, translationLanguage: event.target.value }))} />
+              </div>
+
+              <p className="pt-2 text-xs font-black uppercase tracking-wider text-slate-400">Autoria</p>
+              <div className="grid grid-cols-2 gap-3">
+                <input className={inputClassName} placeholder="Autor principal" value={form.mainAuthor} onChange={(event) => setForm((current) => ({ ...current, mainAuthor: event.target.value, author: event.target.value || current.author }))} />
+                <input className={inputClassName} placeholder="Autor entidade" value={form.entityAuthor} onChange={(event) => setForm((current) => ({ ...current, entityAuthor: event.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input className={inputClassName} placeholder="Autor secundário" value={form.secondaryAuthor} onChange={(event) => setForm((current) => ({ ...current, secondaryAuthor: event.target.value }))} />
+                <input className={inputClassName} placeholder="Entidade secundária" value={form.secondaryEntity} onChange={(event) => setForm((current) => ({ ...current, secondaryEntity: event.target.value }))} />
+              </div>
+
+              <p className="pt-2 text-xs font-black uppercase tracking-wider text-slate-400">Publicação</p>
+              <div className="grid grid-cols-3 gap-3">
+                <input className={inputClassName} placeholder="Local" value={form.publicationPlace} onChange={(event) => setForm((current) => ({ ...current, publicationPlace: event.target.value }))} />
+                <input className={inputClassName} placeholder="Editora" value={form.publisher} onChange={(event) => setForm((current) => ({ ...current, publisher: event.target.value }))} />
                 <input className={inputClassName} placeholder="Ano" value={form.year} onChange={(event) => setForm((current) => ({ ...current, year: event.target.value.replace(/\D/g, "").slice(0, 4) }))} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input className={inputClassName} placeholder="Editora" value={form.publisher} onChange={(event) => setForm((current) => ({ ...current, publisher: event.target.value }))} />
-                <input className={inputClassName} placeholder="ISBN/código" value={form.isbn} onChange={(event) => setForm((current) => ({ ...current, isbn: event.target.value }))} />
-              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <select className={inputClassName} value={form.kind} onChange={(event) => setForm((current) => ({ ...current, kind: event.target.value }))}>
                   {kindOptions.map((kind) => (
@@ -263,7 +336,19 @@ export function AdminLibraryScreen() {
                 </select>
                 <input className={inputClassName} placeholder="Categoria" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} required />
               </div>
-              <textarea className={cn(inputClassName, "min-h-24 resize-none")} placeholder="Descrição / observação" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+              <input className={inputClassName} placeholder="Assunto" value={form.subject} onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} />
+
+              <p className="pt-2 text-xs font-black uppercase tracking-wider text-slate-400">Descrição física e notas</p>
+              <input className={inputClassName} placeholder="Descrição física (paginação, ilustração, dimensão)" value={form.physicalDescription} onChange={(event) => setForm((current) => ({ ...current, physicalDescription: event.target.value }))} />
+              <input className={inputClassName} placeholder="Série ou Coleção" value={form.seriesCollection} onChange={(event) => setForm((current) => ({ ...current, seriesCollection: event.target.value }))} />
+              <textarea className={cn(inputClassName, "min-h-20 resize-none")} placeholder="Nota geral" value={form.generalNote} onChange={(event) => setForm((current) => ({ ...current, generalNote: event.target.value }))} />
+              <textarea className={cn(inputClassName, "min-h-20 resize-none")} placeholder="Bibliografia" value={form.bibliography} onChange={(event) => setForm((current) => ({ ...current, bibliography: event.target.value }))} />
+
+              <p className="pt-2 text-xs font-black uppercase tracking-wider text-slate-400">Conteúdo</p>
+              <textarea className={cn(inputClassName, "min-h-24 resize-none")} placeholder="Sumário" value={form.summary} onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))} />
+              <textarea className={cn(inputClassName, "min-h-24 resize-none")} placeholder="Resumo" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+
+              <p className="pt-2 text-xs font-black uppercase tracking-wider text-slate-400">Capa, link e controle físico</p>
               <input className={inputClassName} placeholder="URL da capa" value={form.coverUrl} onChange={(event) => setForm((current) => ({ ...current, coverUrl: event.target.value }))} />
               <input className={inputClassName} placeholder="URL do arquivo/link do repositório" value={form.materialUrl} onChange={(event) => setForm((current) => ({ ...current, materialUrl: event.target.value }))} />
               <input className={inputClassName} placeholder="Local físico / prateleira" value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} />

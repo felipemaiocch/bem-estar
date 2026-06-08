@@ -1,0 +1,16 @@
+ALTER TABLE "LibraryItem" ADD COLUMN "mainAuthor" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "entityAuthor" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "secondaryAuthor" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "secondaryEntity" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "originalTitle" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "translatedTitle" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "originalLanguage" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "translationLanguage" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "edition" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "publicationPlace" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "subject" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "physicalDescription" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "seriesCollection" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "generalNote" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "bibliography" TEXT;
+ALTER TABLE "LibraryItem" ADD COLUMN "summary" TEXT;
