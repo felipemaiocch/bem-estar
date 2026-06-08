@@ -793,7 +793,7 @@ export function AdminEadScreen() {
               />
               <input
                 className={inputClassName}
-                placeholder="URL do video"
+                placeholder="URL do video ou YouTube nao listado"
                 value={lessonForm.videoUrl}
                 onChange={(event) =>
                   setLessonForm((current) => ({ ...current, videoUrl: event.target.value }))
@@ -1412,7 +1412,7 @@ export function AdminEadScreen() {
                                     />
                                     <input
                                       className={inputClassName}
-                                      placeholder="URL do video"
+                                      placeholder="URL do video ou YouTube nao listado"
                                       value={lessonEditForm.videoUrl}
                                       onChange={(event) =>
                                         setLessonEditForm((current) => ({

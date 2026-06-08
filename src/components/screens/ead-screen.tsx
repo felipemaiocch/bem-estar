@@ -12,7 +12,7 @@ import {
   Star,
   Trophy,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -111,6 +111,140 @@ const kindIcon = {
   PDF: FileText,
   TUTORIAL: BookOpen,
 };
+
+type YouTubeWindow = Window & {
+  YT?: {
+    Player: new (
+      element: HTMLElement,
+      options: {
+        videoId: string;
+        host?: string;
+        playerVars?: Record<string, string | number>;
+        events?: {
+          onStateChange?: (event: { data: number }) => void;
+        };
+      },
+    ) => { destroy: () => void };
+    PlayerState?: { ENDED: number };
+  };
+  onYouTubeIframeAPIReady?: () => void;
+};
+
+let youtubeApiPromise: Promise<void> | null = null;
+
+function getYouTubeVideoId(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+
+    if (host === "youtu.be") {
+      return parsed.pathname.split("/").filter(Boolean)[0] ?? null;
+    }
+
+    if (host === "youtube.com" || host === "youtube-nocookie.com" || host === "m.youtube.com") {
+      if (parsed.pathname === "/watch") {
+        return parsed.searchParams.get("v");
+      }
+
+      const [prefix, id] = parsed.pathname.split("/").filter(Boolean);
+      if (["embed", "shorts", "live"].includes(prefix)) {
+        return id ?? null;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function loadYouTubeApi() {
+  if (youtubeApiPromise) return youtubeApiPromise;
+
+  youtubeApiPromise = new Promise((resolve) => {
+    const win = window as YouTubeWindow;
+
+    if (win.YT?.Player) {
+      resolve();
+      return;
+    }
+
+    const previousReady = win.onYouTubeIframeAPIReady;
+    win.onYouTubeIframeAPIReady = () => {
+      previousReady?.();
+      resolve();
+    };
+
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  });
+
+  return youtubeApiPromise;
+}
+
+function YouTubeLessonPlayer({
+  url,
+  onEnded,
+}: {
+  url: string;
+  onEnded: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const videoId = getYouTubeVideoId(url);
+
+  useEffect(() => {
+    if (!videoId || !containerRef.current) return;
+
+    let cancelled = false;
+    let player: { destroy: () => void } | null = null;
+
+    void loadYouTubeApi().then(() => {
+      if (cancelled || !containerRef.current) return;
+      const win = window as YouTubeWindow;
+
+      if (!win.YT?.Player) return;
+
+      player = new win.YT.Player(containerRef.current, {
+        videoId,
+        host: "https://www.youtube-nocookie.com",
+        playerVars: {
+          controls: 0,
+          rel: 0,
+          modestbranding: 1,
+          disablekb: 1,
+          fs: 0,
+          playsinline: 1,
+          iv_load_policy: 3,
+          origin: window.location.origin,
+        },
+        events: {
+          onStateChange: (event) => {
+            if (event.data === win.YT?.PlayerState?.ENDED) {
+              onEnded();
+            }
+          },
+        },
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      player?.destroy();
+    };
+  }, [onEnded, videoId]);
+
+  if (!videoId) return null;
+
+  return (
+    <div className="aspect-video w-full overflow-hidden rounded-2xl bg-slate-950">
+      <div ref={containerRef} className="h-full w-full" />
+    </div>
+  );
+}
 
 export function EadScreen() {
   const [data, setData] = useState<EadPayload | null>(null);
@@ -597,20 +731,29 @@ export function EadScreen() {
               <div className="space-y-6 p-5">
                 {selectedLesson.kind === "VIDEO" ? (
                   selectedLesson.videoUrl ? (
-                    <video
-                      className="aspect-video w-full rounded-2xl bg-slate-950"
-                      controls
-                      controlsList="nodownload noplaybackrate"
-                      disablePictureInPicture
-                      preload="metadata"
-                      onEnded={() =>
-                        setVideoEnded((current) => ({ ...current, [selectedLesson.id]: true }))
-                      }
-                      onContextMenu={(event) => event.preventDefault()}
-                    >
-                      <source src={selectedLesson.videoUrl} />
-                      Seu navegador nao suporta reproducao de video.
-                    </video>
+                    getYouTubeVideoId(selectedLesson.videoUrl) ? (
+                      <YouTubeLessonPlayer
+                        url={selectedLesson.videoUrl}
+                        onEnded={() =>
+                          setVideoEnded((current) => ({ ...current, [selectedLesson.id]: true }))
+                        }
+                      />
+                    ) : (
+                      <video
+                        className="aspect-video w-full rounded-2xl bg-slate-950"
+                        controls
+                        controlsList="nodownload noplaybackrate"
+                        disablePictureInPicture
+                        preload="metadata"
+                        onEnded={() =>
+                          setVideoEnded((current) => ({ ...current, [selectedLesson.id]: true }))
+                        }
+                        onContextMenu={(event) => event.preventDefault()}
+                      >
+                        <source src={selectedLesson.videoUrl} />
+                        Seu navegador nao suporta reproducao de video.
+                      </video>
+                    )
                   ) : (
                     <div className="flex aspect-video w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
                       <PlayCircle className="mb-3 h-10 w-10 text-slate-300" />
