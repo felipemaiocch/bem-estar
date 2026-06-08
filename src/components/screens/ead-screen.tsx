@@ -266,42 +266,65 @@ function DirectVideoLessonPlayer({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPlaying(false);
+    setLoadError(null);
+  }, [url]);
 
   async function togglePlay() {
     const video = videoRef.current;
     if (!video) return;
 
-    if (video.paused) {
-      await video.play();
-      setPlaying(true);
-    } else {
-      video.pause();
-      setPlaying(false);
+    try {
+      if (video.paused) {
+        await video.play();
+        setPlaying(true);
+      } else {
+        video.pause();
+        setPlaying(false);
+      }
+    } catch {
+      setLoadError("Nao foi possivel iniciar o video. Verifique se o link HTTPS esta acessivel e aponta para um arquivo de video.");
     }
   }
 
   return (
     <div className="overflow-hidden rounded-2xl bg-slate-950">
-      <video
-        ref={videoRef}
-        className="aspect-video w-full bg-slate-950"
-        controls={false}
-        disablePictureInPicture
-        preload="metadata"
-        tabIndex={-1}
-        onEnded={() => {
-          setPlaying(false);
-          onEnded();
-        }}
-        onPause={() => setPlaying(false)}
-        onPlay={() => setPlaying(true)}
-        onContextMenu={(event) => event.preventDefault()}
-      >
-        <source src={url} />
-        Seu navegador nao suporta reproducao de video.
-      </video>
+      <div className="relative">
+        <video
+          ref={videoRef}
+          className="aspect-video w-full bg-slate-950"
+          controls={false}
+          disablePictureInPicture
+          preload="metadata"
+          tabIndex={-1}
+          onCanPlay={() => setLoadError(null)}
+          onError={() =>
+            setLoadError("Nao foi possivel carregar o video. Confirme se a URL esta em HTTPS, acessivel publicamente e retorna video/mp4.")
+          }
+          onEnded={() => {
+            setPlaying(false);
+            onEnded();
+          }}
+          onPause={() => setPlaying(false)}
+          onPlay={() => setPlaying(true)}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <source src={url} />
+          Seu navegador nao suporta reproducao de video.
+        </video>
+        {loadError ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/90 p-6 text-center">
+            <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold leading-6 text-amber-900">
+              {loadError}
+            </div>
+          </div>
+        ) : null}
+      </div>
       <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-slate-900 px-4 py-3">
-        <Button type="button" variant="secondary" onClick={() => void togglePlay()}>
+        <Button type="button" variant="secondary" onClick={() => void togglePlay()} disabled={Boolean(loadError)}>
           {playing ? <PauseCircle size={18} /> : <PlayCircle size={18} />}
           {playing ? "Pausar" : "Play"}
         </Button>
