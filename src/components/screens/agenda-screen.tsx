@@ -2,31 +2,39 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus2, ChevronLeft, ChevronRight, Clock3, ExternalLink, Lock, MapPin, Star } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Lock, MapPin, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { agendaFilters } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
-function getNextDays(startDate: Date, count: number) {
-  const daysArray = [];
-  const dayNames = ["D", "S", "T", "Q", "Q", "S", "S"];
-
-  for (let i = 0; i < count; i++) {
-    const d = new Date(startDate);
-    d.setDate(startDate.getDate() + i);
-    daysArray.push({
-      label: dayNames[d.getDay()],
-      day: d.getDate(),
-      month: d.getMonth() + 1,
-      year: d.getFullYear(),
-      dateObj: d,
-    });
-  }
-  return daysArray;
+function toDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function getMonthGridDays(baseDate: Date) {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const gridStart = new Date(firstDay);
+  gridStart.setDate(firstDay.getDate() - firstDay.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
+
+    return {
+      date,
+      key: toDateKey(date),
+      day: date.getDate(),
+      month: date.getMonth() + 1,
+      year: date.getFullYear(),
+      isCurrentMonth: date.getMonth() === month,
+      isToday: toDateKey(date) === toDateKey(new Date()),
+    };
+  });
+}
 
 type AgendaSlot = {
   slotId: string;
@@ -54,6 +62,20 @@ type UserBooking = {
   waitlistPosition?: number | null;
 };
 
+type MonthAgendaDay = {
+  day: number;
+  dateKey: string;
+  slotsCount: number;
+  availableSlotsCount: number;
+  eventsCount: number;
+  cardsCount: number;
+  myBookingsCount: number;
+  labels: Array<{
+    title: string;
+    kind: "event" | "card";
+  }>;
+};
+
 function bookingStatusLabel(status: UserBooking["status"]) {
   switch (status) {
     case "CONFIRMED":
@@ -71,63 +93,12 @@ function bookingStatusLabel(status: UserBooking["status"]) {
   }
 }
 
-function formatDateLabel(valueIso: string) {
-  const value = new Date(valueIso);
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
-}
-
-function formatGoogleDate(valueIso: string) {
-  const value = new Date(valueIso);
-  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-}
-
-function getGoogleCalendarUrl(booking: UserBooking) {
-  const title = `${booking.specialty} com ${booking.specialist}`;
-  const details = `${booking.focus} · ${booking.mode === "online" ? "Online" : "Presencial"}${booking.meetingUrl ? ` · ${booking.meetingUrl}` : ""
-    }`;
-
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: title,
-    dates: `${formatGoogleDate(booking.startsAtIso)}/${formatGoogleDate(booking.endsAtIso)}`,
-    details,
-    location: booking.location,
-  });
-
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
-}
-
-function getOutlookCalendarUrl(booking: UserBooking) {
-  const title = `${booking.specialty} com ${booking.specialist}`;
-  const body = `${booking.focus} · ${booking.mode === "online" ? "Online" : "Presencial"}${booking.meetingUrl ? ` · ${booking.meetingUrl}` : ""
-    }`;
-
-  const params = new URLSearchParams({
-    path: "/calendar/action/compose",
-    rru: "addevent",
-    subject: title,
-    startdt: booking.startsAtIso,
-    enddt: booking.endsAtIso,
-    body,
-    location: booking.location,
-  });
-
-  return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
-}
-
 export function AgendaScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState("Todos");
-  const [showWaitlist, setShowWaitlist] = useState(true);
 
   const [baseDate, setBaseDate] = useState(() => new Date());
-  const weekDays = useMemo(() => getNextDays(baseDate, 7), [baseDate]);
+  const monthGridDays = useMemo(() => getMonthGridDays(baseDate), [baseDate]);
 
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -141,8 +112,10 @@ export function AgendaScreen() {
   const [slots, setSlots] = useState<AgendaSlot[]>([]);
   const [dayEvents, setDayEvents] = useState<any[]>([]);
   const [dayCards, setDayCards] = useState<any[]>([]);
+  const [monthDays, setMonthDays] = useState<MonthAgendaDay[]>([]);
   const [myBookings, setMyBookings] = useState<UserBooking[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [loadingMonth, setLoadingMonth] = useState(false);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [pendingSlotId, setPendingSlotId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -191,6 +164,39 @@ export function AgendaScreen() {
     }
   }, [selectedDate, selectedFilter]);
 
+  const loadMonthDays = useCallback(async () => {
+    setLoadingMonth(true);
+
+    try {
+      const params = new URLSearchParams({
+        month: String(baseDate.getMonth() + 1),
+        year: String(baseDate.getFullYear()),
+        filter: selectedFilter,
+      });
+      const response = await fetch(`/api/user/agenda/month?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        days?: MonthAgendaDay[];
+      };
+
+      if (!response.ok || !data.ok) {
+        setMonthDays([]);
+        setErrorMessage((current) => current ?? data.error ?? "Não foi possível carregar o mês.");
+        return;
+      }
+
+      setMonthDays(data.days ?? []);
+    } catch {
+      setMonthDays([]);
+      setErrorMessage((current) => current ?? "Falha de conexão ao carregar o mês.");
+    } finally {
+      setLoadingMonth(false);
+    }
+  }, [baseDate, selectedFilter]);
+
   const loadMyBookings = useCallback(async () => {
     setLoadingBookings(true);
 
@@ -224,10 +230,12 @@ export function AgendaScreen() {
   }, [loadSlots]);
 
   useEffect(() => {
+    void loadMonthDays();
+  }, [loadMonthDays]);
+
+  useEffect(() => {
     void loadMyBookings();
   }, [loadMyBookings]);
-
-  const nextSession = myBookings[0] ?? null;
 
   const myBookingsForDay = useMemo(() => {
     return myBookings.filter(b => {
@@ -239,6 +247,9 @@ export function AgendaScreen() {
   }, [myBookings, selectedDate]);
 
   const filteredSlots = useMemo(() => slots, [slots]);
+  const monthDayMap = useMemo(() => {
+    return new Map(monthDays.map((day) => [day.dateKey, day]));
+  }, [monthDays]);
 
   async function handleBookingAction(slot: AgendaSlot) {
     if (pendingSlotId) {
@@ -278,7 +289,7 @@ export function AgendaScreen() {
       }
 
       setSuccessMessage(data.message ?? "Ação concluída com sucesso.");
-      await Promise.all([loadSlots(), loadMyBookings()]);
+      await Promise.all([loadSlots(), loadMyBookings(), loadMonthDays()]);
       router.refresh();
     } catch {
       setErrorMessage("Falha de conexão ao concluir a ação.");
@@ -292,7 +303,7 @@ export function AgendaScreen() {
       method: "POST",
       body: JSON.stringify({ eventId: event.id }),
     });
-    if (response.ok) await loadSlots();
+    if (response.ok) await Promise.all([loadSlots(), loadMonthDays()]);
   };
 
   const handleCardAction = (card: any) => {
@@ -332,226 +343,316 @@ export function AgendaScreen() {
         ))}
       </div>
 
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
-        <Card className="h-fit p-6 md:col-span-5">
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-900">{capitalizedMonth} {baseDate.getFullYear()}</h3>
-            <div className="flex gap-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-blue-600">
+                <CalendarDays size={15} />
+                Calendário mensal
+              </div>
+              <h3 className="mt-2 text-2xl font-black text-slate-950">
+                {capitalizedMonth} de {baseDate.getFullYear()}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => {
                   const newDate = new Date(baseDate);
-                  newDate.setDate(baseDate.getDate() - 7);
+                  newDate.setMonth(baseDate.getMonth() - 1);
                   setBaseDate(newDate);
                 }}
-                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                aria-label="Mes anterior"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
+                type="button"
+                onClick={() => {
+                  const today = new Date();
+                  setBaseDate(today);
+                  setSelectedDate({
+                    day: today.getDate(),
+                    month: today.getMonth() + 1,
+                    year: today.getFullYear(),
+                  });
+                }}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              >
+                Hoje
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   const newDate = new Date(baseDate);
-                  newDate.setDate(baseDate.getDate() + 7);
+                  newDate.setMonth(baseDate.getMonth() + 1);
                   setBaseDate(newDate);
                 }}
-                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                aria-label="Proximo mes"
               >
                 <ChevronRight size={20} />
               </button>
             </div>
           </div>
 
-          <div className="flex justify-between">
-            {weekDays.map((d, index) => {
-              const isSelected = selectedDate.day === d.day && selectedDate.month === d.month && selectedDate.year === d.year;
+          <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-800 text-center text-[11px] font-black uppercase tracking-widest text-white">
+            {["Dom.", "Seg.", "Ter.", "Qua.", "Qui.", "Sex.", "Sáb."].map((day) => (
+              <div key={day} className="border-r border-white/10 px-2 py-3 last:border-r-0">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7">
+            {monthGridDays.map((day) => {
+              const info = monthDayMap.get(day.key);
+              const isSelected =
+                selectedDate.day === day.day &&
+                selectedDate.month === day.month &&
+                selectedDate.year === day.year;
+              const hasContent =
+                Boolean(info?.slotsCount) ||
+                Boolean(info?.eventsCount) ||
+                Boolean(info?.cardsCount) ||
+                Boolean(info?.myBookingsCount);
+
               return (
-                <div key={`${d.day}-${d.month}-${index}`} className="flex flex-col items-center gap-2">
-                  <span className="text-xs font-bold text-gray-400">{d.label}</span>
-                  <button
-                    onClick={() => setSelectedDate({ day: d.day, month: d.month, year: d.year })}
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition-colors",
-                      isSelected
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
-                        : "text-gray-700 hover:bg-gray-100",
-                    )}
-                  >
-                    {d.day}
-                  </button>
-                  {isSelected ? (
-                    <div className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                <button
+                  type="button"
+                  key={day.key}
+                  onClick={() => {
+                    setSelectedDate({ day: day.day, month: day.month, year: day.year });
+                    if (day.month !== baseDate.getMonth() + 1 || day.year !== baseDate.getFullYear()) {
+                      setBaseDate(new Date(day.year, day.month - 1, 1));
+                    }
+                  }}
+                  className={cn(
+                    "group min-h-[118px] border-b border-r border-slate-200 p-2 text-left transition-colors last:border-r-0 sm:min-h-[136px] sm:p-3",
+                    !day.isCurrentMonth && "bg-slate-100/70 text-slate-400",
+                    day.isCurrentMonth && "bg-white hover:bg-blue-50/60",
+                    isSelected && "bg-blue-50 ring-2 ring-inset ring-blue-500",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-full text-sm font-black",
+                        day.isToday && "bg-slate-900 text-white",
+                        isSelected && !day.isToday && "bg-blue-600 text-white",
+                      )}
+                    >
+                      {day.day}
+                    </span>
+                    {info?.myBookingsCount ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-black text-emerald-700">
+                        {info.myBookingsCount} meu
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 space-y-1">
+                    {loadingMonth && day.isCurrentMonth ? (
+                      <div className="h-4 w-3/4 animate-pulse rounded bg-slate-100" />
+                    ) : null}
+                    {info?.labels.map((label, index) => (
+                      <div
+                        key={`${label.kind}-${label.title}-${index}`}
+                        className={cn(
+                          "truncate rounded-md px-2 py-1 text-[11px] font-bold",
+                          label.kind === "event"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-purple-100 text-purple-700",
+                        )}
+                      >
+                        {label.title}
+                      </div>
+                    ))}
+                    {info?.availableSlotsCount ? (
+                      <div className="truncate rounded-md bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">
+                        {info.availableSlotsCount} horário(s)
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {hasContent ? (
+                    <div className="mt-3 flex gap-1">
+                      {info?.eventsCount ? <span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> : null}
+                      {info?.cardsCount ? <span className="h-1.5 w-1.5 rounded-full bg-purple-500" /> : null}
+                      {info?.slotsCount ? <span className="h-1.5 w-1.5 rounded-full bg-slate-500" /> : null}
+                      {info?.myBookingsCount ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> : null}
+                    </div>
                   ) : null}
-                </div>
+                </button>
               );
             })}
           </div>
         </Card>
 
-        <div className="space-y-6 md:col-span-7">
-          {/* Section 1: Published Content (Events & Cards) */}
-          {(dayEvents.length > 0 || dayCards.length > 0) && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-900">Destaques e Programação</h3>
-              <div className="grid gap-4">
-                {dayEvents.map((event) => (
-                  <Card key={event.id} className="relative overflow-hidden p-4 border-l-4 border-blue-500 bg-blue-50/30">
-                    <div className="flex justify-between items-start mb-2">
-                       <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-100 px-2 py-0.5 rounded">Evento</span>
-                       <span className="text-[10px] font-bold text-slate-500">{event.time}</span>
-                    </div>
-                    <div className="flex justify-between items-end">
-                      <div>
-                        <p className="font-bold text-gray-900 leading-tight">{event.title}</p>
-                        <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-blue-700">
-                          <MapPin size={12} />
-                          {event.location}
-                        </div>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant={event.isParticipating ? "secondary" : "primary"}
-                        className={cn("h-8 rounded-lg", event.isParticipating && "bg-emerald-100 text-emerald-700")}
-                        disabled={event.isLocked}
-                        onClick={() => void handleParticipate(event)}
-                      >
-                        {event.isLocked ? (
-                          <>
-                            <Lock size={13} />
-                            Fechado
-                          </>
-                        ) : event.isParticipating ? "Participando" : "Participar"}
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-                {dayCards.map((card) => (
-                  <Card key={card.id} className="relative overflow-hidden p-4 border-l-4 border-purple-500 bg-purple-50/30">
-                    <div className="flex justify-between items-start mb-2">
-                       <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-100 px-2 py-0.5 rounded">{card.category?.replace(/-/g, ' ') || "Conteúdo"}</span>
-                       {card.slots && (
-                         <span className="text-[10px] font-bold text-slate-500">
-                           Grade: {card.slots.split(',')[0]}...
-                         </span>
-                       )}
-                    </div>
-                    <div className="flex justify-between items-end">
-                      <div>
-                        <p className="font-bold text-gray-900 leading-tight">{card.title}</p>
-                        <div className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-purple-700">
-                          <Star size={12} className="fill-purple-500" />
-                          {card.slots ? "Sessão com horários" : "Evento / Atividade"}
-                        </div>
-                      </div>
-                     <Button
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-8 rounded-lg text-purple-600 hover:bg-purple-100"
-                        disabled={card.isLocked}
-                        onClick={() => void handleCardAction(card)}
-                      >
-                        {card.isLocked ? "Turma fechada" : "Ver detalhes"}
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
+        <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+          <Card className="p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">Dia selecionado</p>
+                <h3 className="mt-1 text-xl font-black text-slate-950">
+                  {String(selectedDate.day).padStart(2, "0")}/{String(selectedDate.month).padStart(2, "0")}/{selectedDate.year}
+                </h3>
               </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                {filteredSlots.length} horário(s)
+              </span>
             </div>
-          )}
 
-          {/* Section 2: Personal Sessions */}
-          <div className="space-y-4">
-             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-900">Meus Agendamentos</h3>
-                <span className="text-xs font-semibold text-slate-500">{myBookingsForDay.length} sessão(ões) hoje</span>
-             </div>
-             
-             {loadingBookings ? (
-                <div className="animate-pulse space-y-3">
-                  <div className="h-20 w-full rounded-xl bg-slate-100" />
-                </div>
-             ) : myBookingsForDay.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
-                   <p className="text-sm text-slate-500">Nenhuma sessão marcada para este dia.</p>
-                </div>
-             ) : (
-                <div className="space-y-3">
-                  {myBookingsForDay.map((booking) => (
-                    <Card key={booking.id} className="p-4 border-l-4 border-emerald-500 shadow-sm">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-bold text-gray-900">{booking.specialty} · {booking.specialist}</p>
-                          <p className="text-xs text-slate-500 mt-1">{booking.focus}</p>
-                          <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
-                             <span className="flex items-center gap-1"><Clock3 size={12} /> {new Date(booking.startsAtIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                             <span className="flex items-center gap-1"><MapPin size={12} /> {booking.location}</span>
-                          </div>
-                        </div>
-                        <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700 uppercase">
-                          {bookingStatusLabel(booking.status)}
-                        </span>
-                      </div>
-                      {booking.meetingUrl && (
-                        <Button size="sm" className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => window.open(booking.meetingUrl, '_blank')}>
-                          Entrar na sala online
-                        </Button>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-             )}
-          </div>
-
-          {/* Section 3: Available Specialists */}
-          <div className="space-y-4 pt-2">
-            <h3 className="text-lg font-bold text-gray-900">
-              Especialistas Disponíveis
-            </h3>
-            
-            {errorMessage && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {errorMessage ? (
+              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {errorMessage}
               </div>
-            )}
-            {successMessage && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            ) : null}
+            {successMessage ? (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                 {successMessage}
               </div>
-            )}
+            ) : null}
+          </Card>
 
+          <Card className="p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-black text-slate-950">Meus agendamentos</h3>
+              <span className="text-xs font-bold text-slate-500">{myBookingsForDay.length}</span>
+            </div>
+
+            {loadingBookings ? (
+              <div className="h-20 animate-pulse rounded-xl bg-slate-100" />
+            ) : myBookingsForDay.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                Nenhuma sessão marcada para este dia.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myBookingsForDay.map((booking) => (
+                  <div key={booking.id} className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black text-slate-950">{booking.specialty}</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">{booking.specialist}</p>
+                      </div>
+                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-black uppercase text-emerald-700">
+                        {bookingStatusLabel(booking.status)}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-slate-600">
+                      <span className="flex items-center gap-1">
+                        <Clock3 size={12} />
+                        {new Date(booking.startsAtIso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin size={12} />
+                        {booking.location}
+                      </span>
+                    </div>
+                    {booking.meetingUrl ? (
+                      <Button size="sm" className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => window.open(booking.meetingUrl, "_blank")}>
+                        Entrar na sala online
+                      </Button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {(dayEvents.length > 0 || dayCards.length > 0) ? (
+            <Card className="p-5">
+              <h3 className="mb-4 text-base font-black text-slate-950">Destaques do dia</h3>
+              <div className="space-y-3">
+                {dayEvents.map((event) => (
+                  <div key={event.id} className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-black uppercase text-blue-700">Evento</span>
+                      <span className="text-xs font-black text-slate-500">{event.time}</span>
+                    </div>
+                    <p className="font-black leading-tight text-slate-950">{event.title}</p>
+                    <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-blue-700">
+                      <MapPin size={12} />
+                      {event.location}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={event.isParticipating ? "secondary" : "primary"}
+                      className={cn("mt-3 h-9 w-full rounded-xl", event.isParticipating && "bg-emerald-100 text-emerald-700")}
+                      disabled={event.isLocked}
+                      onClick={() => void handleParticipate(event)}
+                    >
+                      {event.isLocked ? (
+                        <>
+                          <Lock size={13} />
+                          Fechado
+                        </>
+                      ) : event.isParticipating ? "Participando" : "Participar"}
+                    </Button>
+                  </div>
+                ))}
+                {dayCards.map((card) => (
+                  <div key={card.id} className="rounded-2xl border border-purple-100 bg-purple-50/70 p-4">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="rounded-full bg-purple-100 px-2 py-1 text-[10px] font-black uppercase text-purple-700">
+                        {card.category?.replace(/-/g, " ") || "Conteúdo"}
+                      </span>
+                      {card.slots ? <span className="text-xs font-black text-slate-500">{card.slots.split(",")[0]}</span> : null}
+                    </div>
+                    <p className="font-black leading-tight text-slate-950">{card.title}</p>
+                    <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-purple-700">
+                      <Star size={12} className="fill-purple-500" />
+                      {card.slots ? "Sessão com horários" : "Evento / Atividade"}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="mt-3 h-9 w-full rounded-xl text-purple-700 hover:bg-purple-100"
+                      disabled={card.isLocked}
+                      onClick={() => void handleCardAction(card)}
+                    >
+                      {card.isLocked ? "Turma fechada" : "Ver detalhes"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+
+          <Card className="p-5">
+            <h3 className="mb-4 text-base font-black text-slate-950">Horários disponíveis</h3>
             {loadingSlots ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, index) => (
-                  <Card key={index} className="animate-pulse p-4">
-                    <div className="h-10 w-full rounded bg-slate-100" />
-                  </Card>
+                  <div key={index} className="h-16 animate-pulse rounded-xl bg-slate-100" />
                 ))}
               </div>
             ) : filteredSlots.length === 0 ? (
-              <div className="rounded-xl border border-gray-100 bg-white px-4 py-8 text-center text-sm text-gray-500">
-                Nenhum horário disponível para os filtros selecionados.
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                Nenhum horário disponível para este dia.
               </div>
             ) : (
               <div className="space-y-3">
                 {filteredSlots.map((slot) => (
-                  <Card
-                    key={slot.slotId}
-                    className="group flex flex-col gap-4 p-4 transition-all hover:shadow-md hover:border-blue-200 sm:flex-row sm:items-center"
-                  >
-                    <div className="flex flex-1 items-center gap-4">
-                      <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 font-bold text-slate-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                        <span className="text-sm">{slot.time}</span>
+                  <div key={slot.slotId} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">
+                        {slot.time}
                       </div>
-                      <div>
-                        <p className="font-bold text-gray-900">{slot.specialty}</p>
-                        <p className="text-xs text-gray-500">{slot.specialist} · {slot.focus}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-black leading-tight text-slate-950">{slot.specialty}</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">{slot.specialist} · {slot.focus}</p>
                       </div>
                     </div>
                     <Button
                       variant={slot.mineStatus ? "secondary" : "outline"}
                       size="sm"
                       className={cn(
-                        "sm:w-auto font-bold",
-                        !slot.mineStatus && slot.status === "available" && "border-blue-200 text-blue-600 hover:bg-blue-50"
+                        "mt-3 w-full font-black",
+                        !slot.mineStatus && slot.status === "available" && "border-blue-200 text-blue-700 hover:bg-blue-50",
                       )}
                       onClick={() => void handleBookingAction(slot)}
                       disabled={Boolean(slot.mineStatus) || pendingSlotId === slot.slotId}
@@ -566,12 +667,12 @@ export function AgendaScreen() {
                               ? "Agendar"
                               : "Fila de espera"}
                     </Button>
-                  </Card>
+                  </div>
                 ))}
               </div>
             )}
-          </div>
-        </div>
+          </Card>
+        </aside>
       </div>
     </div>
   );
