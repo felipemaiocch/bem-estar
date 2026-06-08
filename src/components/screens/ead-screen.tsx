@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Loader2,
   Lock,
+  PauseCircle,
   PlayCircle,
   Star,
   Trophy,
@@ -252,6 +253,62 @@ function YouTubeLessonPlayer({
   return (
     <div className="aspect-video w-full overflow-hidden rounded-2xl bg-slate-950">
       <div ref={containerRef} className="h-full w-full" />
+    </div>
+  );
+}
+
+function DirectVideoLessonPlayer({
+  url,
+  onEnded,
+}: {
+  url: string;
+  onEnded: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  async function togglePlay() {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      await video.play();
+      setPlaying(true);
+    } else {
+      video.pause();
+      setPlaying(false);
+    }
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl bg-slate-950">
+      <video
+        ref={videoRef}
+        className="aspect-video w-full bg-slate-950"
+        controls={false}
+        disablePictureInPicture
+        preload="metadata"
+        tabIndex={-1}
+        onEnded={() => {
+          setPlaying(false);
+          onEnded();
+        }}
+        onPause={() => setPlaying(false)}
+        onPlay={() => setPlaying(true)}
+        onContextMenu={(event) => event.preventDefault()}
+      >
+        <source src={url} />
+        Seu navegador nao suporta reproducao de video.
+      </video>
+      <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-slate-900 px-4 py-3">
+        <Button type="button" variant="secondary" onClick={() => void togglePlay()}>
+          {playing ? <PauseCircle size={18} /> : <PlayCircle size={18} />}
+          {playing ? "Pausar" : "Play"}
+        </Button>
+        <span className="text-xs font-semibold text-slate-300">
+          Avanco bloqueado. Assista ate o fim para liberar.
+        </span>
+      </div>
     </div>
   );
 }
@@ -768,20 +825,12 @@ export function EadScreen() {
                         }
                       />
                     ) : isDirectVideoUrl(selectedLesson.videoUrl) ? (
-                      <video
-                        className="aspect-video w-full rounded-2xl bg-slate-950"
-                        controls
-                        controlsList="nodownload noplaybackrate"
-                        disablePictureInPicture
-                        preload="metadata"
+                      <DirectVideoLessonPlayer
+                        url={selectedLesson.videoUrl}
                         onEnded={() =>
                           setVideoEnded((current) => ({ ...current, [selectedLesson.id]: true }))
                         }
-                        onContextMenu={(event) => event.preventDefault()}
-                      >
-                        <source src={selectedLesson.videoUrl} />
-                        Seu navegador nao suporta reproducao de video.
-                      </video>
+                      />
                     ) : (
                       <div className="space-y-3">
                         <iframe
@@ -791,18 +840,8 @@ export function EadScreen() {
                           allow="autoplay; fullscreen; picture-in-picture"
                         />
                         <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-                          Este video vem de um servidor externo. Quando terminar de assistir, confirme abaixo para liberar a pergunta.
+                          Este link abre uma pagina externa. Para liberar automaticamente a proxima etapa, use um link direto de video (.mp4, .webm ou .m3u8) ou YouTube configurado na plataforma.
                         </div>
-                        <Button
-                          type="button"
-                          variant={videoEnded[selectedLesson.id] ? "secondary" : "outline"}
-                          onClick={() =>
-                            setVideoEnded((current) => ({ ...current, [selectedLesson.id]: true }))
-                          }
-                        >
-                          {videoEnded[selectedLesson.id] ? "Video confirmado" : "Já assisti ao video"}
-                          <CheckCircle2 size={18} />
-                        </Button>
                       </div>
                     )
                   ) : (
@@ -903,7 +942,7 @@ export function EadScreen() {
                     {mustWatchVideo && !videoEnded[selectedLesson.id] ? (
                       <p className="mb-4 text-sm font-semibold text-slate-500">
                         {isExternalVideoPage
-                          ? "Assista ao video e confirme acima para liberar a pergunta."
+                          ? "Este link externo nao permite confirmar o termino do video. Use link direto de video ou YouTube para liberar a pergunta automaticamente."
                           : "Assista ao video ate o fim para liberar a pergunta."}
                       </p>
                     ) : null}
