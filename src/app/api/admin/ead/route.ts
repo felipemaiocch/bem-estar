@@ -3,11 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
-import { getDepartmentLabel } from "@/lib/departments";
+import { departmentValues, getDepartmentLabel } from "@/lib/departments";
 import { normalizeQuizOptions } from "@/lib/ead";
 import { prisma } from "@/lib/prisma";
 
-const departmentSchema = z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO", "SAC"]);
+const departmentSchema = z.enum(departmentValues);
 const lessonKindSchema = z.enum(["VIDEO", "PDF", "TUTORIAL"]);
 const resourceKindSchema = z.enum(["PDF", "DOCUMENT", "LINK", "VIDEO"]);
 

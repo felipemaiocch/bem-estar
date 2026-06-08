@@ -18,6 +18,8 @@ export interface WellnessView {
   createdAtLabel: string;
 }
 
+const dailyCheckInPoints = 5;
+
 declare global {
   var semonitoraDemoWellnessEntries:
     | Record<string, WellnessView[]>
@@ -31,6 +33,16 @@ function formatLabel(value: Date) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(value);
+}
+
+function getDayRange(reference = new Date()) {
+  const start = new Date(reference);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 1);
+
+  return { start, end };
 }
 
 function getDemoStore() {
@@ -79,9 +91,19 @@ export async function listWellnessEntries(userId: string, limit = 30) {
 }
 
 export async function createWellnessEntry(userId: string, input: WellnessInput) {
+  const { start, end } = getDayRange();
+
   if (isDemoMode()) {
     const store = getDemoStore();
     const now = new Date();
+    const alreadyCheckedInToday = (store[userId] ?? []).some((entry) => {
+      const createdAt = new Date(entry.createdAtIso);
+      return createdAt >= start && createdAt < end;
+    });
+
+    if (alreadyCheckedInToday) {
+      throw new Error("Você já fez o check-in de hoje. Volte amanhã para registrar novamente.");
+    }
 
     const entry: WellnessView = {
       id:
@@ -101,15 +123,43 @@ export async function createWellnessEntry(userId: string, input: WellnessInput) 
     return entry;
   }
 
-  const created = await prisma.wellnessEntry.create({
-    data: {
-      userId,
-      weightKg: input.weightKg,
-      moodLabel: input.moodLabel,
-      notes: input.notes?.trim() || null,
-      habitsScore: input.habitsScore,
-      moodScore: null,
-    },
+  const created = await prisma.$transaction(async (tx) => {
+    const alreadyCheckedInToday = await tx.wellnessEntry.findFirst({
+      where: {
+        userId,
+        createdAt: {
+          gte: start,
+          lt: end,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (alreadyCheckedInToday) {
+      throw new Error("Você já fez o check-in de hoje. Volte amanhã para registrar novamente.");
+    }
+
+    const entry = await tx.wellnessEntry.create({
+      data: {
+        userId,
+        weightKg: input.weightKg,
+        moodLabel: input.moodLabel,
+        notes: input.notes?.trim() || null,
+        habitsScore: input.habitsScore,
+        moodScore: null,
+      },
+    });
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        score: {
+          increment: dailyCheckInPoints,
+        },
+      },
+    });
+
+    return entry;
   });
 
   return {

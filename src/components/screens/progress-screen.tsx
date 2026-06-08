@@ -121,14 +121,14 @@ export function ProgressScreen() {
         }),
       });
 
-      const data = (await response.json()) as { ok?: boolean; error?: string; entry?: WellnessEntry };
+      const data = (await response.json()) as { ok?: boolean; error?: string; entry?: WellnessEntry; message?: string };
 
       if (!response.ok || !data.ok) {
         setSaveFeedback(data.error ?? "Não foi possível salvar evolução.");
         return;
       }
 
-      setSaveFeedback("Evolução salva com sucesso.");
+      setSaveFeedback(data.message ?? "Check-in salvo. +5 pontos adicionados ao seu ranking.");
       
       if (data.entry) {
         setHistory((prev) => [data.entry!, ...prev]);

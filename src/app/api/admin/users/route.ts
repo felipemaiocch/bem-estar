@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
 import { createAdminUser, listAdminUsers } from "@/lib/admin-operations";
+import { departmentValues } from "@/lib/departments";
 
 const createAdminUserSchema = z.object({
   name: z.string().min(2).max(160),
@@ -10,7 +11,7 @@ const createAdminUserSchema = z.object({
   role: z.enum(["USER", "PROFESSIONAL", "ADMIN"]),
   password: z.string().min(4).max(120).optional(),
   company: z.string().max(160).optional(),
-  department: z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO", "SAC"]).optional(),
+  department: z.enum(departmentValues).optional(),
   specialty: z.string().max(160).optional(),
   licenseCode: z.string().max(120).optional(),
   groupIds: z.array(z.string().min(1)).optional(),

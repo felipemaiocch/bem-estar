@@ -328,14 +328,15 @@ export function UserDashboardScreen() {
           notes: `Check-in rápido Home · humor: ${checkInMood} · energia: ${checkInEnergy}%`,
         }),
       });
-      const data = (await response.json()) as { ok?: boolean; error?: string };
+      const data = (await response.json()) as { ok?: boolean; error?: string; message?: string };
 
       if (!response.ok || !data.ok) {
         setCheckInFeedback(data.error ?? "Não foi possível salvar check-in.");
         return;
       }
 
-      setCheckInFeedback("Check-in salvo com sucesso.");
+      setCheckInFeedback(data.message ?? "Check-in salvo. +5 pontos adicionados ao seu ranking.");
+      await loadSummary();
     } catch {
       setCheckInFeedback("Falha de conexão ao salvar check-in.");
     } finally {

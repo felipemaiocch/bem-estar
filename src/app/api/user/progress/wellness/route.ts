@@ -47,10 +47,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const entry = await createWellnessEntry(auth.session.sub, parsed.data);
+  try {
+    const entry = await createWellnessEntry(auth.session.sub, parsed.data);
 
-  return NextResponse.json({
-    ok: true,
-    entry,
-  });
+    return NextResponse.json({
+      ok: true,
+      entry,
+      pointsAwarded: 5,
+      message: "Check-in salvo. +5 pontos adicionados ao seu ranking.",
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar check-in.",
+      },
+      { status: 409 },
+    );
+  }
 }

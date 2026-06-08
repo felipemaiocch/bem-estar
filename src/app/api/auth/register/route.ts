@@ -5,13 +5,14 @@ import { z } from "zod";
 import { createDemoSession, redirectForRole } from "@/lib/auth/demo-user";
 import { signToken } from "@/lib/auth/jwt";
 import { authCookieName, sessionCookieOptions } from "@/lib/auth/session";
+import { departmentValues } from "@/lib/departments";
 import { prisma } from "@/lib/prisma";
 
 const registerSchema = z.object({
   name: z.string().min(2),
   email: z.email(),
   password: z.string().min(6),
-  department: z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO", "SAC"]),
+  department: z.enum(departmentValues),
   goal: z
     .enum(["WEIGHT_LOSS", "MENTAL_HEALTH", "PERFORMANCE", "HABITS"])
     .optional(),

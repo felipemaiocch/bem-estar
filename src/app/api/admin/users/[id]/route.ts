@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
 import { updateAdminUser } from "@/lib/admin-operations";
+import { departmentValues } from "@/lib/departments";
 
 const updateUserSchema = z.object({
   name: z.string().min(2).max(160).optional(),
@@ -12,7 +13,7 @@ const updateUserSchema = z.object({
   approvalStatus: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
   approvalNote: z.string().max(500).optional(),
   company: z.string().max(160).optional(),
-  department: z.enum(["COMERCIAL", "FINANCEIRO", "ATENDIMENTO", "SAC"]).nullable().optional(),
+  department: z.enum(departmentValues).nullable().optional(),
   score: z.number().int().min(0).max(100000).optional(),
   groupIds: z.array(z.string().min(1)).optional(),
 });
