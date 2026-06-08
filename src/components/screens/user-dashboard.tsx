@@ -584,13 +584,215 @@ export function UserDashboardScreen() {
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-8">
-          <Card className="border-blue-100 bg-gradient-to-r from-white to-blue-50/40 p-6 md:p-8">
+          <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <SectionHeading
+            eyebrow="Momentos das atividades"
+            title="Feed social da equipe"
+            description="Acompanhe os momentos, comentários e publicações da equipe."
+          />
+          <Button
+            variant="secondary"
+            onClick={() => setFeedCollapsed((current) => !current)}
+          >
+            {feedCollapsed ? "Expandir feed" : "Recolher feed"}
+            {feedCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        <div className="px-5 py-4 max-h-[1000px] overflow-y-auto no-scrollbar">
+          {feedError ? (
+            <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {feedError}
+            </div>
+          ) : null}
+
+          {feedLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 2 }).map((_, index) => (
+                <div key={index} className="animate-pulse rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
+                  <div className="h-4 w-48 rounded bg-slate-200" />
+                  <div className="mt-2 h-3 w-64 rounded bg-slate-200" />
+                  <div className="mt-3 h-24 w-full rounded bg-slate-200" />
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {!feedLoading && posts.length === 0 ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+              O feed ainda não tem publicações. Assim que os profissionais postarem, aparece aqui.
+            </div>
+          ) : null}
+
+          {!feedLoading && posts.length > 0 ? (
+            <div className="space-y-4">
+              {visiblePosts.map((post) => (
+                <div key={post.id} className={cn(
+                  "mx-auto w-full max-w-3xl rounded-2xl border p-4 transition-all",
+                  post.professionalRole !== "Usuário" 
+                    ? "border-indigo-100 bg-white shadow-md shadow-indigo-500/5 ring-1 ring-indigo-50" 
+                    : "border-slate-100 bg-slate-50/60"
+                )}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-950">{post.activity}</p>
+                        {post.professionalRole !== "Usuário" ? (
+                          <span className="flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider">
+                            <CheckCircle2 size={10} />
+                            Especialista
+                          </span>
+                        ) : (
+                          <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
+                            Usuário
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {post.professional} · {post.time} · {post.location}
+                      </p>
+                    </div>
+
+                    {post.isOwner && (
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => handleEditMoment(post)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors"
+                          title="Editar"
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                        <button 
+                          onClick={() => void handleDeleteMoment(post.id)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{post.caption}</p>
+
+                  <div className="mt-3 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100">
+                    {feedCollapsed ? (
+                      <Image
+                        src={post.image || fallbackFeedImage}
+                        alt={post.activity}
+                        width={1400}
+                        height={860}
+                        sizes="(min-width: 1280px) 760px, (min-width: 1024px) 640px, 100vw"
+                        className="h-44 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex max-h-[520px] items-center justify-center">
+                        <Image
+                          src={post.image || fallbackFeedImage}
+                          alt={post.activity}
+                          width={1400}
+                          height={860}
+                          sizes="(min-width: 1280px) 760px, (min-width: 1024px) 640px, 100vw"
+                          className="h-auto max-h-[520px] w-auto max-w-full object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void toggleLike(post.id)}
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${post.likedByUser
+                        ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200"
+                        : "bg-white text-slate-700 ring-1 ring-slate-200"
+                        }`}
+                    >
+                      <Heart
+                        size={14}
+                        className={post.likedByUser ? "fill-rose-500 text-rose-500" : ""}
+                      />
+                      {post.likes} curtidas
+                    </button>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                      <MessageCircleMore size={14} />
+                      {post.comments.length} comentários
+                    </span>
+                  </div>
+
+                  {!feedCollapsed ? (
+                    <>
+                      <div className="mt-3 space-y-2 rounded-2xl bg-white p-3">
+                        {post.comments.slice(-3).map((comment) => (
+                          <div key={comment.id} className="text-xs leading-5 text-slate-600">
+                            <span className="font-semibold text-slate-900">{comment.author}</span> {comment.text}
+                          </div>
+                        ))}
+                      </div>
+
+                      <form
+                        className="mt-3 flex flex-col gap-2 sm:flex-row"
+                        onSubmit={(event) => void submitComment(event, post.id)}
+                      >
+                        <input
+                          value={commentDrafts[post.id] ?? ""}
+                          onChange={(event) =>
+                            setCommentDrafts((current) => ({
+                              ...current,
+                              [post.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Escreva um comentário..."
+                          className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                        />
+                        <Button type="submit" className="sm:w-auto">
+                          <SendHorizontal size={14} />
+                          Comentar
+                        </Button>
+                      </form>
+                    </>
+                  ) : null}
+                </div>
+              ))}
+
+              {!feedCollapsed && feedLoadingMore ? (
+                <div className="mx-auto w-full max-w-3xl animate-pulse rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="h-4 w-40 rounded bg-slate-200" />
+                  <div className="mt-2 h-3 w-56 rounded bg-slate-200" />
+                  <div className="mt-3 h-48 w-full rounded bg-slate-200" />
+                </div>
+              ) : null}
+
+              {!feedCollapsed && feedHasMore ? (
+                <div ref={feedSentinelRef} className="mx-auto h-10 w-full max-w-3xl" />
+              ) : null}
+
+              {!feedCollapsed && !feedHasMore && posts.length >= feedPageSize ? (
+                <p className="mx-auto w-full max-w-3xl text-center text-xs font-medium text-slate-500">
+                  Você chegou ao fim do feed.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+          </Card>
+        </div>
+
+        <div className="space-y-6 lg:col-span-4">
+          <Link href="/usuario/agenda">
+            <Button size="lg" className="h-14 w-full text-base shadow-xl shadow-blue-500/20">
+              Agendar atividade
+            </Button>
+          </Link>
+
+          <Card className="border-blue-100 bg-gradient-to-r from-white to-blue-50/40 p-5">
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-500">
                   O que tenho agora?
                 </h3>
-                <p className="text-2xl font-black text-gray-900">
+                <p className="text-xl font-black text-gray-900">
                   {bookingsLoading ? "Carregando próxima sessão..." : nextSession ? nextSession.specialty : "Sem sessão agendada"}
                 </p>
               </div>
@@ -600,7 +802,7 @@ export function UserDashboardScreen() {
             </div>
 
             {nextSession ? (
-              <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0264af]/10 text-[#0264af] shadow-inner">
                     <User size={28} />
@@ -617,18 +819,18 @@ export function UserDashboardScreen() {
                     </p>
                   </div>
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto">
+                <div className="flex w-full flex-col gap-2">
                   {nextSession.mode === "online" && nextSession.meetingUrl ? (
                     <a href={nextSession.meetingUrl} target="_blank" rel="noreferrer">
-                      <Button className="w-full sm:w-auto">Entrar na sala</Button>
+                      <Button className="w-full">Entrar na sala</Button>
                     </a>
                   ) : (
                     <Link href="/usuario/agenda">
-                      <Button className="w-full sm:w-auto">Ver detalhes</Button>
+                      <Button className="w-full">Ver detalhes</Button>
                     </Link>
                   )}
                   <Link href="/usuario/agenda">
-                    <Button variant="secondary" className="w-full sm:w-auto">Reagendar</Button>
+                    <Button variant="secondary" className="w-full">Reagendar</Button>
                   </Link>
                 </div>
               </div>
@@ -645,7 +847,6 @@ export function UserDashboardScreen() {
             ) : null}
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-1">
             <Card className="p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Zap className="h-4 w-4 text-[#0264af]" />
@@ -705,15 +906,6 @@ export function UserDashboardScreen() {
             </Card>
 
 
-          </div>
-        </div>
-
-        <div className="space-y-6 lg:col-span-4">
-          <Link href="/usuario/agenda">
-            <Button size="lg" className="h-14 w-full text-base shadow-xl shadow-blue-500/20">
-              Agendar atividade
-            </Button>
-          </Link>
 
           <Card className="p-6">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Ranking rápido</h3>
@@ -808,201 +1000,6 @@ export function UserDashboardScreen() {
         </div>
       </section>
 
-      <section>
-        <Card className="overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-            <SectionHeading
-              eyebrow="Momentos das atividades"
-              title="Feed social da equipe"
-              description="Agora em coluna secundária: expanda quando quiser foco em comunidade."
-            />
-            <Button
-              variant="secondary"
-              onClick={() => setFeedCollapsed((current) => !current)}
-            >
-              {feedCollapsed ? "Expandir feed" : "Recolher feed"}
-              {feedCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-            </Button>
-          </div>
-
-          <div className="px-5 py-4 max-h-[1000px] overflow-y-auto no-scrollbar">
-            {feedError ? (
-              <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {feedError}
-              </div>
-            ) : null}
-
-            {feedLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 2 }).map((_, index) => (
-                  <div key={index} className="animate-pulse rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
-                    <div className="h-4 w-48 rounded bg-slate-200" />
-                    <div className="mt-2 h-3 w-64 rounded bg-slate-200" />
-                    <div className="mt-3 h-24 w-full rounded bg-slate-200" />
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {!feedLoading && posts.length === 0 ? (
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-                O feed ainda não tem publicações. Assim que os profissionais postarem, aparece aqui.
-              </div>
-            ) : null}
-
-            {!feedLoading && posts.length > 0 ? (
-              <div className="space-y-4">
-                {visiblePosts.map((post) => (
-                  <div key={post.id} className={cn(
-                    "mx-auto w-full max-w-3xl rounded-2xl border p-4 transition-all",
-                    post.professionalRole !== "Usuário" 
-                      ? "border-indigo-100 bg-white shadow-md shadow-indigo-500/5 ring-1 ring-indigo-50" 
-                      : "border-slate-100 bg-slate-50/60"
-                  )}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-slate-950">{post.activity}</p>
-                          {post.professionalRole !== "Usuário" ? (
-                            <span className="flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider">
-                              <CheckCircle2 size={10} />
-                              Especialista
-                            </span>
-                          ) : (
-                            <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
-                              Usuário
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 text-[11px] text-slate-500">
-                          {post.professional} · {post.time} · {post.location}
-                        </p>
-                      </div>
-
-                      {post.isOwner && (
-                        <div className="flex items-center gap-1">
-                          <button 
-                            onClick={() => handleEditMoment(post)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 size={15} />
-                          </button>
-                          <button 
-                            onClick={() => void handleDeleteMoment(post.id)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="mt-3 text-sm leading-6 text-slate-600">{post.caption}</p>
-
-                    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100">
-                      {feedCollapsed ? (
-                        <Image
-                          src={post.image || fallbackFeedImage}
-                          alt={post.activity}
-                          width={1400}
-                          height={860}
-                          sizes="(min-width: 1280px) 760px, (min-width: 1024px) 640px, 100vw"
-                          className="h-44 w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex max-h-[520px] items-center justify-center">
-                          <Image
-                            src={post.image || fallbackFeedImage}
-                            alt={post.activity}
-                            width={1400}
-                            height={860}
-                            sizes="(min-width: 1280px) 760px, (min-width: 1024px) 640px, 100vw"
-                            className="h-auto max-h-[520px] w-auto max-w-full object-contain"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void toggleLike(post.id)}
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${post.likedByUser
-                          ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200"
-                          : "bg-white text-slate-700 ring-1 ring-slate-200"
-                          }`}
-                      >
-                        <Heart
-                          size={14}
-                          className={post.likedByUser ? "fill-rose-500 text-rose-500" : ""}
-                        />
-                        {post.likes} curtidas
-                      </button>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-                        <MessageCircleMore size={14} />
-                        {post.comments.length} comentários
-                      </span>
-                    </div>
-
-                    {!feedCollapsed ? (
-                      <>
-                        <div className="mt-3 space-y-2 rounded-2xl bg-white p-3">
-                          {post.comments.slice(-3).map((comment) => (
-                            <div key={comment.id} className="text-xs leading-5 text-slate-600">
-                              <span className="font-semibold text-slate-900">{comment.author}</span> {comment.text}
-                            </div>
-                          ))}
-                        </div>
-
-                        <form
-                          className="mt-3 flex flex-col gap-2 sm:flex-row"
-                          onSubmit={(event) => void submitComment(event, post.id)}
-                        >
-                          <input
-                            value={commentDrafts[post.id] ?? ""}
-                            onChange={(event) =>
-                              setCommentDrafts((current) => ({
-                                ...current,
-                                [post.id]: event.target.value,
-                              }))
-                            }
-                            placeholder="Escreva um comentário..."
-                            className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                          />
-                          <Button type="submit" className="sm:w-auto">
-                            <SendHorizontal size={14} />
-                            Comentar
-                          </Button>
-                        </form>
-                      </>
-                    ) : null}
-                  </div>
-                ))}
-
-                {!feedCollapsed && feedLoadingMore ? (
-                  <div className="mx-auto w-full max-w-3xl animate-pulse rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                    <div className="h-4 w-40 rounded bg-slate-200" />
-                    <div className="mt-2 h-3 w-56 rounded bg-slate-200" />
-                    <div className="mt-3 h-48 w-full rounded bg-slate-200" />
-                  </div>
-                ) : null}
-
-                {!feedCollapsed && feedHasMore ? (
-                  <div ref={feedSentinelRef} className="mx-auto h-10 w-full max-w-3xl" />
-                ) : null}
-
-                {!feedCollapsed && !feedHasMore && posts.length >= feedPageSize ? (
-                  <p className="mx-auto w-full max-w-3xl text-center text-xs font-medium text-slate-500">
-                    Você chegou ao fim do feed.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </Card>
-      </section>
 
       {/* Modal de Publicação/Edição */}
       {isPublishModalOpen && (
