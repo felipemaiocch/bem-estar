@@ -1,4 +1,4 @@
-import type { LibraryItemKind, LibraryReservationStatus } from "@prisma/client";
+import type { LibraryItemKind, LibraryReservationStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -42,6 +42,11 @@ export const libraryReservationStatusValues = libraryReservationStatusOptions.ma
   LibraryReservationStatus,
   ...LibraryReservationStatus[],
 ];
+
+export type LibraryReportFilters = {
+  from?: Date;
+  to?: Date;
+};
 
 export function getLibraryKindLabel(kind?: string | null) {
   return libraryKindOptions.find((item) => item.value === kind)?.label ?? "Material";
@@ -279,5 +284,218 @@ export async function listLibraryAdminData(options?: { search?: string; kind?: L
       returned: returnedCount,
     },
     kindOptions: libraryKindOptions,
+  };
+}
+
+function buildPeriodWhere(field: "createdAt" | "reservedAt" | "borrowedAt" | "returnedAt", filters?: LibraryReportFilters) {
+  const range: { gte?: Date; lte?: Date } = {};
+
+  if (filters?.from) range.gte = filters.from;
+  if (filters?.to) range.lte = filters.to;
+
+  return Object.keys(range).length ? { [field]: range } : {};
+}
+
+function mapKindCounts(items: Array<{ kind: LibraryItemKind; _count: { kind: number } }>) {
+  return items.map((item) => ({
+    kind: item.kind,
+    label: getLibraryKindLabel(item.kind),
+    count: item._count.kind,
+  }));
+}
+
+export async function getLibraryReport(filters?: LibraryReportFilters) {
+  const createdWhere = buildPeriodWhere("createdAt", filters);
+  const reservedWhere = buildPeriodWhere("reservedAt", filters);
+  const borrowedWhere = buildPeriodWhere("borrowedAt", filters);
+  const returnedWhere = buildPeriodWhere("returnedAt", filters);
+
+  const [
+    itemsAdded,
+    totalItems,
+    activeItems,
+    reservationStatusCounts,
+    reservationsInPeriod,
+    borrowedInPeriod,
+    returnedInPeriod,
+    uniqueUsers,
+    topReservedItems,
+    topBorrowedItems,
+    kindCounts,
+    categoryCounts,
+    recentItems,
+    recentReservations,
+  ] = await Promise.all([
+    prisma.libraryItem.count({ where: createdWhere }),
+    prisma.libraryItem.count(),
+    prisma.libraryItem.count({ where: { status: "AVAILABLE" } }),
+    prisma.libraryReservation.groupBy({
+      by: ["status"],
+      where: reservedWhere,
+      _count: { status: true },
+    }),
+    prisma.libraryReservation.count({ where: reservedWhere }),
+    prisma.libraryReservation.count({
+      where: {
+        status: { in: ["BORROWED", "RETURNED", "OVERDUE"] },
+        borrowedAt: { not: null },
+        ...borrowedWhere,
+      },
+    }),
+    prisma.libraryReservation.count({
+      where: {
+        status: "RETURNED",
+        returnedAt: { not: null },
+        ...returnedWhere,
+      },
+    }),
+    prisma.libraryReservation.findMany({
+      where: reservedWhere,
+      distinct: ["userId"],
+      select: { userId: true },
+    }),
+    prisma.libraryItem.findMany({
+      include: {
+        _count: {
+          select: {
+            reservations: {
+              where: reservedWhere as Prisma.LibraryReservationWhereInput,
+            },
+          },
+        },
+      },
+      orderBy: [{ reservations: { _count: "desc" } }, { title: "asc" }],
+      take: 8,
+    }),
+    prisma.libraryItem.findMany({
+      include: {
+        _count: {
+          select: {
+            reservations: {
+              where: {
+                status: { in: ["BORROWED", "RETURNED", "OVERDUE"] },
+                borrowedAt: { not: null },
+                ...(borrowedWhere as Prisma.LibraryReservationWhereInput),
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ reservations: { _count: "desc" } }, { title: "asc" }],
+      take: 8,
+    }),
+    prisma.libraryItem.groupBy({
+      by: ["kind"],
+      where: createdWhere,
+      _count: { kind: true },
+      orderBy: { _count: { kind: "desc" } },
+    }),
+    prisma.libraryItem.groupBy({
+      by: ["category"],
+      where: createdWhere,
+      _count: { category: true },
+      orderBy: { _count: { category: "desc" } },
+      take: 8,
+    }),
+    prisma.libraryItem.findMany({
+      where: createdWhere,
+      include: {
+        creator: {
+          select: { name: true, email: true },
+        },
+        _count: {
+          select: { reservations: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    }),
+    prisma.libraryReservation.findMany({
+      where: reservedWhere,
+      include: {
+        item: true,
+        user: {
+          select: { name: true, email: true, department: true },
+        },
+      },
+      orderBy: { reservedAt: "desc" },
+      take: 20,
+    }),
+  ]);
+
+  const byStatus = Object.fromEntries(
+    libraryReservationStatusOptions.map((status) => [
+      status.value,
+      reservationStatusCounts.find((item) => item.status === status.value)?._count.status ?? 0,
+    ]),
+  ) as Record<LibraryReservationStatus, number>;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    period: {
+      from: filters?.from?.toISOString() ?? null,
+      to: filters?.to?.toISOString() ?? null,
+    },
+    metrics: {
+      totalItems,
+      activeItems,
+      itemsAdded,
+      reservationsInPeriod,
+      uniqueUsers: uniqueUsers.length,
+      borrowedInPeriod,
+      returnedInPeriod,
+      reserved: byStatus.RESERVED,
+      borrowed: byStatus.BORROWED,
+      returned: byStatus.RETURNED,
+      canceled: byStatus.CANCELED,
+      overdue: byStatus.OVERDUE,
+    },
+    topReservedItems: topReservedItems
+      .filter((item) => item._count.reservations > 0)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        author: item.mainAuthor ?? item.author,
+        category: item.category,
+        kindLabel: getLibraryKindLabel(item.kind),
+        reservationsCount: item._count.reservations,
+      })),
+    topBorrowedItems: topBorrowedItems
+      .filter((item) => item._count.reservations > 0)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        author: item.mainAuthor ?? item.author,
+        category: item.category,
+        kindLabel: getLibraryKindLabel(item.kind),
+        borrowedCount: item._count.reservations,
+      })),
+    kindCounts: mapKindCounts(kindCounts),
+    categoryCounts: categoryCounts.map((item) => ({
+      category: item.category,
+      count: item._count.category,
+    })),
+    recentItems: recentItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      author: item.mainAuthor ?? item.author,
+      category: item.category,
+      kindLabel: getLibraryKindLabel(item.kind),
+      createdAt: item.createdAt.toISOString(),
+      creatorName: item.creator?.name ?? null,
+      reservationsCount: item._count.reservations,
+    })),
+    recentReservations: recentReservations.map((reservation) => ({
+      id: reservation.id,
+      status: reservation.status,
+      statusLabel: getReservationStatusLabel(reservation.status),
+      reservedAt: reservation.reservedAt.toISOString(),
+      borrowedAt: reservation.borrowedAt?.toISOString() ?? null,
+      returnedAt: reservation.returnedAt?.toISOString() ?? null,
+      itemTitle: reservation.item.title,
+      userName: reservation.user.name,
+      userEmail: reservation.user.email,
+      userDepartment: reservation.user.department,
+    })),
   };
 }

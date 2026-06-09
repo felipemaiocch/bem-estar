@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, BookOpen, CheckCircle2, Clock3, Library, Plus, Search, Undo2 } from "lucide-react";
+import { BarChart3, BookOpen, CalendarDays, CheckCircle2, Clock3, Download, Library, Plus, Search, Undo2 } from "lucide-react";
 
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,68 @@ type AdminReservation = {
   };
 };
 
+type LibraryReport = {
+  generatedAt: string;
+  period: {
+    from: string | null;
+    to: string | null;
+  };
+  metrics: {
+    totalItems: number;
+    activeItems: number;
+    itemsAdded: number;
+    reservationsInPeriod: number;
+    uniqueUsers: number;
+    borrowedInPeriod: number;
+    returnedInPeriod: number;
+    reserved: number;
+    borrowed: number;
+    returned: number;
+    canceled: number;
+    overdue: number;
+  };
+  topReservedItems: Array<{
+    id: string;
+    title: string;
+    author: string | null;
+    category: string;
+    kindLabel: string;
+    reservationsCount: number;
+  }>;
+  topBorrowedItems: Array<{
+    id: string;
+    title: string;
+    author: string | null;
+    category: string;
+    kindLabel: string;
+    borrowedCount: number;
+  }>;
+  kindCounts: Array<{ kind: string; label: string; count: number }>;
+  categoryCounts: Array<{ category: string; count: number }>;
+  recentItems: Array<{
+    id: string;
+    title: string;
+    author: string | null;
+    category: string;
+    kindLabel: string;
+    createdAt: string;
+    creatorName: string | null;
+    reservationsCount: number;
+  }>;
+  recentReservations: Array<{
+    id: string;
+    status: string;
+    statusLabel: string;
+    reservedAt: string;
+    borrowedAt: string | null;
+    returnedAt: string | null;
+    itemTitle: string;
+    userName: string;
+    userEmail: string;
+    userDepartment: string | null;
+  }>;
+};
+
 const defaultForm = {
   title: "",
   author: "",
@@ -103,6 +165,58 @@ const defaultForm = {
 const inputClassName =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#0264af] focus:bg-white";
 
+const dateFormatter = new Intl.DateTimeFormat("pt-BR");
+
+function toInputDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+  return dateFormatter.format(new Date(value));
+}
+
+function reportPeriodLabel(report: LibraryReport | null) {
+  if (!report?.period.from && !report?.period.to) return "Todo o histórico";
+  return `${formatDate(report.period.from)} até ${formatDate(report.period.to)}`;
+}
+
+function ReportList({
+  title,
+  empty,
+  items,
+}: {
+  title: string;
+  empty: string;
+  items: Array<{ id: string; title: string; subtitle: string; value: string }>;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4">
+      <h3 className="mb-3 text-sm font-black text-slate-950">{title}</h3>
+      <div className="space-y-2">
+        {items.slice(0, 5).map((item, index) => (
+          <div key={item.id} className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-slate-900">
+                {index + 1}. {item.title}
+              </p>
+              <p className="truncate text-xs font-semibold text-slate-500">{item.subtitle}</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[11px] font-black text-blue-700">
+              {item.value}
+            </span>
+          </div>
+        ))}
+        {items.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs font-semibold text-slate-500">
+            {empty}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function AdminLibraryScreen() {
   const [items, setItems] = useState<AdminLibraryItem[]>([]);
   const [reservations, setReservations] = useState<AdminReservation[]>([]);
@@ -117,6 +231,14 @@ export function AdminLibraryScreen() {
   const [form, setForm] = useState(defaultForm);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState("ALL");
+  const [reportFrom, setReportFrom] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return toInputDate(date);
+  });
+  const [reportTo, setReportTo] = useState(() => toInputDate(new Date()));
+  const [libraryReport, setLibraryReport] = useState<LibraryReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -162,6 +284,119 @@ export function AdminLibraryScreen() {
 
     return () => clearTimeout(timeout);
   }, [loadLibrary]);
+
+  const loadReport = useCallback(async () => {
+    setReportLoading(true);
+    setFeedback(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (reportFrom) params.set("from", reportFrom);
+      if (reportTo) params.set("to", reportTo);
+
+      const response = await fetch(`/api/admin/library/report?${params.toString()}`, { cache: "no-store" });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Nao foi possivel carregar o relatorio.");
+        return;
+      }
+
+      setLibraryReport(data.report);
+    } catch {
+      setFeedback("Falha de conexao ao carregar relatorio.");
+    } finally {
+      setReportLoading(false);
+    }
+  }, [reportFrom, reportTo]);
+
+  useEffect(() => {
+    void loadReport();
+  }, [loadReport]);
+
+  async function downloadReportPdf() {
+    if (!libraryReport) return;
+
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 40;
+    let y = 44;
+
+    function addLine(text: string, size = 10, weight: "normal" | "bold" = "normal") {
+      if (y > 770) {
+        doc.addPage();
+        y = 44;
+      }
+      doc.setFont("helvetica", weight);
+      doc.setFontSize(size);
+      const lines = doc.splitTextToSize(text, pageWidth - margin * 2) as string[];
+      doc.text(lines, margin, y);
+      y += lines.length * (size + 4);
+    }
+
+    function addSection(title: string) {
+      y += 10;
+      addLine(title, 13, "bold");
+    }
+
+    doc.setTextColor(15, 23, 42);
+    addLine("Relatorio da Biblioteca e Repositorio", 18, "bold");
+    addLine(`Periodo: ${reportPeriodLabel(libraryReport)}`, 10);
+    addLine(`Gerado em: ${formatDate(libraryReport.generatedAt)}`, 10);
+
+    addSection("Indicadores");
+    [
+      ["Materiais no acervo", libraryReport.metrics.totalItems],
+      ["Materiais ativos", libraryReport.metrics.activeItems],
+      ["Entradas no periodo", libraryReport.metrics.itemsAdded],
+      ["Reservas no periodo", libraryReport.metrics.reservationsInPeriod],
+      ["Pessoas com reserva", libraryReport.metrics.uniqueUsers],
+      ["Retiradas no periodo", libraryReport.metrics.borrowedInPeriod],
+      ["Devolucoes no periodo", libraryReport.metrics.returnedInPeriod],
+      ["Canceladas", libraryReport.metrics.canceled],
+      ["Em atraso", libraryReport.metrics.overdue],
+    ].forEach(([label, value]) => addLine(`${label}: ${value}`));
+
+    addSection("Mais reservados");
+    if (libraryReport.topReservedItems.length) {
+      libraryReport.topReservedItems.forEach((item, index) => {
+        addLine(`${index + 1}. ${item.title} - ${item.author ?? "Sem autor"} - ${item.reservationsCount} reserva(s)`);
+      });
+    } else {
+      addLine("Nenhum material reservado no periodo.");
+    }
+
+    addSection("Materiais que sairam / retirados");
+    if (libraryReport.topBorrowedItems.length) {
+      libraryReport.topBorrowedItems.forEach((item, index) => {
+        addLine(`${index + 1}. ${item.title} - ${item.borrowedCount} retirada(s)`);
+      });
+    } else {
+      addLine("Nenhum material retirado no periodo.");
+    }
+
+    addSection("Entradas recentes");
+    if (libraryReport.recentItems.length) {
+      libraryReport.recentItems.forEach((item) => {
+        addLine(`${formatDate(item.createdAt)} - ${item.title} - ${item.kindLabel} - ${item.category}`);
+      });
+    } else {
+      addLine("Nenhum material entrou no periodo.");
+    }
+
+    addSection("Movimentacoes recentes");
+    if (libraryReport.recentReservations.length) {
+      libraryReport.recentReservations.forEach((reservation) => {
+        addLine(`${formatDate(reservation.reservedAt)} - ${reservation.itemTitle} - ${reservation.userName} - ${reservation.statusLabel}`);
+      });
+    } else {
+      addLine("Nenhuma movimentacao no periodo.");
+    }
+
+    const suffix = `${reportFrom || "inicio"}-${reportTo || "hoje"}`;
+    doc.save(`relatorio-biblioteca-${suffix}.pdf`);
+  }
 
   async function createItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -288,6 +523,99 @@ export function AdminLibraryScreen() {
             {feedback}
           </div>
         ) : null}
+
+        <Card className="p-6">
+          <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-blue-50 p-3 text-[#0264af]">
+                <BarChart3 size={22} />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-slate-950">Relatorios da biblioteca</h2>
+                <p className="text-sm font-semibold text-slate-500">
+                  Entradas, reservas, retiradas, devolucoes, pessoas e materiais mais movimentados.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative">
+                <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  className={cn(inputClassName, "pl-9")}
+                  type="date"
+                  value={reportFrom}
+                  onChange={(event) => setReportFrom(event.target.value)}
+                />
+              </div>
+              <input
+                className={inputClassName}
+                type="date"
+                value={reportTo}
+                onChange={(event) => setReportTo(event.target.value)}
+              />
+              <Button variant="outline" onClick={() => void loadReport()} disabled={reportLoading}>
+                {reportLoading ? "Filtrando..." : "Filtrar"}
+              </Button>
+              <Button onClick={() => void downloadReportPdf()} disabled={!libraryReport || reportLoading}>
+                <Download size={16} />
+                Baixar PDF
+              </Button>
+            </div>
+          </div>
+
+          <div className="mb-5 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+            Periodo do relatorio: <span className="text-slate-950">{reportPeriodLabel(libraryReport)}</span>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {[
+              { label: "Entraram", value: libraryReport?.metrics.itemsAdded ?? 0 },
+              { label: "Reservas", value: libraryReport?.metrics.reservationsInPeriod ?? 0 },
+              { label: "Pessoas", value: libraryReport?.metrics.uniqueUsers ?? 0 },
+              { label: "Retirados", value: libraryReport?.metrics.borrowedInPeriod ?? 0 },
+              { label: "Devolvidos", value: libraryReport?.metrics.returnedInPeriod ?? 0 },
+              { label: "Atrasos", value: libraryReport?.metrics.overdue ?? 0 },
+            ].map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-slate-100 bg-white p-4">
+                <p className="text-2xl font-black text-slate-950">{metric.value}</p>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-400">{metric.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-3">
+            <ReportList
+              title="Mais reservados"
+              empty="Nenhuma reserva no periodo."
+              items={(libraryReport?.topReservedItems ?? []).map((item) => ({
+                id: item.id,
+                title: item.title,
+                subtitle: `${item.author ?? "Sem autor"} · ${item.category}`,
+                value: `${item.reservationsCount} reserva(s)`,
+              }))}
+            />
+            <ReportList
+              title="O que saiu"
+              empty="Nenhuma retirada no periodo."
+              items={(libraryReport?.topBorrowedItems ?? []).map((item) => ({
+                id: item.id,
+                title: item.title,
+                subtitle: `${item.kindLabel} · ${item.category}`,
+                value: `${item.borrowedCount} retirada(s)`,
+              }))}
+            />
+            <ReportList
+              title="Categorias com entrada"
+              empty="Nenhuma entrada no periodo."
+              items={(libraryReport?.categoryCounts ?? []).map((item) => ({
+                id: item.category,
+                title: item.category,
+                subtitle: "Materiais catalogados",
+                value: `${item.count}`,
+              }))}
+            />
+          </div>
+        </Card>
 
         <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
           <Card className="p-6">
