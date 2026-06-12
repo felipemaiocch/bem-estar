@@ -436,6 +436,8 @@ model LibraryReservation {
   dueAt         DateTime?
   returnedAt    DateTime?
   renewedCount  Int                      @default(0)
+  dueSoonNotifiedAt DateTime?
+  overdueNotifiedAt DateTime?
   notes         String?
   item          LibraryItem              @relation(fields: [itemId], references: [id], onDelete: Cascade)
   copy          LibraryCopy?             @relation(fields: [copyId], references: [id], onDelete: SetNull)
@@ -444,6 +446,7 @@ model LibraryReservation {
   @@index([itemId, status])
   @@index([userId, status, reservedAt])
   @@index([copyId, status])
+  @@index([dueAt, status])
 }
 
 model LibraryCopy {

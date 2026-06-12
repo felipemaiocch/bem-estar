@@ -596,6 +596,7 @@ export async function getLibraryReport(filters?: LibraryReportFilters) {
     kindCounts,
     categoryCounts,
     loansByDepartment,
+    readerReservations,
     recentItems,
     recentReservations,
   ] = await Promise.all([
@@ -689,6 +690,19 @@ export async function getLibraryReport(filters?: LibraryReportFilters) {
         user: { select: { department: true } },
       },
     }),
+    prisma.libraryReservation.findMany({
+      where: reservedWhere,
+      include: {
+        item: {
+          select: { title: true },
+        },
+        user: {
+          select: { id: true, name: true, email: true, department: true },
+        },
+      },
+      orderBy: { reservedAt: "desc" },
+      take: 500,
+    }),
     prisma.libraryItem.findMany({
       where: createdWhere,
       include: {
@@ -778,6 +792,48 @@ export async function getLibraryReport(filters?: LibraryReportFilters) {
     )
       .map(([department, count]) => ({ department, count }))
       .sort((a, b) => b.count - a.count),
+    readerHistory: Object.values(
+      readerReservations.reduce<Record<string, {
+        id: string;
+        name: string;
+        email: string;
+        department: string | null;
+        reservations: number;
+        borrowed: number;
+        returned: number;
+        overdue: number;
+        canceled: number;
+        lastItemTitle: string | null;
+        lastReservedAt: string | null;
+      }>>((acc, reservation) => {
+        const reader = acc[reservation.user.id] ?? {
+          id: reservation.user.id,
+          name: reservation.user.name,
+          email: reservation.user.email,
+          department: reservation.user.department,
+          reservations: 0,
+          borrowed: 0,
+          returned: 0,
+          overdue: 0,
+          canceled: 0,
+          lastItemTitle: null,
+          lastReservedAt: null,
+        };
+
+        reader.reservations += 1;
+        if (reservation.status === "BORROWED") reader.borrowed += 1;
+        if (reservation.status === "RETURNED") reader.returned += 1;
+        if (reservation.status === "OVERDUE") reader.overdue += 1;
+        if (reservation.status === "CANCELED") reader.canceled += 1;
+        if (!reader.lastReservedAt || reservation.reservedAt > new Date(reader.lastReservedAt)) {
+          reader.lastItemTitle = reservation.item.title;
+          reader.lastReservedAt = reservation.reservedAt.toISOString();
+        }
+
+        acc[reservation.user.id] = reader;
+        return acc;
+      }, {}),
+    ).sort((a, b) => b.reservations - a.reservations),
     recentItems: recentItems.map((item) => ({
       id: item.id,
       title: item.title,

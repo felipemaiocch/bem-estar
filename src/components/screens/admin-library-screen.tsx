@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, BookOpen, CalendarDays, CheckCircle2, Clock3, Download, Library, Plus, Search, Undo2 } from "lucide-react";
+import { BarChart3, BookOpen, CalendarDays, CheckCircle2, Clock3, Download, Library, Plus, Search, Tags, Trash2, Undo2 } from "lucide-react";
 
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
@@ -132,6 +132,19 @@ type LibraryReport = {
   kindCounts: Array<{ kind: string; label: string; count: number }>;
   categoryCounts: Array<{ category: string; count: number }>;
   loansByDepartment: Array<{ department: string; count: number }>;
+  readerHistory: Array<{
+    id: string;
+    name: string;
+    email: string;
+    department: string | null;
+    reservations: number;
+    borrowed: number;
+    returned: number;
+    overdue: number;
+    canceled: number;
+    lastItemTitle: string | null;
+    lastReservedAt: string | null;
+  }>;
   recentItems: Array<{
     id: string;
     title: string;
@@ -274,6 +287,7 @@ export function AdminLibraryScreen() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
 
   const loadLibrary = useCallback(async () => {
     setLoading(true);
@@ -410,6 +424,24 @@ export function AdminLibraryScreen() {
       addLine("Nenhum documento emprestado no periodo.");
     }
 
+    addSection("Emprestimos por setor");
+    if (libraryReport.loansByDepartment.length) {
+      libraryReport.loansByDepartment.forEach((item) => {
+        addLine(`${item.department}: ${item.count} empréstimo(s)`);
+      });
+    } else {
+      addLine("Nenhum empréstimo com setor no periodo.");
+    }
+
+    addSection("Leitores no periodo");
+    if (libraryReport.readerHistory.length) {
+      libraryReport.readerHistory.slice(0, 30).forEach((reader) => {
+        addLine(`${reader.name} - ${reader.department ?? "Sem departamento"} - ${reader.reservations} movimentação(ões) - ${reader.returned} devolução(ões) - ${reader.overdue} atraso(s)`);
+      });
+    } else {
+      addLine("Nenhum leitor no periodo.");
+    }
+
     addSection("Entradas recentes");
     if (libraryReport.recentItems.length) {
       libraryReport.recentItems.forEach((item) => {
@@ -430,6 +462,94 @@ export function AdminLibraryScreen() {
 
     const suffix = `${reportFrom || "inicio"}-${reportTo || "hoje"}`;
     doc.save(`relatorio-biblioteca-${suffix}.pdf`);
+  }
+
+  async function downloadLabelsPdf(item: AdminLibraryItem) {
+    const copies = item.copies?.filter((copy) => copy.status !== "DISCARDED") ?? [];
+
+    if (!copies.length) {
+      setFeedback("Este material não possui exemplares físicos ativos para etiqueta.");
+      return;
+    }
+
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const margin = 36;
+    const labelWidth = 245;
+    const labelHeight = 96;
+    const gap = 16;
+
+    copies.forEach((copy, index) => {
+      const perPage = 10;
+      if (index > 0 && index % perPage === 0) doc.addPage();
+
+      const pageIndex = index % perPage;
+      const col = pageIndex % 2;
+      const row = Math.floor(pageIndex / 2);
+      const x = margin + col * (labelWidth + gap);
+      const y = margin + row * (labelHeight + gap);
+
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(x, y, labelWidth, labelHeight, 8, 8);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(doc.splitTextToSize(item.title, labelWidth - 24), x + 12, y + 22);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(`Autor: ${item.mainAuthor ?? item.author ?? "Sem autor"}`, x + 12, y + 52);
+      doc.text(`Chamada: ${copy.callNumber ?? item.callNumber ?? "-"}`, x + 12, y + 66);
+      doc.text(`Exemplar: ${copy.code}`, x + 12, y + 80);
+      doc.text(`Local: ${copy.location ?? item.location ?? "Biblioteca"}`, x + 130, y + 80);
+    });
+
+    doc.save(`etiquetas-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}.pdf`);
+  }
+
+  async function lookupIsbn() {
+    const code = form.isbn.trim();
+
+    if (!code) {
+      setFeedback("Informe o ISBN antes de buscar.");
+      return;
+    }
+
+    setLookupLoading(true);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/admin/library/isbn?code=${encodeURIComponent(code)}`, { cache: "no-store" });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível buscar este ISBN.");
+        return;
+      }
+
+      setForm((current) => {
+        const book = data.book as Partial<typeof defaultForm> & { year?: number };
+        return {
+          ...current,
+          title: current.title || book.title || "",
+          author: current.author || book.author || book.mainAuthor || "",
+          mainAuthor: current.mainAuthor || book.mainAuthor || book.author || "",
+          publisher: current.publisher || book.publisher || "",
+          publicationPlace: current.publicationPlace || book.publicationPlace || "",
+          year: current.year || (book.year ? String(book.year) : ""),
+          isbn: book.isbn || current.isbn,
+          category: current.category || book.category || "",
+          subject: current.subject || book.subject || "",
+          description: current.description || book.description || "",
+          physicalDescription: current.physicalDescription || book.physicalDescription || "",
+          coverUrl: current.coverUrl || book.coverUrl || "",
+          originalLanguage: current.originalLanguage || book.originalLanguage || "",
+        };
+      });
+      setFeedback("Dados encontrados e aplicados ao formulário.");
+    } catch {
+      setFeedback("Falha de conexão ao buscar ISBN.");
+    } finally {
+      setLookupLoading(false);
+    }
   }
 
   async function createItem(event: React.FormEvent<HTMLFormElement>) {
@@ -530,6 +650,35 @@ export function AdminLibraryScreen() {
       }
 
       await loadLibrary();
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function discardCopy(copyId: string) {
+    const reason = window.prompt("Informe o motivo do descarte deste exemplar:");
+
+    if (!reason?.trim()) return;
+
+    setBusyAction(copyId);
+
+    try {
+      const response = await fetch(`/api/admin/library/copies/${copyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "DISCARDED", discardReason: reason.trim() }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível descartar exemplar.");
+        return;
+      }
+
+      setFeedback("Exemplar descartado e acervo atualizado.");
+      await loadLibrary();
+    } catch {
+      setFeedback("Falha de conexão ao descartar exemplar.");
     } finally {
       setBusyAction(null);
     }
@@ -658,6 +807,26 @@ export function AdminLibraryScreen() {
                 value: `${item.count}`,
               }))}
             />
+            <ReportList
+              title="Emprestimos por setor"
+              empty="Nenhum emprestimo com setor no periodo."
+              items={(libraryReport?.loansByDepartment ?? []).map((item) => ({
+                id: item.department,
+                title: item.department,
+                subtitle: "Setor / departamento",
+                value: `${item.count}`,
+              }))}
+            />
+            <ReportList
+              title="Leitores mais ativos"
+              empty="Nenhum leitor no periodo."
+              items={(libraryReport?.readerHistory ?? []).map((reader) => ({
+                id: reader.id,
+                title: reader.name,
+                subtitle: `${reader.department ?? "Sem departamento"} · ${reader.email}`,
+                value: `${reader.reservations} mov.`,
+              }))}
+            />
           </div>
         </Card>
 
@@ -670,9 +839,13 @@ export function AdminLibraryScreen() {
             <form className="space-y-3" onSubmit={(event) => void createItem(event)}>
               <p className="text-xs font-black uppercase tracking-wider text-slate-400">Identificação</p>
               <input className={inputClassName} placeholder="Título para exibição no card" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_auto]">
                 <input className={inputClassName} placeholder="ISBN" value={form.isbn} onChange={(event) => setForm((current) => ({ ...current, isbn: event.target.value }))} />
                 <input className={inputClassName} placeholder="ISSN" value={form.issn} onChange={(event) => setForm((current) => ({ ...current, issn: event.target.value }))} />
+                <Button type="button" variant="outline" onClick={() => void lookupIsbn()} disabled={lookupLoading}>
+                  <Search size={15} />
+                  {lookupLoading ? "Buscando..." : "Buscar ISBN"}
+                </Button>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input className={inputClassName} placeholder="Edição" value={form.edition} onChange={(event) => setForm((current) => ({ ...current, edition: event.target.value }))} />
@@ -781,9 +954,41 @@ export function AdminLibraryScreen() {
                         <p className="mt-1 text-xs font-bold text-slate-400">Chamada: {item.callNumber}</p>
                       ) : null}
                     </div>
-                    <Button variant="outline" size="sm" disabled={busyAction === item.id} onClick={() => void archiveItem(item.id)}>
-                      Arquivar
-                    </Button>
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                      <Button variant="outline" size="sm" onClick={() => void downloadLabelsPdf(item)}>
+                        <Tags size={14} />
+                        Etiquetas
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={busyAction === item.id} onClick={() => void archiveItem(item.id)}>
+                        Arquivar
+                      </Button>
+                    </div>
+                    {item.copies?.length ? (
+                      <div className="lg:col-span-2 rounded-xl bg-slate-50 p-3">
+                        <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Exemplares</p>
+                        <div className="grid gap-2 md:grid-cols-2">
+                          {item.copies.map((copy) => (
+                            <div key={copy.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-black text-slate-800">
+                                  {copy.code} · {copy.callNumber ?? item.callNumber ?? "Sem chamada"}
+                                </p>
+                                <p className="truncate text-[11px] font-semibold text-slate-500">
+                                  {copy.status}
+                                  {copy.discardReason ? ` · ${copy.discardReason}` : ""}
+                                </p>
+                              </div>
+                              {!["BORROWED", "RESERVED", "DISCARDED"].includes(copy.status) ? (
+                                <Button size="sm" variant="outline" disabled={busyAction === copy.id} onClick={() => void discardCopy(copy.id)}>
+                                  <Trash2 size={13} />
+                                  Descartar
+                                </Button>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
                 {items.length === 0 ? (

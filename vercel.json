@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/library-due-notices",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}
