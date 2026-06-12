@@ -169,10 +169,17 @@ enum EadResourceKind {
 enum LibraryItemKind {
   BOOK
   ARTICLE
+  SCIENTIFIC_ARTICLE
   LEGISLATION
   THESIS
+  PHYSICAL_BOOK
+  DIGITAL_BOOK
+  BOOK_CHAPTER
+  TECHNICAL_INSTITUTIONAL_PRODUCTION
+  MANUAL
   VIDEO
   MOVIE
+  LEARNING_OBJECT
   DOCUMENT
   HANDOUT
   COURSE
@@ -194,6 +201,19 @@ enum LibraryReservationStatus {
   RETURNED
   CANCELED
   OVERDUE
+}
+
+enum LibraryCopyStatus {
+  AVAILABLE
+  RESERVED
+  BORROWED
+  DISCARDED
+  UNAVAILABLE
+}
+
+enum LibraryContributorType {
+  PERSON
+  ENTITY
 }
 
 model User {
@@ -248,6 +268,7 @@ model User {
   eadResourcesCreated       EadResource[]             @relation("EadResourceCreator")
   libraryReservations       LibraryReservation[]
   libraryItemsCreated       LibraryItem[]             @relation("LibraryItemCreator")
+  libraryConsultations      LibraryConsultation[]
 }
 
 model ProfessionalProfile {
@@ -357,6 +378,7 @@ model LibraryItem {
   publicationPlace String?
   year           Int?
   isbn           String?
+  issn           String?
   category       String
   subject        String?
   kind           LibraryItemKind       @default(BOOK)
@@ -369,36 +391,91 @@ model LibraryItem {
   coverUrl       String?
   materialUrl    String?
   location       String?
+  callNumber     String?
   totalCopies    Int                   @default(1)
   availableCopies Int                  @default(1)
   isReservable   Boolean               @default(true)
   isDigital      Boolean               @default(false)
+  consultationCount Int                 @default(0)
   status         LibraryItemStatus     @default(AVAILABLE)
   createdById    String?
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
   reservations   LibraryReservation[]
+  copies         LibraryCopy[]
+  contributors   LibraryContributor[]
+  consultations  LibraryConsultation[]
   creator        User?                 @relation("LibraryItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([kind, category, status])
   @@index([title])
+  @@index([isbn])
+  @@index([issn])
+}
+
+model LibraryConsultation {
+  id        String      @id @default(cuid())
+  itemId    String
+  userId    String
+  createdAt DateTime    @default(now())
+  item      LibraryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model LibraryReservation {
   id            String                   @id @default(cuid())
   itemId        String
+  copyId        String?
   userId        String
   status        LibraryReservationStatus @default(RESERVED)
   reservedAt    DateTime                 @default(now())
   borrowedAt    DateTime?
   dueAt         DateTime?
   returnedAt    DateTime?
+  renewedCount  Int                      @default(0)
   notes         String?
   item          LibraryItem              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  copy          LibraryCopy?             @relation(fields: [copyId], references: [id], onDelete: SetNull)
   user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([itemId, status])
   @@index([userId, status, reservedAt])
+  @@index([copyId, status])
+}
+
+model LibraryCopy {
+  id             String                   @id @default(cuid())
+  itemId         String
+  code           String
+  callNumber     String?
+  location       String?
+  status         LibraryCopyStatus        @default(AVAILABLE)
+  discardReason  String?
+  discardedAt    DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  item           LibraryItem              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  reservations   LibraryReservation[]
+
+  @@unique([itemId, code])
+  @@index([itemId, status])
+}
+
+model LibraryContributor {
+  id           String                 @id @default(cuid())
+  itemId       String
+  name         String
+  type         LibraryContributorType @default(PERSON)
+  relationTerm String?
+  isPrimary    Boolean                @default(false)
+  createdAt    DateTime               @default(now())
+  item         LibraryItem            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([name])
+  @@index([itemId])
 }
 
 model Notification {

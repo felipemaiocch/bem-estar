@@ -31,6 +31,7 @@ type AdminLibraryItem = {
   publicationPlace: string | null;
   year: number | null;
   isbn: string | null;
+  issn: string | null;
   category: string;
   subject: string | null;
   kind: string;
@@ -44,12 +45,29 @@ type AdminLibraryItem = {
   coverUrl: string | null;
   materialUrl: string | null;
   location: string | null;
+  callNumber: string | null;
   totalCopies: number;
   availableCopies: number;
   isDigital: boolean;
   isReservable: boolean;
   status: string;
   reservationsCount: number;
+  consultationCount: number;
+  copies?: Array<{
+    id: string;
+    code: string;
+    callNumber: string | null;
+    location: string | null;
+    status: string;
+    discardReason: string | null;
+  }>;
+  contributors?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    relationTerm: string | null;
+    isPrimary: boolean;
+  }>;
 };
 
 type AdminReservation = {
@@ -58,6 +76,13 @@ type AdminReservation = {
   statusLabel: string;
   reservedAt: string;
   dueAt: string | null;
+  borrowedAt?: string | null;
+  returnedAt?: string | null;
+  renewedCount?: number;
+  copy?: {
+    code: string;
+    callNumber: string | null;
+  } | null;
   item: AdminLibraryItem;
   user: {
     name: string;
@@ -76,10 +101,12 @@ type LibraryReport = {
     totalItems: number;
     activeItems: number;
     itemsAdded: number;
+    consultationCount: number;
     reservationsInPeriod: number;
     uniqueUsers: number;
     borrowedInPeriod: number;
     returnedInPeriod: number;
+    renewedInPeriod: number;
     reserved: number;
     borrowed: number;
     returned: number;
@@ -104,6 +131,7 @@ type LibraryReport = {
   }>;
   kindCounts: Array<{ kind: string; label: string; count: number }>;
   categoryCounts: Array<{ category: string; count: number }>;
+  loansByDepartment: Array<{ department: string; count: number }>;
   recentItems: Array<{
     id: string;
     title: string;
@@ -144,6 +172,7 @@ const defaultForm = {
   publicationPlace: "",
   year: "",
   isbn: "",
+  issn: "",
   category: "",
   subject: "",
   kind: "BOOK",
@@ -156,6 +185,9 @@ const defaultForm = {
   coverUrl: "",
   materialUrl: "",
   location: "",
+  callNumber: "",
+  secondaryRelationTerm: "",
+  secondaryEntityRelationTerm: "",
   totalCopies: "1",
   availableCopies: "1",
   isDigital: false,
@@ -347,14 +379,16 @@ export function AdminLibraryScreen() {
 
     addSection("Indicadores");
     [
-      ["Materiais no acervo", libraryReport.metrics.totalItems],
-      ["Materiais ativos", libraryReport.metrics.activeItems],
+      ["Documentos catalogados", libraryReport.metrics.totalItems],
+      ["Documentos ativos", libraryReport.metrics.activeItems],
       ["Entradas no periodo", libraryReport.metrics.itemsAdded],
+      ["Consultados", libraryReport.metrics.consultationCount],
       ["Reservas no periodo", libraryReport.metrics.reservationsInPeriod],
-      ["Pessoas com reserva", libraryReport.metrics.uniqueUsers],
-      ["Retiradas no periodo", libraryReport.metrics.borrowedInPeriod],
+      ["Leitores com reservas", libraryReport.metrics.uniqueUsers],
+      ["Emprestimos no periodo", libraryReport.metrics.borrowedInPeriod],
       ["Devolucoes no periodo", libraryReport.metrics.returnedInPeriod],
-      ["Canceladas", libraryReport.metrics.canceled],
+      ["Renovados no periodo", libraryReport.metrics.renewedInPeriod],
+      ["Reservas canceladas", libraryReport.metrics.canceled],
       ["Em atraso", libraryReport.metrics.overdue],
     ].forEach(([label, value]) => addLine(`${label}: ${value}`));
 
@@ -367,13 +401,13 @@ export function AdminLibraryScreen() {
       addLine("Nenhum material reservado no periodo.");
     }
 
-    addSection("Materiais que sairam / retirados");
+    addSection("Titulos mais emprestados");
     if (libraryReport.topBorrowedItems.length) {
       libraryReport.topBorrowedItems.forEach((item, index) => {
         addLine(`${index + 1}. ${item.title} - ${item.borrowedCount} retirada(s)`);
       });
     } else {
-      addLine("Nenhum material retirado no periodo.");
+      addLine("Nenhum documento emprestado no periodo.");
     }
 
     addSection("Entradas recentes");
@@ -425,6 +459,7 @@ export function AdminLibraryScreen() {
           publicationPlace: form.publicationPlace || undefined,
           year: form.year ? Number(form.year) : undefined,
           isbn: form.isbn || undefined,
+          issn: form.issn || undefined,
           category: form.category,
           subject: form.subject || undefined,
           kind: form.kind,
@@ -437,6 +472,13 @@ export function AdminLibraryScreen() {
           coverUrl: form.coverUrl || undefined,
           materialUrl: form.materialUrl || undefined,
           location: form.location || undefined,
+          callNumber: form.callNumber || undefined,
+          contributors: [
+            form.mainAuthor ? { name: form.mainAuthor, type: "PERSON", relationTerm: "autor", isPrimary: true } : null,
+            form.entityAuthor ? { name: form.entityAuthor, type: "ENTITY", relationTerm: "autor entidade", isPrimary: true } : null,
+            form.secondaryAuthor ? { name: form.secondaryAuthor, type: "PERSON", relationTerm: form.secondaryRelationTerm || undefined } : null,
+            form.secondaryEntity ? { name: form.secondaryEntity, type: "ENTITY", relationTerm: form.secondaryEntityRelationTerm || undefined } : null,
+          ].filter(Boolean),
           totalCopies: Number(form.totalCopies || 0),
           availableCopies: Number(form.availableCopies || 0),
           isDigital: form.isDigital,
@@ -502,9 +544,9 @@ export function AdminLibraryScreen() {
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-4">
           {[
-            { label: "Materiais", value: report.totalItems, icon: Library, color: "text-blue-600" },
+            { label: "Documentos", value: report.totalItems, icon: Library, color: "text-blue-600" },
             { label: "Reservas", value: report.totalReservations, icon: BookOpen, color: "text-purple-600" },
-            { label: "Retirados", value: report.borrowed, icon: Clock3, color: "text-amber-600" },
+            { label: "Emprestados", value: report.borrowed, icon: Clock3, color: "text-amber-600" },
             { label: "Devolvidos", value: report.returned, icon: CheckCircle2, color: "text-emerald-600" },
           ].map((metric) => {
             const Icon = metric.icon;
@@ -533,7 +575,7 @@ export function AdminLibraryScreen() {
               <div>
                 <h2 className="text-lg font-black text-slate-950">Relatorios da biblioteca</h2>
                 <p className="text-sm font-semibold text-slate-500">
-                  Entradas, reservas, retiradas, devolucoes, pessoas e materiais mais movimentados.
+                  Entradas, reservas, emprestimos, devolucoes, leitores e documentos mais movimentados.
                 </p>
               </div>
             </div>
@@ -569,11 +611,13 @@ export function AdminLibraryScreen() {
 
           <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
             {[
-              { label: "Entraram", value: libraryReport?.metrics.itemsAdded ?? 0 },
+              { label: "Entradas", value: libraryReport?.metrics.itemsAdded ?? 0 },
+              { label: "Consultados", value: libraryReport?.metrics.consultationCount ?? 0 },
               { label: "Reservas", value: libraryReport?.metrics.reservationsInPeriod ?? 0 },
-              { label: "Pessoas", value: libraryReport?.metrics.uniqueUsers ?? 0 },
-              { label: "Retirados", value: libraryReport?.metrics.borrowedInPeriod ?? 0 },
+              { label: "Leitores", value: libraryReport?.metrics.uniqueUsers ?? 0 },
+              { label: "Emprestimos", value: libraryReport?.metrics.borrowedInPeriod ?? 0 },
               { label: "Devolvidos", value: libraryReport?.metrics.returnedInPeriod ?? 0 },
+              { label: "Renovados", value: libraryReport?.metrics.renewedInPeriod ?? 0 },
               { label: "Atrasos", value: libraryReport?.metrics.overdue ?? 0 },
             ].map((metric) => (
               <div key={metric.label} className="rounded-2xl border border-slate-100 bg-white p-4">
@@ -595,22 +639,22 @@ export function AdminLibraryScreen() {
               }))}
             />
             <ReportList
-              title="O que saiu"
-              empty="Nenhuma retirada no periodo."
+              title="Titulos mais emprestados"
+              empty="Nenhum emprestimo no periodo."
               items={(libraryReport?.topBorrowedItems ?? []).map((item) => ({
                 id: item.id,
                 title: item.title,
                 subtitle: `${item.kindLabel} · ${item.category}`,
-                value: `${item.borrowedCount} retirada(s)`,
+                value: `${item.borrowedCount} empréstimo(s)`,
               }))}
             />
             <ReportList
-              title="Categorias com entrada"
+              title="Classificacoes mais catalogadas"
               empty="Nenhuma entrada no periodo."
               items={(libraryReport?.categoryCounts ?? []).map((item) => ({
                 id: item.category,
                 title: item.category,
-                subtitle: "Materiais catalogados",
+                subtitle: "Documentos catalogados",
                 value: `${item.count}`,
               }))}
             />
@@ -627,8 +671,12 @@ export function AdminLibraryScreen() {
               <p className="text-xs font-black uppercase tracking-wider text-slate-400">Identificação</p>
               <input className={inputClassName} placeholder="Título para exibição no card" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
               <div className="grid grid-cols-2 gap-3">
-                <input className={inputClassName} placeholder="SBN / ISBN" value={form.isbn} onChange={(event) => setForm((current) => ({ ...current, isbn: event.target.value }))} />
+                <input className={inputClassName} placeholder="ISBN" value={form.isbn} onChange={(event) => setForm((current) => ({ ...current, isbn: event.target.value }))} />
+                <input className={inputClassName} placeholder="ISSN" value={form.issn} onChange={(event) => setForm((current) => ({ ...current, issn: event.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <input className={inputClassName} placeholder="Edição" value={form.edition} onChange={(event) => setForm((current) => ({ ...current, edition: event.target.value }))} />
+                <input className={inputClassName} placeholder="Chamada / etiqueta da lombada" value={form.callNumber} onChange={(event) => setForm((current) => ({ ...current, callNumber: event.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input className={inputClassName} placeholder="Título original" value={form.originalTitle} onChange={(event) => setForm((current) => ({ ...current, originalTitle: event.target.value }))} />
@@ -648,6 +696,10 @@ export function AdminLibraryScreen() {
                 <input className={inputClassName} placeholder="Autor secundário" value={form.secondaryAuthor} onChange={(event) => setForm((current) => ({ ...current, secondaryAuthor: event.target.value }))} />
                 <input className={inputClassName} placeholder="Entidade secundária" value={form.secondaryEntity} onChange={(event) => setForm((current) => ({ ...current, secondaryEntity: event.target.value }))} />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input className={inputClassName} placeholder="Termo de relação do autor secundário (coautor, tradutor...)" value={form.secondaryRelationTerm} onChange={(event) => setForm((current) => ({ ...current, secondaryRelationTerm: event.target.value }))} />
+                <input className={inputClassName} placeholder="Termo de relação da entidade secundária" value={form.secondaryEntityRelationTerm} onChange={(event) => setForm((current) => ({ ...current, secondaryEntityRelationTerm: event.target.value }))} />
+              </div>
 
               <p className="pt-2 text-xs font-black uppercase tracking-wider text-slate-400">Publicação</p>
               <div className="grid grid-cols-3 gap-3">
@@ -662,7 +714,7 @@ export function AdminLibraryScreen() {
                     <option key={kind.value} value={kind.value}>{kind.label}</option>
                   ))}
                 </select>
-                <input className={inputClassName} placeholder="Categoria" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} required />
+                <input className={inputClassName} placeholder="Classificação" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} required />
               </div>
               <input className={inputClassName} placeholder="Assunto" value={form.subject} onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} />
 
@@ -670,8 +722,6 @@ export function AdminLibraryScreen() {
               <input className={inputClassName} placeholder="Descrição física (paginação, ilustração, dimensão)" value={form.physicalDescription} onChange={(event) => setForm((current) => ({ ...current, physicalDescription: event.target.value }))} />
               <input className={inputClassName} placeholder="Série ou Coleção" value={form.seriesCollection} onChange={(event) => setForm((current) => ({ ...current, seriesCollection: event.target.value }))} />
               <textarea className={cn(inputClassName, "min-h-20 resize-none")} placeholder="Nota geral" value={form.generalNote} onChange={(event) => setForm((current) => ({ ...current, generalNote: event.target.value }))} />
-              <textarea className={cn(inputClassName, "min-h-20 resize-none")} placeholder="Bibliografia" value={form.bibliography} onChange={(event) => setForm((current) => ({ ...current, bibliography: event.target.value }))} />
-
               <p className="pt-2 text-xs font-black uppercase tracking-wider text-slate-400">Conteúdo</p>
               <textarea className={cn(inputClassName, "min-h-24 resize-none")} placeholder="Sumário" value={form.summary} onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))} />
               <textarea className={cn(inputClassName, "min-h-24 resize-none")} placeholder="Resumo" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
@@ -725,8 +775,11 @@ export function AdminLibraryScreen() {
                         {item.isDigital ? <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-black uppercase text-purple-700">Repositório</span> : null}
                       </div>
                       <p className="mt-1 text-xs font-semibold text-slate-500">
-                        {item.author ?? "Sem autor"} · {item.category} · {item.availableCopies}/{item.totalCopies} disponível(is) · {item.reservationsCount} reserva(s)
+                        {item.mainAuthor ?? item.author ?? "Sem autor"} · {item.category} · {item.availableCopies}/{item.totalCopies} disponível(is) · {item.reservationsCount} reserva(s) · {item.consultationCount} consulta(s)
                       </p>
+                      {item.callNumber ? (
+                        <p className="mt-1 text-xs font-bold text-slate-400">Chamada: {item.callNumber}</p>
+                      ) : null}
                     </div>
                     <Button variant="outline" size="sm" disabled={busyAction === item.id} onClick={() => void archiveItem(item.id)}>
                       Arquivar
@@ -744,7 +797,7 @@ export function AdminLibraryScreen() {
             <Card className="p-5">
               <div className="mb-4 flex items-center gap-2">
                 <BarChart3 className="text-[#0264af]" size={20} />
-                <h2 className="text-lg font-black text-slate-950">Reservas e devoluções</h2>
+                <h2 className="text-lg font-black text-slate-950">Reservas, empréstimos e devoluções</h2>
               </div>
               <div className="space-y-3">
                 {reservations.map((reservation) => (
@@ -754,12 +807,19 @@ export function AdminLibraryScreen() {
                         <p className="font-black text-slate-950">{reservation.item.title}</p>
                         <p className="mt-1 text-xs font-semibold text-slate-500">
                           {reservation.user.name} · {reservation.user.email} · {reservation.statusLabel}
+                          {reservation.copy?.code ? ` · Exemplar ${reservation.copy.code}` : ""}
+                          {reservation.copy?.callNumber ? ` · ${reservation.copy.callNumber}` : ""}
+                          {reservation.renewedCount ? ` · ${reservation.renewedCount} renovação(ões)` : ""}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button size="sm" variant="outline" disabled={busyAction === reservation.id} onClick={() => void updateReservation(reservation.id, "BORROWED")}>
                           <Clock3 size={14} />
-                          Retirou
+                          Emprestar
+                        </Button>
+                        <Button size="sm" variant="outline" disabled={busyAction === reservation.id} onClick={() => void updateReservation(reservation.id, "RENEWED")}>
+                          <Clock3 size={14} />
+                          Renovar
                         </Button>
                         <Button size="sm" variant="outline" disabled={busyAction === reservation.id} onClick={() => void updateReservation(reservation.id, "RETURNED")}>
                           <Undo2 size={14} />

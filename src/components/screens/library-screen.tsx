@@ -30,6 +30,7 @@ type LibraryItem = {
   publicationPlace: string | null;
   year: number | null;
   isbn: string | null;
+  issn: string | null;
   category: string;
   subject: string | null;
   kind: string;
@@ -43,6 +44,7 @@ type LibraryItem = {
   coverUrl: string | null;
   materialUrl: string | null;
   location: string | null;
+  callNumber: string | null;
   totalCopies: number;
   availableCopies: number;
   isReservable: boolean;
@@ -151,6 +153,15 @@ export function LibraryScreen() {
     }
   }
 
+  function openItem(item: LibraryItem) {
+    setSelectedItem(item);
+    void fetch("/api/user/library/consultations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId: item.id }),
+    });
+  }
+
   return (
     <div className="animate-in fade-in space-y-6 pb-24 md:pb-8">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -244,7 +255,7 @@ export function LibraryScreen() {
                     item={item}
                     pending={pendingItemId === item.id}
                     onReserve={reserveItem}
-                    onOpen={setSelectedItem}
+                    onOpen={openItem}
                   />
                 ))}
               </div>
@@ -368,34 +379,35 @@ export function LibraryScreen() {
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <InfoRow label="SBN / ISBN" value={selectedItem.isbn ?? "Não informado"} />
-                  <InfoRow label="Edição" value={selectedItem.edition ?? "Não informado"} />
-                  <InfoRow label="Título original" value={selectedItem.originalTitle ?? "Não informado"} />
-                  <InfoRow label="Título traduzido" value={selectedItem.translatedTitle ?? "Não informado"} />
-                  <InfoRow label="Idioma original" value={selectedItem.originalLanguage ?? "Não informado"} />
-                  <InfoRow label="Idioma da tradução" value={selectedItem.translationLanguage ?? "Não informado"} />
-                  <InfoRow label="Autor principal" value={selectedItem.mainAuthor ?? selectedItem.author ?? "Não informado"} />
-                  <InfoRow label="Autor entidade" value={selectedItem.entityAuthor ?? "Não informado"} />
-                  <InfoRow label="Autor secundário" value={selectedItem.secondaryAuthor ?? "Não informado"} />
-                  <InfoRow label="Entidade secundária" value={selectedItem.secondaryEntity ?? "Não informado"} />
+                  <InfoRow label="ISBN" value={selectedItem.isbn} />
+                  <InfoRow label="ISSN" value={selectedItem.issn} />
+                  <InfoRow label="Edição" value={selectedItem.edition} />
+                  <InfoRow label="Título original" value={selectedItem.originalTitle} />
+                  <InfoRow label="Título traduzido" value={selectedItem.translatedTitle} />
+                  <InfoRow label="Idioma original" value={selectedItem.originalLanguage} />
+                  <InfoRow label="Idioma da tradução" value={selectedItem.translationLanguage} />
+                  <InfoRow label="Autor principal" value={selectedItem.mainAuthor ?? selectedItem.author} />
+                  <InfoRow label="Autor entidade" value={selectedItem.entityAuthor} />
+                  <InfoRow label="Autor secundário" value={selectedItem.secondaryAuthor} />
+                  <InfoRow label="Entidade secundária" value={selectedItem.secondaryEntity} />
                   <InfoRow
                     label="Publicação"
                     value={[
                       selectedItem.publicationPlace,
                       selectedItem.publisher,
                       selectedItem.year ? String(selectedItem.year) : null,
-                    ].filter(Boolean).join(", ") || "Não informado"}
+                    ].filter(Boolean).join(", ") || null}
                   />
-                  <InfoRow label="Descrição física" value={selectedItem.physicalDescription ?? "Não informado"} />
-                  <InfoRow label="Série ou coleção" value={selectedItem.seriesCollection ?? "Não informado"} />
-                  <InfoRow label="Categoria" value={selectedItem.category} />
-                  <InfoRow label="Assunto" value={selectedItem.subject ?? "Não informado"} />
+                  <InfoRow label="Descrição física" value={selectedItem.physicalDescription} />
+                  <InfoRow label="Série ou coleção" value={selectedItem.seriesCollection} />
+                  <InfoRow label="Classificação" value={selectedItem.category} />
+                  <InfoRow label="Assunto" value={selectedItem.subject} />
+                  <InfoRow label="Chamada" value={selectedItem.callNumber} />
                   <InfoRow label="Local" value={selectedItem.location ?? "Biblioteca da empresa"} />
                   <InfoRow label="Disponibilidade" value={`${selectedItem.availableCopies}/${selectedItem.totalCopies} exemplar(es)`} />
                   <InfoRow label="Reservas ativas" value={String(selectedItem.activeReservationsCount)} />
                 </div>
                 <LongInfo label="Nota geral" value={selectedItem.generalNote} />
-                <LongInfo label="Bibliografia" value={selectedItem.bibliography} />
                 <LongInfo label="Sumário" value={selectedItem.summary} />
                 <div className="flex flex-wrap gap-3">
                   {selectedItem.materialUrl ? (
@@ -464,7 +476,9 @@ function LibraryCard({
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
       <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{label}</p>

@@ -26,6 +26,7 @@ const createItemSchema = z.object({
   publicationPlace: z.string().max(160).optional(),
   year: z.number().int().min(1500).max(2100).optional(),
   isbn: z.string().max(80).optional(),
+  issn: z.string().max(80).optional(),
   category: z.string().min(2).max(120),
   subject: z.string().max(300).optional(),
   kind: z.enum(libraryKindValues),
@@ -38,6 +39,13 @@ const createItemSchema = z.object({
   coverUrl: z.string().max(1000).optional(),
   materialUrl: z.string().max(1000).optional(),
   location: z.string().max(160).optional(),
+  callNumber: z.string().max(160).optional(),
+  contributors: z.array(z.object({
+    name: z.string().min(2).max(180),
+    type: z.enum(["PERSON", "ENTITY"]).optional(),
+    relationTerm: z.string().max(80).optional(),
+    isPrimary: z.boolean().optional(),
+  })).optional(),
   totalCopies: z.number().int().min(0).max(10000).optional(),
   availableCopies: z.number().int().min(0).max(10000).optional(),
   isReservable: z.boolean().optional(),
@@ -93,38 +101,76 @@ export async function POST(request: NextRequest) {
     ? 0
     : Math.min(parsed.data.availableCopies ?? totalCopies, totalCopies);
 
-  const item = await prisma.libraryItem.create({
-    data: {
-      ...parsed.data,
-      author: parsed.data.author?.trim() || null,
-      mainAuthor: parsed.data.mainAuthor?.trim() || null,
-      entityAuthor: parsed.data.entityAuthor?.trim() || null,
-      secondaryAuthor: parsed.data.secondaryAuthor?.trim() || null,
-      secondaryEntity: parsed.data.secondaryEntity?.trim() || null,
-      originalTitle: parsed.data.originalTitle?.trim() || null,
-      translatedTitle: parsed.data.translatedTitle?.trim() || null,
-      originalLanguage: parsed.data.originalLanguage?.trim() || null,
-      translationLanguage: parsed.data.translationLanguage?.trim() || null,
-      edition: parsed.data.edition?.trim() || null,
-      publisher: parsed.data.publisher?.trim() || null,
-      publicationPlace: parsed.data.publicationPlace?.trim() || null,
-      isbn: parsed.data.isbn?.trim() || null,
-      subject: parsed.data.subject?.trim() || null,
-      description: parsed.data.description?.trim() || null,
-      physicalDescription: parsed.data.physicalDescription?.trim() || null,
-      seriesCollection: parsed.data.seriesCollection?.trim() || null,
-      generalNote: parsed.data.generalNote?.trim() || null,
-      bibliography: parsed.data.bibliography?.trim() || null,
-      summary: parsed.data.summary?.trim() || null,
-      coverUrl: parsed.data.coverUrl?.trim() || null,
-      materialUrl: parsed.data.materialUrl?.trim() || null,
-      location: parsed.data.location?.trim() || null,
-      totalCopies,
-      availableCopies,
-      isReservable: parsed.data.isDigital ? false : parsed.data.isReservable ?? true,
-      isDigital: parsed.data.isDigital ?? false,
-      createdById: auth.session.sub,
-    },
+  const item = await prisma.$transaction(async (tx) => {
+    const created = await tx.libraryItem.create({
+      data: {
+        title: parsed.data.title.trim(),
+        kind: parsed.data.kind,
+        category: parsed.data.category.trim(),
+        author: parsed.data.author?.trim() || null,
+        mainAuthor: parsed.data.mainAuthor?.trim() || null,
+        entityAuthor: parsed.data.entityAuthor?.trim() || null,
+        secondaryAuthor: parsed.data.secondaryAuthor?.trim() || null,
+        secondaryEntity: parsed.data.secondaryEntity?.trim() || null,
+        originalTitle: parsed.data.originalTitle?.trim() || null,
+        translatedTitle: parsed.data.translatedTitle?.trim() || null,
+        originalLanguage: parsed.data.originalLanguage?.trim() || null,
+        translationLanguage: parsed.data.translationLanguage?.trim() || null,
+        edition: parsed.data.edition?.trim() || null,
+        publisher: parsed.data.publisher?.trim() || null,
+        publicationPlace: parsed.data.publicationPlace?.trim() || null,
+        year: parsed.data.year,
+        isbn: parsed.data.isbn?.trim() || null,
+        issn: parsed.data.issn?.trim() || null,
+        subject: parsed.data.subject?.trim() || null,
+        description: parsed.data.description?.trim() || null,
+        physicalDescription: parsed.data.physicalDescription?.trim() || null,
+        seriesCollection: parsed.data.seriesCollection?.trim() || null,
+        generalNote: parsed.data.generalNote?.trim() || null,
+        bibliography: parsed.data.bibliography?.trim() || null,
+        summary: parsed.data.summary?.trim() || null,
+        coverUrl: parsed.data.coverUrl?.trim() || null,
+        materialUrl: parsed.data.materialUrl?.trim() || null,
+        location: parsed.data.location?.trim() || null,
+        callNumber: parsed.data.callNumber?.trim() || null,
+        contributors: parsed.data.contributors?.length
+          ? {
+              create: parsed.data.contributors.map((contributor) => ({
+                name: contributor.name.trim(),
+                type: contributor.type ?? "PERSON",
+                relationTerm: contributor.relationTerm?.trim() || null,
+                isPrimary: contributor.isPrimary ?? false,
+              })),
+            }
+          : undefined,
+        totalCopies,
+        availableCopies,
+        isReservable: parsed.data.isDigital ? false : parsed.data.isReservable ?? true,
+        isDigital: parsed.data.isDigital ?? false,
+        createdById: auth.session.sub,
+      },
+      include: {
+        copies: true,
+        contributors: true,
+      },
+    });
+
+    if (!created.isDigital && totalCopies > 0) {
+      await tx.libraryCopy.createMany({
+        data: Array.from({ length: totalCopies }, (_, index) => ({
+          itemId: created.id,
+          code: `EX-${String(index + 1).padStart(3, "0")}`,
+          callNumber: created.callNumber,
+          location: created.location,
+          status: index < availableCopies ? "AVAILABLE" : "UNAVAILABLE",
+        })),
+      });
+    }
+
+    return tx.libraryItem.findUniqueOrThrow({
+      where: { id: created.id },
+      include: { copies: true, contributors: true },
+    });
   });
 
   return NextResponse.json({

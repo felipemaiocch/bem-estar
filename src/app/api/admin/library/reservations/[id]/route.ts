@@ -2,11 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireAdminPermission } from "@/lib/admin-permissions";
-import { libraryReservationStatusValues } from "@/lib/library";
-import { prisma } from "@/lib/prisma";
+import {
+  borrowLibraryReservation,
+  cancelLibraryReservation,
+  libraryReservationStatusValues,
+  renewLibraryReservation,
+  returnLibraryReservation,
+} from "@/lib/library";
 
 const updateReservationSchema = z.object({
-  status: z.enum(libraryReservationStatusValues),
+  status: z.union([z.enum(libraryReservationStatusValues), z.literal("RENEWED")]),
   notes: z.string().max(500).optional(),
 });
 
@@ -33,42 +38,33 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const reservation = await prisma.libraryReservation.findUnique({
-    where: { id: reservationId },
-    select: { id: true, itemId: true, status: true },
-  });
+  try {
+    const updated =
+      parsed.data.status === "BORROWED"
+        ? await borrowLibraryReservation(reservationId, parsed.data.notes)
+        : parsed.data.status === "RETURNED"
+          ? await returnLibraryReservation(reservationId, parsed.data.notes)
+          : parsed.data.status === "CANCELED"
+            ? await cancelLibraryReservation(reservationId, parsed.data.notes)
+            : parsed.data.status === "RENEWED"
+              ? await renewLibraryReservation(reservationId)
+              : null;
 
-  if (!reservation) {
-    return NextResponse.json({ ok: false, error: "Reserva não encontrada." }, { status: 404 });
-  }
-
-  const wasActive = ["RESERVED", "BORROWED", "OVERDUE"].includes(reservation.status);
-  const willBeInactive = ["RETURNED", "CANCELED"].includes(parsed.data.status);
-
-  const updated = await prisma.$transaction(async (tx) => {
-    const result = await tx.libraryReservation.update({
-      where: { id: reservationId },
-      data: {
-        status: parsed.data.status,
-        notes: parsed.data.notes?.trim() || undefined,
-        borrowedAt: parsed.data.status === "BORROWED" ? new Date() : undefined,
-        returnedAt: parsed.data.status === "RETURNED" ? new Date() : undefined,
-      },
-      include: {
-        item: true,
-        user: { select: { id: true, name: true, email: true, department: true } },
-      },
-    });
-
-    if (wasActive && willBeInactive) {
-      await tx.libraryItem.update({
-        where: { id: reservation.itemId },
-        data: { availableCopies: { increment: 1 } },
-      });
+    if (!updated) {
+      return NextResponse.json(
+        { ok: false, error: "Ação não suportada para esta movimentação." },
+        { status: 400 },
+      );
     }
 
-    return result;
-  });
-
-  return NextResponse.json({ ok: true, reservation: updated });
+    return NextResponse.json({ ok: true, reservation: updated });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : "Não foi possível atualizar a movimentação.",
+      },
+      { status: 409 },
+    );
+  }
 }
