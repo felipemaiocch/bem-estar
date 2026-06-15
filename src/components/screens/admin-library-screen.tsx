@@ -553,6 +553,196 @@ export function AdminLibraryScreen() {
     doc.save(`relatorio-biblioteca-${suffix}.pdf`);
   }
 
+  async function downloadReportExcel() {
+    if (!libraryReport) return;
+
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Pulse Hub";
+    workbook.created = new Date();
+
+    function addSheet(
+      name: string,
+      columns: Array<{ header: string; key: string; width?: number }>,
+      rows: Array<Record<string, string | number | null | undefined>>,
+    ) {
+      const sheet = workbook.addWorksheet(name);
+      sheet.columns = columns.map((column) => ({
+        header: column.header,
+        key: column.key,
+        width: column.width ?? Math.max(column.header.length + 4, 16),
+      }));
+      sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      sheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF0264AF" },
+      };
+      sheet.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
+      sheet.getRow(1).height = 22;
+      sheet.addRows(rows);
+      sheet.views = [{ state: "frozen", ySplit: 1 }];
+      sheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: columns.length },
+      };
+      sheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFE2E8F0" } },
+            left: { style: "thin", color: { argb: "FFE2E8F0" } },
+            bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+            right: { style: "thin", color: { argb: "FFE2E8F0" } },
+          };
+          if (rowNumber > 1) {
+            cell.alignment = { vertical: "top", wrapText: true };
+          }
+        });
+      });
+    }
+
+    addSheet(
+      "Indicadores",
+      [
+        { header: "Indicador", key: "label", width: 34 },
+        { header: "Valor", key: "value", width: 18 },
+        { header: "Periodo", key: "period", width: 28 },
+      ],
+      [
+        ["Documentos catalogados", libraryReport.metrics.totalItems],
+        ["Documentos ativos", libraryReport.metrics.activeItems],
+        ["Entradas no periodo", libraryReport.metrics.itemsAdded],
+        ["Consultas no periodo", libraryReport.metrics.consultationCount],
+        ["Reservas no periodo", libraryReport.metrics.reservationsInPeriod],
+        ["Leitores com reservas", libraryReport.metrics.uniqueUsers],
+        ["Emprestimos no periodo", libraryReport.metrics.borrowedInPeriod],
+        ["Devolucoes no periodo", libraryReport.metrics.returnedInPeriod],
+        ["Renovacoes no periodo", libraryReport.metrics.renewedInPeriod],
+        ["Reservas abertas", libraryReport.metrics.reserved],
+        ["Emprestimos ativos", libraryReport.metrics.borrowed],
+        ["Devolvidos", libraryReport.metrics.returned],
+        ["Cancelados", libraryReport.metrics.canceled],
+        ["Em atraso", libraryReport.metrics.overdue],
+      ].map(([label, value]) => ({ label, value, period: reportPeriodLabel(libraryReport) })),
+    );
+
+    addSheet(
+      "Mais reservados",
+      [
+        { header: "Titulo", key: "title", width: 42 },
+        { header: "Autor", key: "author", width: 28 },
+        { header: "Categoria", key: "category", width: 24 },
+        { header: "Tipo", key: "kindLabel", width: 24 },
+        { header: "Reservas", key: "reservationsCount", width: 14 },
+      ],
+      libraryReport.topReservedItems,
+    );
+
+    addSheet(
+      "Mais emprestados",
+      [
+        { header: "Titulo", key: "title", width: 42 },
+        { header: "Autor", key: "author", width: 28 },
+        { header: "Categoria", key: "category", width: 24 },
+        { header: "Tipo", key: "kindLabel", width: 24 },
+        { header: "Emprestimos", key: "borrowedCount", width: 14 },
+      ],
+      libraryReport.topBorrowedItems,
+    );
+
+    addSheet(
+      "Classificacoes",
+      [
+        { header: "Classificacao", key: "category", width: 34 },
+        { header: "Quantidade", key: "count", width: 14 },
+      ],
+      libraryReport.categoryCounts,
+    );
+
+    addSheet(
+      "Setores",
+      [
+        { header: "Setor / Departamento", key: "department", width: 34 },
+        { header: "Emprestimos", key: "count", width: 14 },
+      ],
+      libraryReport.loansByDepartment,
+    );
+
+    addSheet(
+      "Leitores",
+      [
+        { header: "Nome", key: "name", width: 30 },
+        { header: "E-mail", key: "email", width: 38 },
+        { header: "Departamento", key: "department", width: 24 },
+        { header: "Movimentacoes", key: "reservations", width: 16 },
+        { header: "Emprestados", key: "borrowed", width: 14 },
+        { header: "Devolvidos", key: "returned", width: 14 },
+        { header: "Atrasos", key: "overdue", width: 12 },
+        { header: "Cancelados", key: "canceled", width: 14 },
+        { header: "Ultimo material", key: "lastItemTitle", width: 42 },
+        { header: "Ultima reserva", key: "lastReservedAt", width: 18 },
+      ],
+      libraryReport.readerHistory.map((reader) => ({
+        ...reader,
+        department: reader.department ?? "Sem departamento",
+        lastReservedAt: formatDate(reader.lastReservedAt),
+      })),
+    );
+
+    addSheet(
+      "Entradas",
+      [
+        { header: "Data", key: "createdAt", width: 16 },
+        { header: "Titulo", key: "title", width: 42 },
+        { header: "Autor", key: "author", width: 28 },
+        { header: "Categoria", key: "category", width: 24 },
+        { header: "Tipo", key: "kindLabel", width: 24 },
+        { header: "Responsavel", key: "creatorName", width: 28 },
+        { header: "Reservas", key: "reservationsCount", width: 14 },
+      ],
+      libraryReport.recentItems.map((item) => ({
+        ...item,
+        createdAt: formatDate(item.createdAt),
+        creatorName: item.creatorName ?? "Nao informado",
+      })),
+    );
+
+    addSheet(
+      "Movimentacoes",
+      [
+        { header: "Data reserva", key: "reservedAt", width: 16 },
+        { header: "Data emprestimo", key: "borrowedAt", width: 18 },
+        { header: "Data devolucao", key: "returnedAt", width: 18 },
+        { header: "Status", key: "statusLabel", width: 18 },
+        { header: "Titulo", key: "itemTitle", width: 42 },
+        { header: "Leitor", key: "userName", width: 30 },
+        { header: "E-mail", key: "userEmail", width: 38 },
+        { header: "Departamento", key: "userDepartment", width: 24 },
+      ],
+      libraryReport.recentReservations.map((reservation) => ({
+        ...reservation,
+        reservedAt: formatDate(reservation.reservedAt),
+        borrowedAt: formatDate(reservation.borrowedAt),
+        returnedAt: formatDate(reservation.returnedAt),
+        userDepartment: reservation.userDepartment ?? "Sem departamento",
+      })),
+    );
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const suffix = `${reportFrom || "inicio"}-${reportTo || "hoje"}`;
+    link.href = url;
+    link.download = `relatorio-biblioteca-${suffix}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function downloadLabelsPdf(item: AdminLibraryItem) {
     const copies = item.copies?.filter((copy) => copy.status !== "DISCARDED") ?? [];
 
@@ -877,6 +1067,10 @@ export function AdminLibraryScreen() {
               <Button onClick={() => void downloadReportPdf()} disabled={!libraryReport || reportLoading}>
                 <Download size={16} />
                 Baixar PDF
+              </Button>
+              <Button variant="outline" onClick={() => void downloadReportExcel()} disabled={!libraryReport || reportLoading}>
+                <Download size={16} />
+                Baixar Excel
               </Button>
             </div>
           </div>
