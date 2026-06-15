@@ -166,6 +166,7 @@ function nullableNumber(value: string) {
 export function AdminEadScreen() {
   const [courses, setCourses] = useState<AdminEadCourse[]>([]);
   const [resources, setResources] = useState<AdminEadResource[]>([]);
+  const [activeTab, setActiveTab] = useState<"courses" | "create" | "library" | "report">("courses");
   const [courseForm, setCourseForm] = useState(defaultCourseForm);
   const [lessonForm, setLessonForm] = useState(defaultLessonForm);
   const [resourceForm, setResourceForm] = useState(defaultResourceForm);
@@ -624,6 +625,45 @@ export function AdminEadScreen() {
           ))}
         </div>
 
+        <Card className="p-3">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "courses", label: "Cursos cadastrados" },
+              { value: "create", label: "Cadastrar curso/aula" },
+              { value: "library", label: "Acervo de documentos" },
+              { value: "report", label: "Relatório EAD" },
+            ].map((tab) => (
+              <Button
+                key={tab.value}
+                type="button"
+                size="sm"
+                variant={activeTab === tab.value ? "primary" : "outline"}
+                onClick={() => setActiveTab(tab.value as typeof activeTab)}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </div>
+        </Card>
+
+        {activeTab === "report" ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Card className="p-5">
+              <h2 className="text-lg font-black text-slate-950">Engajamento</h2>
+              <p className="mt-2 text-sm text-slate-500">{eadReport.completionCount} conclusão(ões) registradas em {eadReport.lessons} aula(s).</p>
+            </Card>
+            <Card className="p-5">
+              <h2 className="text-lg font-black text-slate-950">Avaliação</h2>
+              <p className="mt-2 text-sm text-slate-500">{eadReport.ratingCount} avaliação(ões), média {eadReport.averageRating ?? "-"} de 5.</p>
+            </Card>
+            <Card className="p-5">
+              <h2 className="text-lg font-black text-slate-950">Acervo</h2>
+              <p className="mt-2 text-sm text-slate-500">{eadReport.resources} documento(s) cadastrados para consulta.</p>
+            </Card>
+          </div>
+        ) : null}
+
+        {activeTab === "create" ? (
         <div className="grid gap-6 xl:grid-cols-3">
           <Card className="p-6">
             <div className="mb-4 flex items-center gap-2">
@@ -1001,7 +1041,9 @@ export function AdminEadScreen() {
             </form>
           </Card>
         </div>
+        ) : null}
 
+        {activeTab === "library" ? (
         <Card className="p-6">
           <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
@@ -1086,7 +1128,9 @@ export function AdminEadScreen() {
             </div>
           )}
         </Card>
+        ) : null}
 
+        {activeTab === "courses" ? (
         <Card className="p-6">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -1587,6 +1631,7 @@ export function AdminEadScreen() {
             ))}
           </div>
         </Card>
+        ) : null}
       </div>
     </BackofficeShell>
   );

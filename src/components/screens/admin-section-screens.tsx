@@ -3,13 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  AlertTriangle,
   BookOpen,
   CalendarDays,
+  CheckCircle2,
+  Clock,
   Download,
+  Eye,
   FileText,
+  ImageIcon,
   Loader2,
   Megaphone,
+  MessageSquare,
   Pencil,
+  Power,
   Save,
   Search,
   Send,
@@ -84,19 +91,92 @@ type AdminEvent = {
   description: string;
   location: string;
   category: string;
+  kind: "EVENT" | "CULTURE" | "PARTY";
   startsAtIso: string;
+  endsAtIso: string;
   status: "DRAFT" | "PUBLISHED" | "COMPLETED" | "CANCELED";
   points: number;
+  maxAttendees: number | null;
+  responsibleName: string | null;
+  accessGroupId: string | null;
+  accessGroupName: string | null;
 };
 
 type FeedPost = {
   id: string;
-  caption: string | null;
+  activity: string;
+  location: string | null;
+  imageUrl: string | null;
+  caption: string;
+  status: "PUBLISHED" | "PENDING" | "REJECTED";
   createdAt: string;
+  updatedAt: string;
   author: {
     name: string;
     email: string;
+    department: string | null;
   };
+  _count: {
+    comments: number;
+    likes: number;
+    reports: number;
+  };
+  reports: Array<{
+    id: string;
+    reason: string;
+    status: string;
+    createdAt: string;
+    reporter: {
+      name: string;
+      email: string;
+    };
+  }>;
+};
+
+type ComplianceDashboard = {
+  totals: {
+    totalUsers: number;
+    activeUsers: number;
+    platformAcceptances: number;
+    pendingTerms: number;
+    imageGranted: number;
+    imageRevoked: number;
+  };
+  recentAcceptances: Array<{
+    id: string;
+    kind: string;
+    version: string;
+    acceptedAtIso: string;
+    source: string | null;
+    user: {
+      name: string;
+      email: string;
+      department: string | null;
+    };
+  }>;
+  recentAuditLogs: Array<{
+    id: string;
+    action: string;
+    entity: string;
+    entityId: string;
+    createdAtIso: string;
+    actorName: string;
+    actorEmail: string | null;
+  }>;
+};
+
+const defaultEventForm = {
+  title: "",
+  description: "",
+  category: "Bem-estar",
+  location: "",
+  kind: "EVENT" as AdminEvent["kind"],
+  startsAtIso: "",
+  endsAtIso: "",
+  points: "0",
+  maxAttendees: "",
+  responsibleName: "",
+  status: "PUBLISHED" as AdminEvent["status"],
 };
 
 type MasterReport = {
@@ -261,6 +341,30 @@ function reportPeriodLabel(report: MasterReport | null) {
 
 function compactNumber(value: number) {
   return new Intl.NumberFormat("pt-BR").format(value);
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function toDatetimeLocalValue(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function fromDatetimeLocalValue(value: string) {
+  return value ? new Date(value).toISOString() : "";
 }
 
 function MasterReportPanel({ mode }: { mode: MasterReportMode }) {
@@ -1185,25 +1289,160 @@ export function AdminUsersScreen() {
 export function AdminEventsScreen() {
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | AdminEvent["status"]>("ALL");
+  const [form, setForm] = useState(defaultEventForm);
+
+  async function loadEvents() {
+    setLoading(true);
+    const response = await fetch("/api/admin/events", { cache: "no-store" });
+    const data = await response.json();
+    if (data.ok) setEvents(data.events ?? []);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function load() {
-      const response = await fetch("/api/admin/events", { cache: "no-store" });
-      const data = await response.json();
-      if (data.ok) setEvents(data.events ?? []);
-      setLoading(false);
-    }
-
-    void load();
+    void loadEvents();
   }, []);
+
+  const visibleEvents = useMemo(() => {
+    return events.filter((event) => statusFilter === "ALL" || event.status === statusFilter);
+  }, [events, statusFilter]);
+
+  const eventMetrics = useMemo(() => {
+    const now = Date.now();
+    return {
+      published: events.filter((event) => event.status === "PUBLISHED").length,
+      drafts: events.filter((event) => event.status === "DRAFT").length,
+      upcoming: events.filter((event) => event.status === "PUBLISHED" && new Date(event.startsAtIso).getTime() >= now).length,
+      points: events.reduce((sum, event) => sum + event.points, 0),
+    };
+  }, [events]);
+
+  async function createEvent(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busyAction) return;
+
+    setBusyAction("create-event");
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          category: form.category,
+          location: form.location,
+          kind: form.kind,
+          startsAtIso: fromDatetimeLocalValue(form.startsAtIso),
+          endsAtIso: fromDatetimeLocalValue(form.endsAtIso),
+          points: Number(form.points || 0),
+          maxAttendees: form.maxAttendees ? Number(form.maxAttendees) : undefined,
+          responsibleName: form.responsibleName || undefined,
+          status: form.status,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível criar o evento.");
+        return;
+      }
+
+      setForm(defaultEventForm);
+      setFeedback("Evento criado com sucesso.");
+      await loadEvents();
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function updateEventStatus(eventId: string, status: AdminEvent["status"]) {
+    if (busyAction) return;
+    setBusyAction(`event-${eventId}`);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/admin/events/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível atualizar o evento.");
+        return;
+      }
+
+      setFeedback("Evento atualizado.");
+      await loadEvents();
+    } finally {
+      setBusyAction(null);
+    }
+  }
 
   return (
     <BackofficeShell badge="Eventos" title="Eventos e aulas presenciais" description="Agenda, presença, pontuação e próximas turmas.">
+      <div className="mb-5 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm leading-6 text-blue-900">
+        <strong>Para que serve:</strong> use Eventos para cadastrar aulas presenciais, campanhas, turmas fechadas, ações de cultura e encontros que aparecem para o usuário na agenda. Aqui também ficam status, pontuação, responsável e controle de capacidade.
+      </div>
       {loading ? <LoadingState /> : null}
-      <div className="grid gap-3">
-        {events.length === 0 && !loading ? <EmptyState text="Nenhum evento cadastrado." /> : null}
-        {events.map((event) => (
-          <Card key={event.id} className="p-4">
+
+      {feedback ? <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">{feedback}</div> : null}
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard icon={CalendarDays} label="Publicados" value={eventMetrics.published} detail="visíveis na agenda" />
+        <MetricCard icon={Clock} label="Próximos" value={eventMetrics.upcoming} detail="ainda vão acontecer" />
+        <MetricCard icon={FileText} label="Rascunhos" value={eventMetrics.drafts} detail="ainda não publicados" />
+        <MetricCard icon={Trophy} label="Pontos previstos" value={eventMetrics.points} detail="soma dos eventos" />
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+        <Card className="p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-[#0264af]" />
+            <h2 className="text-lg font-black text-slate-950">Novo evento</h2>
+          </div>
+          <form className="grid gap-3" onSubmit={(event) => void createEvent(event)}>
+            <input className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" placeholder="Título do evento ou aula" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
+            <textarea className="min-h-24 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" placeholder="Descrição para o usuário" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required />
+            <div className="grid gap-3 md:grid-cols-2">
+              <input className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" placeholder="Categoria: Saúde, Cultura..." value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} required />
+              <input className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" placeholder="Local ou link" value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} required />
+              <select className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" value={form.kind} onChange={(event) => setForm((current) => ({ ...current, kind: event.target.value as AdminEvent["kind"] }))}>
+                <option value="EVENT">Evento / aula</option>
+                <option value="CULTURE">Cultura</option>
+                <option value="PARTY">Festa / ação interna</option>
+              </select>
+              <select className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as AdminEvent["status"] }))}>
+                <option value="PUBLISHED">Publicar</option>
+                <option value="DRAFT">Salvar rascunho</option>
+              </select>
+              <input className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" type="datetime-local" value={form.startsAtIso} onChange={(event) => setForm((current) => ({ ...current, startsAtIso: event.target.value }))} required />
+              <input className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" type="datetime-local" value={form.endsAtIso} onChange={(event) => setForm((current) => ({ ...current, endsAtIso: event.target.value }))} required />
+              <input className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" type="number" min="0" placeholder="Pontos" value={form.points} onChange={(event) => setForm((current) => ({ ...current, points: event.target.value }))} />
+              <input className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" type="number" min="1" placeholder="Limite de vagas" value={form.maxAttendees} onChange={(event) => setForm((current) => ({ ...current, maxAttendees: event.target.value }))} />
+            </div>
+            <input className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" placeholder="Responsável interno" value={form.responsibleName} onChange={(event) => setForm((current) => ({ ...current, responsibleName: event.target.value }))} />
+            <Button type="submit" disabled={busyAction === "create-event"}>{busyAction === "create-event" ? "Salvando..." : "Criar evento"}</Button>
+          </form>
+        </Card>
+
+        <div className="space-y-3">
+          <Card className="flex flex-wrap items-center gap-2 p-3">
+            {(["ALL", "PUBLISHED", "DRAFT", "COMPLETED", "CANCELED"] as Array<"ALL" | AdminEvent["status"]>).map((status) => (
+              <Button key={status} size="sm" variant={statusFilter === status ? "primary" : "outline"} onClick={() => setStatusFilter(status)}>
+                {status === "ALL" ? "Todos" : status}
+              </Button>
+            ))}
+          </Card>
+          {visibleEvents.length === 0 && !loading ? <EmptyState text="Nenhum evento encontrado para este filtro." /> : null}
+          {visibleEvents.map((event) => (
+            <Card key={event.id} className="p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1212,11 +1451,21 @@ export function AdminEventsScreen() {
                 </div>
                 <p className="mt-1 text-sm text-slate-500">{event.description}</p>
                 <p className="mt-2 text-xs font-bold text-slate-400">{event.category} · {event.location}</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">{formatDateTime(event.startsAtIso)} até {formatDateTime(event.endsAtIso)}</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">{event.responsibleName ?? "Sem responsável"} · {event.maxAttendees ? `${event.maxAttendees} vagas` : "Sem limite definido"}</p>
               </div>
               <div className="text-sm font-black text-[#0264af]">+{event.points} pts</div>
             </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" disabled={busyAction === `event-${event.id}`} onClick={() => void updateEventStatus(event.id, event.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED")}>
+                {event.status === "PUBLISHED" ? "Ocultar" : "Publicar"}
+              </Button>
+              <Button size="sm" variant="outline" disabled={busyAction === `event-${event.id}`} onClick={() => void updateEventStatus(event.id, "COMPLETED")}>Concluir</Button>
+              <Button size="sm" variant="outline" disabled={busyAction === `event-${event.id}`} onClick={() => void updateEventStatus(event.id, "CANCELED")}>Cancelar</Button>
+            </div>
           </Card>
-        ))}
+          ))}
+        </div>
       </div>
     </BackofficeShell>
   );
@@ -1267,13 +1516,80 @@ export function AdminReportsScreen() {
 }
 
 export function AdminComplianceScreen() {
+  const [compliance, setCompliance] = useState<ComplianceDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadCompliance() {
+      setLoading(true);
+      const response = await fetch("/api/admin/compliance", { cache: "no-store" });
+      const data = await response.json();
+      if (data.ok) setCompliance(data.compliance);
+      setLoading(false);
+    }
+
+    void loadCompliance();
+  }, []);
+
   return (
     <BackofficeShell badge="Compliance" title="Termos e aceite" description="Controle de aceite obrigatório, LGPD e termos da plataforma.">
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard icon={Shield} label="Termo obrigatório" value="Ativo" detail="Bloqueia acesso sem aceite" />
-        <MetricCard icon={FileText} label="Imagem/publicação" value="Mapeado" detail="Aceites por módulo" />
-        <MetricCard icon={Users} label="Usuários" value="Auditoria" detail="Histórico de aceite" />
+      <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm leading-6 text-emerald-900">
+        <strong>Para que serve:</strong> Compliance é a área de controle jurídico/operacional. Aqui você acompanha quem aceitou os termos obrigatórios, quem autorizou uso de imagem, pendências de aceite e histórico de ações sensíveis da plataforma.
       </div>
+      {loading ? <LoadingState /> : null}
+      {compliance ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <MetricCard icon={Shield} label="Termo obrigatório" value="Ativo" detail="bloqueia acesso sem aceite" />
+            <MetricCard icon={Users} label="Usuários ativos" value={compliance.totals.activeUsers} detail={`${compliance.totals.totalUsers} cadastrados`} />
+            <MetricCard icon={CheckCircle2} label="Aceites" value={compliance.totals.platformAcceptances} detail="termo principal" />
+            <MetricCard icon={AlertTriangle} label="Pendentes" value={compliance.totals.pendingTerms} detail="precisam aceitar" />
+            <MetricCard icon={ImageIcon} label="Uso de imagem" value={compliance.totals.imageGranted} detail="autorizados" />
+            <MetricCard icon={Power} label="Revogados" value={compliance.totals.imageRevoked} detail="imagem não liberada" />
+          </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_1fr]">
+            <Card className="p-5">
+              <h2 className="text-lg font-black text-slate-950">Últimos aceites</h2>
+              <p className="mb-4 text-sm font-semibold text-slate-500">Histórico usado para auditoria LGPD e termo de uso.</p>
+              <div className="space-y-3">
+                {compliance.recentAcceptances.length === 0 ? <EmptyState text="Nenhum aceite registrado." /> : null}
+                {compliance.recentAcceptances.map((acceptance) => (
+                  <div key={acceptance.id} className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="font-black text-slate-950">{acceptance.user.name}</p>
+                        <p className="text-xs font-semibold text-slate-500">{acceptance.user.email} · {getDepartmentLabel(acceptance.user.department)}</p>
+                      </div>
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{acceptance.kind} v{acceptance.version}</span>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-400">{formatDateTime(acceptance.acceptedAtIso)} · {acceptance.source ?? "plataforma"}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-5">
+              <h2 className="text-lg font-black text-slate-950">Auditoria recente</h2>
+              <p className="mb-4 text-sm font-semibold text-slate-500">Criações, atualizações e exclusões importantes feitas por admins ou pelo sistema.</p>
+              <div className="space-y-3">
+                {compliance.recentAuditLogs.length === 0 ? <EmptyState text="Nenhuma ação auditada ainda." /> : null}
+                {compliance.recentAuditLogs.map((log) => (
+                  <div key={log.id} className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-black text-slate-950">{log.action} · {log.entity}</p>
+                        <p className="text-xs font-semibold text-slate-500">{log.actorName}{log.actorEmail ? ` · ${log.actorEmail}` : ""}</p>
+                      </div>
+                      <span className="text-xs font-bold text-slate-400">{formatDateTime(log.createdAtIso)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </>
+      ) : null}
     </BackofficeShell>
   );
 }
@@ -1283,27 +1599,39 @@ export function AdminModerationScreen() {
   const [allowUserPosting, setAllowUserPosting] = useState(true);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | FeedPost["status"]>("ALL");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  async function loadModeration(nextStatus = statusFilter) {
+    setLoading(true);
+    const params = new URLSearchParams({ limit: "80", status: nextStatus });
+    const [settingsResponse, postsResponse] = await Promise.all([
+      fetch("/api/admin/platform-settings", { cache: "no-store" }),
+      fetch(`/api/admin/feed-moderation?${params.toString()}`, { cache: "no-store" }),
+    ]);
+    const [settingsData, postsData] = await Promise.all([
+      settingsResponse.json(),
+      postsResponse.json(),
+    ]);
+    if (settingsData.ok) setAllowUserPosting(Boolean(settingsData.settings.allowUserPosting));
+    if (postsData.ok) setPosts(postsData.posts ?? []);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    async function loadModeration() {
-      const [settingsResponse, postsResponse] = await Promise.all([
-        fetch("/api/admin/platform-settings", { cache: "no-store" }),
-        fetch("/api/admin/feed-moderation?limit=50", { cache: "no-store" }),
-      ]);
-      const [settingsData, postsData] = await Promise.all([
-        settingsResponse.json(),
-        postsResponse.json(),
-      ]);
-      if (settingsData.ok) setAllowUserPosting(Boolean(settingsData.settings.allowUserPosting));
-      if (postsData.ok) setPosts(postsData.posts ?? []);
-      setLoading(false);
-    }
-
     void loadModeration();
   }, []);
 
+  const moderationMetrics = useMemo(() => ({
+    published: posts.filter((post) => post.status === "PUBLISHED").length,
+    pending: posts.filter((post) => post.status === "PENDING").length,
+    rejected: posts.filter((post) => post.status === "REJECTED").length,
+    reports: posts.reduce((sum, post) => sum + post._count.reports, 0),
+  }), [posts]);
+
   async function togglePosting() {
     const nextValue = !allowUserPosting;
+    setBusyAction("toggle-posting");
     const response = await fetch("/api/admin/platform-settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1314,26 +1642,134 @@ export function AdminModerationScreen() {
       setAllowUserPosting(nextValue);
       setFeedback(nextValue ? "Postagens liberadas." : "Postagens bloqueadas.");
     }
+    setBusyAction(null);
+  }
+
+  async function updatePostStatus(postId: string, status: FeedPost["status"]) {
+    if (busyAction) return;
+    setBusyAction(`post-${postId}`);
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/feed-moderation", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: postId, status }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível atualizar a publicação.");
+        return;
+      }
+      setFeedback("Publicação atualizada.");
+      await loadModeration();
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function removePost(postId: string) {
+    if (busyAction) return;
+    const confirmed = window.confirm("Excluir esta publicação? Essa ação remove o post do feed.");
+    if (!confirmed) return;
+
+    setBusyAction(`remove-${postId}`);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/admin/feed-moderation?id=${postId}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível excluir a publicação.");
+        return;
+      }
+      setFeedback("Publicação excluída.");
+      await loadModeration();
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function changeStatusFilter(status: "ALL" | FeedPost["status"]) {
+    setStatusFilter(status);
+    void loadModeration(status);
   }
 
   return (
     <BackofficeShell badge="Moderação" title="Moderação do feed" description="Controle de postagem e acompanhamento de publicações recentes.">
+      <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-900">
+        <strong>Para que serve:</strong> Moderação é o painel para acompanhar o feed social, revisar denúncias, aprovar/reprovar publicações, bloquear novas postagens temporariamente e excluir conteúdo inadequado.
+      </div>
       {feedback ? <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">{feedback}</div> : null}
-      <div className="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]">
+
+      <div className="mb-5 grid gap-4 md:grid-cols-4">
+        <MetricCard icon={Eye} label="Publicados" value={moderationMetrics.published} detail="visíveis no feed" />
+        <MetricCard icon={Clock} label="Pendentes" value={moderationMetrics.pending} detail="aguardando revisão" />
+        <MetricCard icon={UserX} label="Rejeitados" value={moderationMetrics.rejected} detail="ocultos do feed" />
+        <MetricCard icon={AlertTriangle} label="Denúncias" value={moderationMetrics.reports} detail="sinalizações recentes" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[0.65fr_1.35fr]">
         <Card className="p-5">
           <h2 className="font-bold text-slate-950">Postagem de usuários</h2>
           <p className="mt-2 text-sm text-slate-500">Abre ou fecha a postagem no feed para usuários.</p>
-          <Button className="mt-4" variant={allowUserPosting ? "outline" : "primary"} onClick={() => void togglePosting()}>
+          <Button className="mt-4 w-full" variant={allowUserPosting ? "outline" : "primary"} disabled={busyAction === "toggle-posting"} onClick={() => void togglePosting()}>
             {allowUserPosting ? "Bloquear postagens" : "Liberar postagens"}
           </Button>
+          <div className="mt-5 border-t border-slate-100 pt-5">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Filtro</p>
+            <div className="grid gap-2">
+              {(["ALL", "PUBLISHED", "PENDING", "REJECTED"] as Array<"ALL" | FeedPost["status"]>).map((status) => (
+                <Button key={status} size="sm" variant={statusFilter === status ? "primary" : "outline"} onClick={() => changeStatusFilter(status)}>
+                  {status === "ALL" ? "Todas" : status}
+                </Button>
+              ))}
+            </div>
+          </div>
         </Card>
         <div className="space-y-3">
           {loading ? <LoadingState /> : null}
           {posts.length === 0 && !loading ? <EmptyState text="Nenhuma publicação recente." /> : null}
           {posts.map((post) => (
             <Card key={post.id} className="p-4">
-              <p className="text-sm font-semibold text-slate-950">{post.author.name}</p>
-              <p className="mt-1 text-sm text-slate-500">{post.caption ?? "Publicação sem legenda."}</p>
+              <div className="flex flex-col gap-4 lg:flex-row">
+                {post.imageUrl ? (
+                  <img src={post.imageUrl} alt="" className="h-36 w-full rounded-2xl object-cover lg:w-48" />
+                ) : (
+                  <div className="flex h-36 w-full items-center justify-center rounded-2xl bg-slate-100 text-slate-400 lg:w-48">
+                    <ImageIcon size={24} />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-black text-slate-950">{post.author.name}</p>
+                    <StatusPill value={post.status} />
+                    {post._count.reports > 0 ? <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-black uppercase text-rose-700">{post._count.reports} denúncia(s)</span> : null}
+                  </div>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{post.author.email} · {getDepartmentLabel(post.author.department)} · {formatDateTime(post.createdAt)}</p>
+                  <p className="mt-3 text-sm font-semibold text-slate-700">{post.caption || "Publicação sem legenda."}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
+                    <span className="rounded-full bg-slate-100 px-3 py-1"><MessageSquare size={13} className="inline" /> {post._count.comments} comentários</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1">{post._count.likes} curtidas</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1">{post.activity}</span>
+                  </div>
+                  {post.reports.length > 0 ? (
+                    <div className="mt-3 rounded-2xl border border-rose-100 bg-rose-50 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-500">Últimas denúncias</p>
+                      {post.reports.map((report) => (
+                        <p key={report.id} className="mt-1 text-xs font-semibold text-rose-800">{report.reason} · {report.reporter.name}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={busyAction === `post-${post.id}`} onClick={() => void updatePostStatus(post.id, "PUBLISHED")}>Aprovar</Button>
+                    <Button size="sm" variant="outline" disabled={busyAction === `post-${post.id}`} onClick={() => void updatePostStatus(post.id, "REJECTED")}>Rejeitar</Button>
+                    <Button size="sm" variant="outline" disabled={busyAction === `remove-${post.id}`} onClick={() => void removePost(post.id)}>
+                      <Trash2 size={14} /> Excluir
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </Card>
           ))}
         </div>
