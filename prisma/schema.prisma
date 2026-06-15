@@ -501,6 +501,12 @@ model CareRecord {
   userId             String
   professionalUserId String
   professionalRole   String?
+  sourceType         String   @default("manual")
+  sourceId           String?
+  visibility         String   @default("user_visible")
+  priority           String   @default("normal")
+  requiresFollowUp   Boolean  @default(false)
+  followUpStatus     String   @default("open")
   category           String
   title              String
   summary            String
@@ -515,6 +521,8 @@ model CareRecord {
 
   @@index([userId, recordedAt])
   @@index([professionalUserId, recordedAt])
+  @@index([sourceType, sourceId])
+  @@index([priority, followUpStatus])
 }
 
 model FeedPost {
@@ -854,6 +862,8 @@ model TeamNote {
   authorRole           String?
   targetCategory       String?  // Se for uma recomendação específica (ex: Nutrição)
   targetProfessionalId String?  // Se for para um profissional específico
+  priority             String   @default("normal")
+  status               String   @default("open")
   content              String
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -863,6 +873,8 @@ model TeamNote {
   targetProfessional   User?    @relation("TeamNoteTarget", fields: [targetProfessionalId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
+  @@index([targetProfessionalId, status])
+  @@index([priority, status])
 }
 model PlatformSettings {
   id               String   @id @default("global-settings")

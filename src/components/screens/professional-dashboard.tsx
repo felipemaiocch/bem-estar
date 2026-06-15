@@ -34,6 +34,7 @@ import {
   monitoredUsers as seedMonitoredUsers,
 } from "@/lib/mock-data";
 import type { CareRecordCategory, CareRecordMetric, MonitoredUser, UserCareRecord } from "@/types";
+import type { CareRecordPriority, CareRecordSourceType, CareRecordVisibility } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface RecordFormState {
@@ -41,6 +42,12 @@ interface RecordFormState {
   category: CareRecordCategory;
   professional: string;
   professionalRole?: string;
+  sourceType: CareRecordSourceType;
+  sourceId: string;
+  visibility: CareRecordVisibility;
+  priority: CareRecordPriority;
+  requiresFollowUp: boolean;
+  followUpStatus: "open" | "in_progress" | "resolved";
   title: string;
   summary: string;
   delivery: string;
@@ -81,6 +88,8 @@ interface TeamNote {
   content: string;
   targetCategory?: string;
   targetProfessionalName?: string;
+  priority: CareRecordPriority;
+  status: "open" | "in_progress" | "resolved";
   createdAt: string;
   dateLabel: string;
 }
@@ -100,6 +109,12 @@ function buildFormState(
     category: selectedCategory.value,
     professional: selectedCategory.professionals[0],
     professionalRole: selectedCategory.professionalRole,
+    sourceType: "manual",
+    sourceId: "",
+    visibility: "user_visible",
+    priority: "normal",
+    requiresFollowUp: false,
+    followUpStatus: "open",
     title: selectedCategory.defaultTitle,
     summary: selectedCategory.defaultSummary,
     delivery: selectedCategory.defaultDelivery,
@@ -109,6 +124,45 @@ function buildFormState(
       value: "",
     })),
   };
+}
+
+function sourceTypeLabel(value: CareRecordSourceType) {
+  const labels: Record<CareRecordSourceType, string> = {
+    manual: "Registro manual",
+    appointment: "Atendimento/agendamento",
+    event: "Evento ou atividade",
+    ead: "Curso EAD",
+    checkin: "Check-in",
+    library: "Biblioteca",
+  };
+  return labels[value] ?? value;
+}
+
+function visibilityLabel(value: CareRecordVisibility) {
+  const labels: Record<CareRecordVisibility, string> = {
+    user_visible: "Usuário vê",
+    family_visible: "Usuário/família veem",
+    team_only: "Somente equipe",
+    admin_only: "Somente admin",
+  };
+  return labels[value] ?? value;
+}
+
+function priorityLabel(value: CareRecordPriority) {
+  const labels: Record<CareRecordPriority, string> = {
+    low: "Baixa",
+    normal: "Normal",
+    attention: "Atenção",
+    critical: "Crítica",
+  };
+  return labels[value] ?? value;
+}
+
+function priorityTone(value: CareRecordPriority) {
+  if (value === "critical") return "bg-rose-50 text-rose-700 ring-rose-100";
+  if (value === "attention") return "bg-amber-50 text-amber-700 ring-amber-100";
+  if (value === "low") return "bg-slate-50 text-slate-600 ring-slate-100";
+  return "bg-emerald-50 text-emerald-700 ring-emerald-100";
 }
 
 function bookingStatusLabel(status: ProfessionalBooking["status"]) {
@@ -182,7 +236,12 @@ export function ProfessionalDashboardScreen() {
   const [teamNotes, setTeamNotes] = useState<TeamNote[]>([]);
   const [allProfessionals, setAllProfessionals] = useState<{ id: string; name: string; specialty: string }[]>([]);
   const [loadingTeamNotes, setLoadingTeamNotes] = useState(false);
-  const [newTeamNote, setNewTeamNote] = useState({ content: "", targetCategory: "", targetProfessionalId: "" });
+  const [newTeamNote, setNewTeamNote] = useState({
+    content: "",
+    targetCategory: "",
+    targetProfessionalId: "",
+    priority: "normal" as CareRecordPriority,
+  });
   const [savingTeamNote, setSavingTeamNote] = useState(false);
   const feedFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -343,6 +402,12 @@ export function ProfessionalDashboardScreen() {
           userId: form.userId,
           category: category.value,
           professionalRole: form.professionalRole || category.professionalRole,
+          sourceType: form.sourceType,
+          sourceId: form.sourceId || null,
+          visibility: form.visibility,
+          priority: form.priority,
+          requiresFollowUp: form.requiresFollowUp,
+          followUpStatus: form.followUpStatus,
           title: form.title,
           summary: form.summary,
           delivery: String(form.summary),
@@ -382,6 +447,12 @@ export function ProfessionalDashboardScreen() {
       category: record.category,
       professional: record.professional,
       professionalRole: record.professionalRole,
+      sourceType: record.sourceType,
+      sourceId: record.sourceId ?? "",
+      visibility: record.visibility,
+      priority: record.priority,
+      requiresFollowUp: record.requiresFollowUp,
+      followUpStatus: record.followUpStatus,
       title: record.title,
       summary: record.summary,
       delivery: record.delivery,
@@ -425,18 +496,37 @@ export function ProfessionalDashboardScreen() {
           content: newTeamNote.content,
           targetCategory: newTeamNote.targetCategory || null,
           targetProfessionalId: newTeamNote.targetProfessionalId || null,
+          priority: newTeamNote.priority,
           authorRole: selectedCategory.professionalRole
         }),
       });
       const data = await response.json();
       if (data.ok) {
         setTeamNotes(prev => [data.note, ...prev]);
-        setNewTeamNote({ content: "", targetCategory: "", targetProfessionalId: "" });
+        setNewTeamNote({ content: "", targetCategory: "", targetProfessionalId: "", priority: "normal" });
       }
     } catch (error) {
       console.error("Error saving team note:", error);
     } finally {
       setSavingTeamNote(false);
+    }
+  }
+
+  async function handleTeamNoteStatus(noteId: string, status: TeamNote["status"]) {
+    try {
+      const response = await fetch("/api/professional/team-notes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: noteId, status }),
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setTeamNotes((current) =>
+          current.map((note) => (note.id === noteId ? { ...note, status } : note)),
+        );
+      }
+    } catch (error) {
+      console.error("Error updating team note:", error);
     }
   }
 
@@ -919,7 +1009,101 @@ export function ProfessionalDashboardScreen() {
                   </label>
                 </div>
 
-                {/* Removidos campos de Área e Papel conforme solicitação */}
+                <div className="rounded-[24px] border border-blue-100 bg-blue-50/60 p-4">
+                  <div className="mb-3">
+                    <p className="text-sm font-semibold text-slate-950">Classificação do feedback</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Defina se este registro veio de uma atividade, se o usuário pode visualizar e se precisa de acompanhamento da equipe.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Origem</span>
+                      <select
+                        value={form.sourceType}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            sourceType: event.target.value as CareRecordSourceType,
+                          }))
+                        }
+                        className={cn(fieldClassName, "h-11 bg-white")}
+                      >
+                        <option value="manual">Registro manual</option>
+                        <option value="appointment">Atendimento/agendamento</option>
+                        <option value="event">Evento ou atividade</option>
+                        <option value="ead">Curso EAD</option>
+                        <option value="checkin">Check-in</option>
+                        <option value="library">Biblioteca</option>
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Vínculo opcional</span>
+                      <input
+                        value={form.sourceId}
+                        onChange={(event) =>
+                          setForm((current) => ({ ...current, sourceId: event.target.value }))
+                        }
+                        className={cn(fieldClassName, "h-11 bg-white")}
+                        placeholder="ID ou referência da atividade"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Visibilidade</span>
+                      <select
+                        value={form.visibility}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            visibility: event.target.value as CareRecordVisibility,
+                          }))
+                        }
+                        className={cn(fieldClassName, "h-11 bg-white")}
+                      >
+                        <option value="user_visible">Usuário pode ver</option>
+                        <option value="family_visible">Usuário e família podem ver</option>
+                        <option value="team_only">Somente equipe profissional</option>
+                        <option value="admin_only">Somente administração</option>
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Prioridade</span>
+                      <select
+                        value={form.priority}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            priority: event.target.value as CareRecordPriority,
+                          }))
+                        }
+                        className={cn(fieldClassName, "h-11 bg-white")}
+                      >
+                        <option value="low">Baixa</option>
+                        <option value="normal">Normal</option>
+                        <option value="attention">Atenção</option>
+                        <option value="critical">Crítica</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="mt-3 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-white bg-white px-4 py-3">
+                    <span>
+                      <span className="block text-sm font-semibold text-slate-900">Precisa de acompanhamento?</span>
+                      <span className="block text-xs text-slate-500">Marca este usuário para retorno ou alinhamento futuro.</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={form.requiresFollowUp}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          requiresFollowUp: event.target.checked,
+                          followUpStatus: event.target.checked ? "open" : "resolved",
+                        }))
+                      }
+                      className="h-5 w-5 accent-[#0264af]"
+                    />
+                  </label>
+                </div>
 
                 <label className="space-y-2">
                   <span className="text-sm font-medium text-slate-700">Título do Atendimento</span>
@@ -975,12 +1159,28 @@ export function ProfessionalDashboardScreen() {
                     className="rounded-[24px] border border-slate-100 bg-slate-50 px-4 py-4"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-slate-950">{record.title}</p>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {record.professional} · {record.professionalRole}
-                        </p>
-                      </div>
+	                      <div>
+	                        <p className="text-base font-semibold text-slate-950">{record.title}</p>
+	                        <p className="mt-1 text-sm text-slate-500">
+	                          {record.professional} · {record.professionalRole}
+	                        </p>
+	                        <div className="mt-2 flex flex-wrap gap-2">
+	                          <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 ring-1 ring-slate-200">
+	                            {sourceTypeLabel(record.sourceType)}
+	                          </span>
+	                          <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 ring-1 ring-slate-200">
+	                            {visibilityLabel(record.visibility)}
+	                          </span>
+	                          <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ring-1", priorityTone(record.priority))}>
+	                            {priorityLabel(record.priority)}
+	                          </span>
+	                          {record.requiresFollowUp ? (
+	                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-100">
+	                              acompanhamento {record.followUpStatus}
+	                            </span>
+	                          ) : null}
+	                        </div>
+	                      </div>
                       <div className="flex items-start gap-2">
                         <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
                           {record.recordedAtLabel}
@@ -1049,9 +1249,9 @@ export function ProfessionalDashboardScreen() {
                   className={cn(fieldClassName, "min-h-[100px] bg-white border-indigo-100 focus:border-indigo-500")}
                   required
                 />
-                <div className="grid grid-cols-2 gap-3">
-                  <select
-                    value={newTeamNote.targetCategory}
+	                <div className="grid grid-cols-2 gap-3">
+	                  <select
+	                    value={newTeamNote.targetCategory}
                     onChange={(e) => setNewTeamNote(prev => ({ ...prev, targetCategory: e.target.value }))}
                     className={cn(fieldClassName, "h-11 bg-white border-indigo-100 text-[11px]")}
                   >
@@ -1066,11 +1266,21 @@ export function ProfessionalDashboardScreen() {
                     className={cn(fieldClassName, "h-11 bg-white border-indigo-100 text-[11px]")}
                   >
                     <option value="">Para: Qualquer Profissional</option>
-                    {allProfessionals.map(p => (
-                      <option key={p.id} value={p.id}>Para: {p.name}</option>
-                    ))}
-                  </select>
-                </div>
+	                    {allProfessionals.map(p => (
+	                      <option key={p.id} value={p.id}>Para: {p.name}</option>
+	                    ))}
+	                  </select>
+	                  <select
+	                    value={newTeamNote.priority}
+	                    onChange={(e) => setNewTeamNote(prev => ({ ...prev, priority: e.target.value as CareRecordPriority }))}
+	                    className={cn(fieldClassName, "h-11 bg-white border-indigo-100 text-[11px] col-span-2")}
+	                  >
+	                    <option value="normal">Prioridade normal</option>
+	                    <option value="attention">Precisa de atenção</option>
+	                    <option value="critical">Crítico</option>
+	                    <option value="low">Baixa prioridade</option>
+	                  </select>
+	                </div>
                 <Button 
                   type="submit" 
                   className="bg-indigo-600 hover:bg-indigo-700 text-white w-full h-11"
@@ -1087,15 +1297,37 @@ export function ProfessionalDashboardScreen() {
                 ) : teamNotes.length > 0 ? (
                   teamNotes.map((note) => (
                     <div key={note.id} className="bg-white p-3 rounded-2xl border border-indigo-50 shadow-sm">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="text-xs font-bold text-slate-900">{note.author}</p>
-                          <p className="text-[10px] text-indigo-600 font-medium">{note.authorRole}</p>
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-medium">{note.dateLabel}</span>
-                      </div>
-                      <p className="text-sm text-slate-600 leading-relaxed italic">"{note.content}"</p>
-                      {note.targetCategory && (
+	                      <div className="flex justify-between items-start mb-2">
+	                        <div>
+	                          <p className="text-xs font-bold text-slate-900">{note.author}</p>
+	                          <p className="text-[10px] text-indigo-600 font-medium">{note.authorRole}</p>
+	                        </div>
+	                        <div className="flex flex-col items-end gap-1">
+	                          <span className="text-[10px] text-slate-400 font-medium">{note.dateLabel}</span>
+	                          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-black uppercase ring-1", priorityTone(note.priority))}>
+	                            {priorityLabel(note.priority)}
+	                          </span>
+	                        </div>
+	                      </div>
+	                      <p className="text-sm text-slate-600 leading-relaxed italic">"{note.content}"</p>
+	                      <div className="mt-3 flex flex-wrap gap-2">
+	                        {(["open", "in_progress", "resolved"] as TeamNote["status"][]).map((status) => (
+	                          <button
+	                            key={status}
+	                            type="button"
+	                            onClick={() => void handleTeamNoteStatus(note.id, status)}
+	                            className={cn(
+	                              "rounded-full px-2.5 py-1 text-[10px] font-bold uppercase transition-colors",
+	                              note.status === status
+	                                ? "bg-indigo-600 text-white"
+	                                : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
+	                            )}
+	                          >
+	                            {status === "open" ? "Aberta" : status === "in_progress" ? "Em andamento" : "Resolvida"}
+	                          </button>
+	                        ))}
+	                      </div>
+	                      {note.targetCategory && (
                         <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-inset ring-amber-600/20 mr-2">
                           <Sparkles className="h-3 w-3" />
                           RECOMENDAÇÃO: {note.targetCategory.toUpperCase()}

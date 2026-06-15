@@ -3,13 +3,27 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isDemoMode } from "@/lib/runtime-mode";
 import { monitoredUsers, seedCareRecords } from "@/lib/mock-data";
-import type { CareRecordCategory, CareRecordMetric, UserCareRecord } from "@/types";
+import type {
+  CareRecordCategory,
+  CareRecordFollowUpStatus,
+  CareRecordMetric,
+  CareRecordPriority,
+  CareRecordSourceType,
+  CareRecordVisibility,
+  UserCareRecord,
+} from "@/types";
 
 export interface CareRecordInput {
   userId: string;
   professionalUserId: string;
   professionalName?: string;
   professionalRole?: string;
+  sourceType?: CareRecordSourceType;
+  sourceId?: string | null;
+  visibility?: CareRecordVisibility;
+  priority?: CareRecordPriority;
+  requiresFollowUp?: boolean;
+  followUpStatus?: CareRecordFollowUpStatus;
   category: CareRecordCategory;
   title: string;
   summary: string;
@@ -114,6 +128,12 @@ function toViewModel(record: CareRecordWithRelations): UserCareRecord {
     userName: record.user.name,
     userArea: record.user.company ?? "Operações",
     category: record.category as CareRecordCategory,
+    sourceType: (record.sourceType ?? "manual") as CareRecordSourceType,
+    sourceId: record.sourceId ?? null,
+    visibility: (record.visibility ?? "user_visible") as CareRecordVisibility,
+    priority: (record.priority ?? "normal") as CareRecordPriority,
+    requiresFollowUp: Boolean(record.requiresFollowUp),
+    followUpStatus: (record.followUpStatus ?? "open") as CareRecordFollowUpStatus,
     professional: record.professional.name,
     professionalRole: record.professionalRole ?? "Profissional",
     title: record.title,
@@ -163,7 +183,10 @@ export async function listCareRecordsForUser(userId: string) {
   }
 
   const records = await prisma.careRecord.findMany({
-    where: { userId },
+    where: {
+      userId,
+      visibility: { in: ["user_visible", "family_visible"] },
+    },
     include: {
       user: {
         select: {
@@ -267,6 +290,12 @@ export async function createCareRecord(input: CareRecordInput): Promise<UserCare
       userName: selectedUser.name,
       userArea: selectedUser.area,
       category: input.category,
+      sourceType: input.sourceType ?? "manual",
+      sourceId: input.sourceId ?? null,
+      visibility: input.visibility ?? "user_visible",
+      priority: input.priority ?? "normal",
+      requiresFollowUp: input.requiresFollowUp ?? false,
+      followUpStatus: input.followUpStatus ?? "open",
       professional: professionalName,
       professionalRole: input.professionalRole ?? "Profissional",
       title: input.title.trim(),
@@ -317,6 +346,12 @@ export async function createCareRecord(input: CareRecordInput): Promise<UserCare
       userId: input.userId,
       professionalUserId: input.professionalUserId,
       professionalRole: input.professionalRole,
+      sourceType: input.sourceType ?? "manual",
+      sourceId: input.sourceId ?? null,
+      visibility: input.visibility ?? "user_visible",
+      priority: input.priority ?? "normal",
+      requiresFollowUp: input.requiresFollowUp ?? false,
+      followUpStatus: input.followUpStatus ?? "open",
       category: input.category,
       title: input.title.trim(),
       summary: input.summary.trim(),

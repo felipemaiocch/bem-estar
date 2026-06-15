@@ -123,6 +123,24 @@ export interface CareRecordMetric {
   value: string;
 }
 
+export type CareRecordSourceType =
+  | "manual"
+  | "appointment"
+  | "event"
+  | "ead"
+  | "checkin"
+  | "library";
+
+export type CareRecordVisibility =
+  | "user_visible"
+  | "team_only"
+  | "admin_only"
+  | "family_visible";
+
+export type CareRecordPriority = "low" | "normal" | "attention" | "critical";
+
+export type CareRecordFollowUpStatus = "open" | "in_progress" | "resolved";
+
 export interface MonitoredUser {
   id: string;
   name: string;
@@ -150,6 +168,12 @@ export interface UserCareRecord {
   userName: string;
   userArea: string;
   category: CareRecordCategory;
+  sourceType: CareRecordSourceType;
+  sourceId: string | null;
+  visibility: CareRecordVisibility;
+  priority: CareRecordPriority;
+  requiresFollowUp: boolean;
+  followUpStatus: CareRecordFollowUpStatus;
   professional: string;
   professionalRole: string;
   title: string;

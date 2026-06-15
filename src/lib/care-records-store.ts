@@ -8,6 +8,12 @@ export interface NewCareRecordInput {
   userName: string;
   userArea: string;
   category: UserCareRecord["category"];
+  sourceType?: UserCareRecord["sourceType"];
+  sourceId?: string | null;
+  visibility?: UserCareRecord["visibility"];
+  priority?: UserCareRecord["priority"];
+  requiresFollowUp?: boolean;
+  followUpStatus?: UserCareRecord["followUpStatus"];
   professional: string;
   professionalRole: string;
   title: string;
@@ -92,6 +98,12 @@ export function appendCareRecord(input: NewCareRecordInput) {
   const now = new Date();
   const nextRecord: UserCareRecord = {
     ...input,
+    sourceType: input.sourceType ?? "manual",
+    sourceId: input.sourceId ?? null,
+    visibility: input.visibility ?? "user_visible",
+    priority: input.priority ?? "normal",
+    requiresFollowUp: input.requiresFollowUp ?? false,
+    followUpStatus: input.followUpStatus ?? "open",
     id:
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
