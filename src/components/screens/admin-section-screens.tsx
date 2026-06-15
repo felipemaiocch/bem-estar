@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
-  BarChart3,
+  BookOpen,
   CalendarDays,
+  Download,
   FileText,
   Loader2,
   Megaphone,
@@ -15,6 +16,7 @@ import {
   Shield,
   Stethoscope,
   Trash2,
+  Trophy,
   UserX,
   X,
   UserCheck,
@@ -97,6 +99,84 @@ type FeedPost = {
   };
 };
 
+type MasterReport = {
+  generatedAt: string;
+  period: {
+    from: string | null;
+    to: string | null;
+    department: string;
+    departmentLabel: string;
+  };
+  modules: {
+    users: {
+      total: number;
+      active: number;
+      pending: number;
+      newInPeriod: number;
+      byDepartment: Array<{ department: string; departmentLabel: string; count: number }>;
+    };
+    professionals: {
+      total: number;
+      sessions: number;
+      scheduled: number;
+      confirmed: number;
+      completed: number;
+      missed: number;
+      completionRate: number;
+    };
+    events: {
+      total: number;
+      published: number;
+      upcoming: number;
+      participations: number;
+      checkins: number;
+      presenceRate: number;
+    };
+    wellness: {
+      checkins: number;
+      uniqueUsers: number;
+      avgEnergy: number;
+      alertCount: number;
+      alertRate: number;
+      moodCounts: Array<{ mood: string; count: number }>;
+      byDepartment: Array<{ department: string; departmentLabel: string; checkins: number; alerts: number; alertRate: number }>;
+    };
+    ead: {
+      courses: number;
+      lessons: number;
+      completions: number;
+      resources: number;
+      ratings: number;
+      averageRating: number;
+    };
+    library: {
+      items: number;
+      reservations: number;
+      borrowed: number;
+      overdue: number;
+      consultations: number;
+    };
+    content: {
+      cardsActive: number;
+      feedPosts: number;
+      feedPending: number;
+      openReports: number;
+    };
+    communication: {
+      notificationsSent: number;
+      notificationsFailed: number;
+      acceptances: number;
+    };
+    gamification: {
+      totalScore: number;
+      totalCoins: number;
+      topUsers: Array<{ id: string; name: string; email: string; department: string | null; departmentLabel: string; score: number; drCoins: number }>;
+    };
+  };
+};
+
+type MasterReportMode = "dashboard" | "reports";
+
 const statusClassName: Record<string, string> = {
   APPROVED: "bg-emerald-50 text-emerald-700",
   PENDING: "bg-amber-50 text-amber-700",
@@ -159,62 +239,367 @@ function MetricCard({
   );
 }
 
-export function AdminOverviewScreen() {
+function toInputDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function defaultFromDate() {
+  const date = new Date();
+  date.setDate(date.getDate() - 30);
+  return toInputDate(date);
+}
+
+function formatReportDate(value?: string | null) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
+}
+
+function reportPeriodLabel(report: MasterReport | null) {
+  if (!report?.period.from && !report?.period.to) return "Todo o histórico";
+  return `${formatReportDate(report.period.from)} até ${formatReportDate(report.period.to)}`;
+}
+
+function compactNumber(value: number) {
+  return new Intl.NumberFormat("pt-BR").format(value);
+}
+
+function MasterReportPanel({ mode }: { mode: MasterReportMode }) {
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [professionals, setProfessionals] = useState<AdminProfessional[]>([]);
-  const [events, setEvents] = useState<AdminEvent[]>([]);
-  const [cardsCount, setCardsCount] = useState(0);
-  const [moderationCount, setModerationCount] = useState(0);
+  const [report, setReport] = useState<MasterReport | null>(null);
+  const [from, setFrom] = useState(defaultFromDate);
+  const [to, setTo] = useState(() => toInputDate(new Date()));
+  const [department, setDepartment] = useState("ALL");
+  const isReports = mode === "reports";
+
+  const loadReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("from", from);
+      params.set("to", to);
+      params.set("department", department);
+      const response = await fetch(`/api/admin/master-report?${params.toString()}`, { cache: "no-store" });
+      const data = await response.json();
+      if (data.ok) setReport(data.report);
+    } finally {
+      setLoading(false);
+    }
+  }, [department, from, to]);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [usersResponse, professionalsResponse, eventsResponse, cardsResponse, feedResponse] = await Promise.all([
-          fetch("/api/admin/users", { cache: "no-store" }),
-          fetch("/api/admin/professionals", { cache: "no-store" }),
-          fetch("/api/admin/events", { cache: "no-store" }),
-          fetch("/api/admin/cards", { cache: "no-store" }),
-          fetch("/api/admin/feed-moderation?limit=10", { cache: "no-store" }),
-        ]);
-        const [usersData, professionalsData, eventsData, cardsData, feedData] = await Promise.all([
-          usersResponse.json(),
-          professionalsResponse.json(),
-          eventsResponse.json(),
-          cardsResponse.json(),
-          feedResponse.json(),
-        ]);
+    void loadReport();
+  }, [loadReport]);
 
-        if (usersData.ok) setUsers(usersData.users ?? []);
-        if (professionalsData.ok) setProfessionals(professionalsData.professionals ?? []);
-        if (eventsData.ok) setEvents(eventsData.events ?? []);
-        if (cardsData.ok) setCardsCount(cardsData.cards?.length ?? 0);
-        if (feedData.ok) setModerationCount(feedData.posts?.length ?? 0);
-      } finally {
-        setLoading(false);
+  const executiveCards = useMemo(() => {
+    if (!report) return [];
+    return [
+      { icon: Users, label: "Usuários ativos", value: report.modules.users.active, detail: `${report.modules.users.pending} pendente(s) de aprovação` },
+      { icon: Activity, label: "Check-ins", value: report.modules.wellness.checkins, detail: `${report.modules.wellness.alertRate}% em atenção` },
+      { icon: CalendarDays, label: "Eventos", value: report.modules.events.published, detail: `${report.modules.events.presenceRate}% presença` },
+      { icon: Stethoscope, label: "Atendimentos", value: report.modules.professionals.sessions, detail: `${report.modules.professionals.completionRate}% concluídos` },
+      { icon: BookOpen, label: "Biblioteca", value: report.modules.library.items, detail: `${report.modules.library.overdue} atraso(s)` },
+      { icon: FileText, label: "EAD", value: report.modules.ead.completions, detail: `${report.modules.ead.averageRating || 0}/5 avaliação média` },
+      { icon: Trophy, label: "Pontuação", value: compactNumber(report.modules.gamification.totalScore), detail: `${compactNumber(report.modules.gamification.totalCoins)} drcoins` },
+      { icon: Shield, label: "Moderação", value: report.modules.content.openReports + report.modules.content.feedPending, detail: "itens no radar" },
+    ];
+  }, [report]);
+
+  async function downloadMasterPdf() {
+    if (!report) return;
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const margin = 40;
+    let y = 44;
+
+    function line(text: string, size = 10, bold = false) {
+      if (y > 770) {
+        doc.addPage();
+        y = 44;
       }
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setFontSize(size);
+      const lines = doc.splitTextToSize(text, 515) as string[];
+      doc.text(lines, margin, y);
+      y += lines.length * (size + 4);
     }
 
-    void load();
-  }, []);
+    line("Relatório Master da Plataforma", 18, true);
+    line(`Período: ${reportPeriodLabel(report)} · Departamento: ${report.period.departmentLabel}`);
+    line(`Gerado em: ${formatReportDate(report.generatedAt)}`);
+    y += 8;
 
-  const pendingUsers = users.filter((user) => user.approvalStatus === "PENDING").length;
-  const publishedEvents = events.filter((event) => event.status === "PUBLISHED").length;
+    executiveCards.forEach((card) => line(`${card.label}: ${card.value} (${card.detail})`, 11, true));
+    y += 8;
+    line("Usuários por departamento", 13, true);
+    report.modules.users.byDepartment.forEach((item) => line(`${item.departmentLabel}: ${item.count}`));
+    y += 8;
+    line("Check-ins por departamento", 13, true);
+    report.modules.wellness.byDepartment.forEach((item) => line(`${item.departmentLabel}: ${item.checkins} check-ins · ${item.alertRate}% atenção`));
+    y += 8;
+    line("Top pontuação", 13, true);
+    report.modules.gamification.topUsers.forEach((user, index) => line(`${index + 1}. ${user.name} · ${user.departmentLabel} · ${user.score} pts · ${user.drCoins} drcoins`));
+    y += 8;
+    line("Módulos operacionais", 13, true);
+    line(`EAD: ${report.modules.ead.courses} curso(s), ${report.modules.ead.lessons} aula(s), ${report.modules.ead.completions} conclusão(ões), ${report.modules.ead.averageRating}/5 avaliação média.`);
+    line(`Biblioteca: ${report.modules.library.items} item(ns), ${report.modules.library.reservations} reserva(s), ${report.modules.library.borrowed} empréstimo(s), ${report.modules.library.overdue} atraso(s).`);
+    line(`Eventos: ${report.modules.events.published} publicado(s), ${report.modules.events.upcoming} futuro(s), ${report.modules.events.participations} participação(ões), ${report.modules.events.presenceRate}% presença.`);
+    line(`Profissionais: ${report.modules.professionals.total} cadastrado(s), ${report.modules.professionals.sessions} atendimento(s), ${report.modules.professionals.completionRate}% concluídos.`);
+    line(`Comunicação: ${report.modules.communication.notificationsSent} notificação(ões) enviada(s), ${report.modules.communication.notificationsFailed} falha(s), ${report.modules.communication.acceptances} aceite(s).`);
+
+    doc.save(`relatorio-master-${from}-${to}.pdf`);
+  }
+
+  async function downloadMasterExcel() {
+    if (!report) return;
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Pulse Hub";
+    workbook.created = new Date();
+
+    function sheet(name: string, columns: Array<{ header: string; key: string; width?: number }>, rows: Array<Record<string, string | number | null>>) {
+      const ws = workbook.addWorksheet(name);
+      ws.columns = columns.map((column) => ({ ...column, width: column.width ?? 18 }));
+      ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0264AF" } };
+      ws.addRows(rows);
+      ws.views = [{ state: "frozen", ySplit: 1 }];
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } };
+    }
+
+    sheet("Indicadores", [
+      { header: "Módulo", key: "module", width: 24 },
+      { header: "Indicador", key: "label", width: 32 },
+      { header: "Valor", key: "value", width: 18 },
+      { header: "Observação", key: "detail", width: 42 },
+    ], executiveCards.map((card) => ({ module: "Master", label: card.label, value: String(card.value), detail: card.detail })));
+
+    sheet("Usuários por área", [
+      { header: "Departamento", key: "departmentLabel", width: 28 },
+      { header: "Usuários", key: "count", width: 14 },
+    ], report.modules.users.byDepartment);
+
+    sheet("Check-ins por área", [
+      { header: "Departamento", key: "departmentLabel", width: 28 },
+      { header: "Check-ins", key: "checkins", width: 14 },
+      { header: "Alertas", key: "alerts", width: 14 },
+      { header: "% atenção", key: "alertRate", width: 14 },
+    ], report.modules.wellness.byDepartment);
+
+    sheet("Humor", [
+      { header: "Humor", key: "mood", width: 24 },
+      { header: "Quantidade", key: "count", width: 14 },
+    ], report.modules.wellness.moodCounts);
+
+    sheet("Top ranking", [
+      { header: "Nome", key: "name", width: 30 },
+      { header: "E-mail", key: "email", width: 38 },
+      { header: "Departamento", key: "departmentLabel", width: 24 },
+      { header: "Pontos", key: "score", width: 14 },
+      { header: "Drcoins", key: "drCoins", width: 14 },
+    ], report.modules.gamification.topUsers);
+
+    sheet("Módulos", [
+      { header: "Módulo", key: "module", width: 22 },
+      { header: "Indicador", key: "label", width: 34 },
+      { header: "Valor", key: "value", width: 18 },
+    ], [
+      { module: "Usuários", label: "Total", value: report.modules.users.total },
+      { module: "Usuários", label: "Ativos", value: report.modules.users.active },
+      { module: "Usuários", label: "Novos no período", value: report.modules.users.newInPeriod },
+      { module: "Profissionais", label: "Cadastrados", value: report.modules.professionals.total },
+      { module: "Profissionais", label: "Atendimentos", value: report.modules.professionals.sessions },
+      { module: "Profissionais", label: "Atendimentos concluídos", value: report.modules.professionals.completed },
+      { module: "Profissionais", label: "Atendimentos faltados", value: report.modules.professionals.missed },
+      { module: "Eventos", label: "Total", value: report.modules.events.total },
+      { module: "Eventos", label: "Publicados", value: report.modules.events.published },
+      { module: "Eventos", label: "Próximos", value: report.modules.events.upcoming },
+      { module: "Eventos", label: "Participações", value: report.modules.events.participations },
+      { module: "Eventos", label: "Check-ins", value: report.modules.events.checkins },
+      { module: "EAD", label: "Cursos", value: report.modules.ead.courses },
+      { module: "EAD", label: "Aulas", value: report.modules.ead.lessons },
+      { module: "EAD", label: "Conclusões", value: report.modules.ead.completions },
+      { module: "EAD", label: "Materiais", value: report.modules.ead.resources },
+      { module: "EAD", label: "Avaliações", value: report.modules.ead.ratings },
+      { module: "EAD", label: "Avaliação média", value: report.modules.ead.averageRating },
+      { module: "Biblioteca", label: "Itens catalogados", value: report.modules.library.items },
+      { module: "Biblioteca", label: "Reservas", value: report.modules.library.reservations },
+      { module: "Biblioteca", label: "Empréstimos", value: report.modules.library.borrowed },
+      { module: "Biblioteca", label: "Atrasos", value: report.modules.library.overdue },
+      { module: "Biblioteca", label: "Consultas", value: report.modules.library.consultations },
+      { module: "Conteúdo", label: "Cards ativos", value: report.modules.content.cardsActive },
+      { module: "Conteúdo", label: "Posts no feed", value: report.modules.content.feedPosts },
+      { module: "Conteúdo", label: "Posts pendentes", value: report.modules.content.feedPending },
+      { module: "Conteúdo", label: "Denúncias abertas", value: report.modules.content.openReports },
+      { module: "Comunicação", label: "Notificações enviadas", value: report.modules.communication.notificationsSent },
+      { module: "Comunicação", label: "Notificações com falha", value: report.modules.communication.notificationsFailed },
+      { module: "Compliance", label: "Aceites", value: report.modules.communication.acceptances },
+    ]);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relatorio-master-${from}-${to}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 
   return (
-    <BackofficeShell badge="Dashboard" title="Visão geral" description="Resumo operacional da plataforma. Cada módulo agora fica na sua própria tela.">
+    <>
       {loading ? <LoadingState /> : null}
+      {isReports ? (
+        <Card className="mb-5 p-5">
+          <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto_auto_auto]">
+            <input className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+            <input className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+            <select className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" value={department} onChange={(event) => setDepartment(event.target.value)}>
+              <option value="ALL">Todos os departamentos</option>
+              <option value="SEM_DEPARTAMENTO">Sem departamento</option>
+              {departmentOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+            <Button variant="outline" onClick={() => void loadReport()}>Filtrar</Button>
+            <Button onClick={() => void downloadMasterPdf()} disabled={!report}><Download size={16} /> PDF</Button>
+            <Button variant="outline" onClick={() => void downloadMasterExcel()} disabled={!report}><Download size={16} /> Excel</Button>
+          </div>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={Users} label="Usuários" value={users.length} detail={`${pendingUsers} pendente(s)`} />
-        <MetricCard icon={Stethoscope} label="Profissionais" value={professionals.length} detail="Equipe cadastrada" />
-        <MetricCard icon={CalendarDays} label="Eventos" value={publishedEvents} detail="Publicados" />
-        <MetricCard icon={FileText} label="Conteúdos" value={cardsCount} detail="Cards ativos" />
+        {executiveCards.map((card) => <MetricCard key={card.label} icon={card.icon} label={card.label} value={card.value} detail={card.detail} />)}
       </div>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <MetricCard icon={Activity} label="Moderação" value={moderationCount} detail="Posts recentes no radar" />
-        <MetricCard icon={Shield} label="Status" value="OK" detail="Vercel + Neon conectados" />
-      </div>
+
+      {report ? (
+        <>
+        <div className="mt-6 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+          <Card className="p-5">
+            <h2 className="text-lg font-black text-slate-950">Operação por departamento</h2>
+            <p className="mb-4 text-sm font-semibold text-slate-500">Usuários, check-ins e alertas por área.</p>
+            <div className="space-y-3">
+              {report.modules.users.byDepartment.slice(0, 8).map((item) => {
+                const checkin = report.modules.wellness.byDepartment.find((row) => row.department === item.department);
+                return (
+                  <div key={item.department} className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-black text-slate-950">{item.departmentLabel}</p>
+                        <p className="text-sm font-semibold text-slate-500">{item.count} usuário(s) · {checkin?.checkins ?? 0} check-in(s)</p>
+                      </div>
+                      <span className={cn("rounded-full px-3 py-1 text-xs font-black", (checkin?.alertRate ?? 0) >= 40 ? "bg-rose-50 text-rose-700" : "bg-blue-50 text-blue-700")}>
+                        {checkin?.alertRate ?? 0}% atenção
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="text-lg font-black text-slate-950">Ranking e riscos</h2>
+            <p className="mb-4 text-sm font-semibold text-slate-500">Participação, gamificação e itens pendentes.</p>
+            <div className="space-y-3">
+              {report.modules.gamification.topUsers.slice(0, 6).map((user, index) => (
+                <div key={user.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white p-3">
+                  <div>
+                    <p className="text-sm font-black text-slate-950">{index + 1}. {user.name}</p>
+                    <p className="text-xs font-semibold text-slate-500">{user.departmentLabel}</p>
+                  </div>
+                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">{user.score} pts</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          <Card className="p-5">
+            <h2 className="text-lg font-black text-slate-950">EAD e capacitação</h2>
+            <p className="mb-4 text-sm font-semibold text-slate-500">Cursos, aulas, materiais e avaliação.</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <InfoStat label="Cursos" value={report.modules.ead.courses} />
+              <InfoStat label="Aulas" value={report.modules.ead.lessons} />
+              <InfoStat label="Conclusões" value={report.modules.ead.completions} />
+              <InfoStat label="Avaliação média" value={`${report.modules.ead.averageRating}/5`} />
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h2 className="text-lg font-black text-slate-950">Biblioteca</h2>
+            <p className="mb-4 text-sm font-semibold text-slate-500">Acervo, reservas e pendências.</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <InfoStat label="Itens" value={report.modules.library.items} />
+              <InfoStat label="Reservas" value={report.modules.library.reservations} />
+              <InfoStat label="Emprestados" value={report.modules.library.borrowed} />
+              <InfoStat label="Atrasados" value={report.modules.library.overdue} tone={report.modules.library.overdue > 0 ? "danger" : "default"} />
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h2 className="text-lg font-black text-slate-950">Humor da equipe</h2>
+            <p className="mb-4 text-sm font-semibold text-slate-500">Distribuição dos check-ins no período.</p>
+            <div className="space-y-2">
+              {report.modules.wellness.moodCounts.map((mood) => (
+                <div key={mood.mood} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
+                  <span className="text-sm font-bold text-slate-600">{mood.mood}</span>
+                  <span className="text-sm font-black text-slate-950">{mood.count}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          <Card className="p-5">
+            <h2 className="text-lg font-black text-slate-950">Eventos</h2>
+            <p className="mb-4 text-sm font-semibold text-slate-500">Publicação, agenda e presença.</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <InfoStat label="Publicados" value={report.modules.events.published} />
+              <InfoStat label="Próximos" value={report.modules.events.upcoming} />
+              <InfoStat label="Participações" value={report.modules.events.participations} />
+              <InfoStat label="Presença" value={`${report.modules.events.presenceRate}%`} />
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h2 className="text-lg font-black text-slate-950">Profissionais</h2>
+            <p className="mb-4 text-sm font-semibold text-slate-500">Atendimentos e comparecimento.</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <InfoStat label="Cadastrados" value={report.modules.professionals.total} />
+              <InfoStat label="Atendimentos" value={report.modules.professionals.sessions} />
+              <InfoStat label="Concluídos" value={report.modules.professionals.completed} />
+              <InfoStat label="Faltas" value={report.modules.professionals.missed} tone={report.modules.professionals.missed > 0 ? "danger" : "default"} />
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h2 className="text-lg font-black text-slate-950">Comunicação e compliance</h2>
+            <p className="mb-4 text-sm font-semibold text-slate-500">Notificações, aceite e moderação.</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <InfoStat label="Enviadas" value={report.modules.communication.notificationsSent} />
+              <InfoStat label="Falhas" value={report.modules.communication.notificationsFailed} tone={report.modules.communication.notificationsFailed > 0 ? "danger" : "default"} />
+              <InfoStat label="Aceites" value={report.modules.communication.acceptances} />
+              <InfoStat label="Pendências" value={report.modules.content.feedPending + report.modules.content.openReports} />
+            </div>
+          </Card>
+        </div>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function InfoStat({ label, value, tone = "default" }: { label: string; value: string | number; tone?: "default" | "danger" }) {
+  return (
+    <div className={cn("rounded-2xl border px-3 py-3", tone === "danger" ? "border-rose-100 bg-rose-50" : "border-slate-100 bg-slate-50")}>
+      <p className={cn("text-[11px] font-black uppercase tracking-[0.14em]", tone === "danger" ? "text-rose-500" : "text-slate-400")}>{label}</p>
+      <p className="mt-1 text-xl font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+export function AdminOverviewScreen() {
+  return (
+    <BackofficeShell badge="Dashboard" title="Dashboard Master" description="Visão executiva de usuários, engajamento, EAD, biblioteca, eventos, conteúdo, humor e riscos operacionais.">
+      <MasterReportPanel mode="dashboard" />
     </BackofficeShell>
   );
 }
@@ -875,13 +1260,8 @@ export function AdminProfessionalsScreen() {
 
 export function AdminReportsScreen() {
   return (
-    <BackofficeShell badge="Relatórios" title="Relatórios" description="Indicadores consolidados por período, área e profissional.">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={BarChart3} label="Engajamento" value="Em análise" detail="Base para relatórios mensais" />
-        <MetricCard icon={Users} label="Usuários" value="Por área" detail="Filtros por departamento" />
-        <MetricCard icon={CalendarDays} label="Eventos" value="Presença" detail="Comparecimento e faltas" />
-        <MetricCard icon={Activity} label="Humor" value="Mapa" detail="Check-ins e risco futuro" />
-      </div>
+    <BackofficeShell badge="Relatórios" title="Central de relatórios" description="Indicadores consolidados por período e departamento, com exportação em PDF e Excel.">
+      <MasterReportPanel mode="reports" />
     </BackofficeShell>
   );
 }
