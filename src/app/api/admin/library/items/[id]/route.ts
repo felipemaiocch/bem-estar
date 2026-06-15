@@ -21,6 +21,7 @@ const updateItemSchema = z.object({
   publicationPlace: z.string().max(160).nullable().optional(),
   year: z.number().int().min(1500).max(2100).nullable().optional(),
   isbn: z.string().max(80).nullable().optional(),
+  issn: z.string().max(80).nullable().optional(),
   category: z.string().min(2).max(120).optional(),
   subject: z.string().max(300).nullable().optional(),
   kind: z.enum(libraryKindValues).optional(),
@@ -33,6 +34,7 @@ const updateItemSchema = z.object({
   coverUrl: z.string().max(1000).nullable().optional(),
   materialUrl: z.string().max(1000).nullable().optional(),
   location: z.string().max(160).nullable().optional(),
+  callNumber: z.string().max(160).nullable().optional(),
   totalCopies: z.number().int().min(0).max(10000).optional(),
   availableCopies: z.number().int().min(0).max(10000).optional(),
   isReservable: z.boolean().optional(),
@@ -87,6 +89,7 @@ export async function PATCH(request: NextRequest) {
       publisher: parsed.data.publisher?.trim() || parsed.data.publisher,
       publicationPlace: parsed.data.publicationPlace?.trim() || parsed.data.publicationPlace,
       isbn: parsed.data.isbn?.trim() || parsed.data.isbn,
+      issn: parsed.data.issn?.trim() || parsed.data.issn,
       subject: parsed.data.subject?.trim() || parsed.data.subject,
       description: parsed.data.description?.trim() || parsed.data.description,
       physicalDescription: parsed.data.physicalDescription?.trim() || parsed.data.physicalDescription,
@@ -97,6 +100,7 @@ export async function PATCH(request: NextRequest) {
       coverUrl: parsed.data.coverUrl?.trim() || parsed.data.coverUrl,
       materialUrl: parsed.data.materialUrl?.trim() || parsed.data.materialUrl,
       location: parsed.data.location?.trim() || parsed.data.location,
+      callNumber: parsed.data.callNumber?.trim() || parsed.data.callNumber,
     },
   });
 

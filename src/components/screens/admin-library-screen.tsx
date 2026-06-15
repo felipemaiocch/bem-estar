@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, BookOpen, CalendarDays, CheckCircle2, Clock3, Download, Library, Plus, Search, Tags, Trash2, Undo2 } from "lucide-react";
+import { BarChart3, BookOpen, CalendarDays, CheckCircle2, Clock3, Download, Edit3, Library, Plus, Search, Tags, Trash2, Undo2, X } from "lucide-react";
 
 import { BackofficeShell } from "@/components/layout/backoffice-shell";
 import { Button } from "@/components/ui/button";
@@ -207,6 +207,8 @@ const defaultForm = {
   isReservable: true,
 };
 
+type LibraryAdminView = "catalog" | "create" | "moves" | "reports";
+
 const inputClassName =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors focus:border-[#0264af] focus:bg-white";
 
@@ -224,6 +226,90 @@ function formatDate(value?: string | null) {
 function reportPeriodLabel(report: LibraryReport | null) {
   if (!report?.period.from && !report?.period.to) return "Todo o histórico";
   return `${formatDate(report.period.from)} até ${formatDate(report.period.to)}`;
+}
+
+function formFromItem(item: AdminLibraryItem) {
+  return {
+    title: item.title ?? "",
+    author: item.author ?? "",
+    mainAuthor: item.mainAuthor ?? "",
+    entityAuthor: item.entityAuthor ?? "",
+    secondaryAuthor: item.secondaryAuthor ?? "",
+    secondaryEntity: item.secondaryEntity ?? "",
+    originalTitle: item.originalTitle ?? "",
+    translatedTitle: item.translatedTitle ?? "",
+    originalLanguage: item.originalLanguage ?? "",
+    translationLanguage: item.translationLanguage ?? "",
+    edition: item.edition ?? "",
+    publisher: item.publisher ?? "",
+    publicationPlace: item.publicationPlace ?? "",
+    year: item.year ? String(item.year) : "",
+    isbn: item.isbn ?? "",
+    issn: item.issn ?? "",
+    category: item.category ?? "",
+    subject: item.subject ?? "",
+    kind: item.kind ?? "BOOK",
+    description: item.description ?? "",
+    physicalDescription: item.physicalDescription ?? "",
+    seriesCollection: item.seriesCollection ?? "",
+    generalNote: item.generalNote ?? "",
+    bibliography: item.bibliography ?? "",
+    summary: item.summary ?? "",
+    coverUrl: item.coverUrl ?? "",
+    materialUrl: item.materialUrl ?? "",
+    location: item.location ?? "",
+    callNumber: item.callNumber ?? "",
+    secondaryRelationTerm: "",
+    secondaryEntityRelationTerm: "",
+    totalCopies: String(item.totalCopies ?? 0),
+    availableCopies: String(item.availableCopies ?? 0),
+    isDigital: item.isDigital,
+    isReservable: item.isReservable,
+  };
+}
+
+function buildItemPayload(values: typeof defaultForm) {
+  return {
+    title: values.title,
+    author: values.author || undefined,
+    mainAuthor: values.mainAuthor || undefined,
+    entityAuthor: values.entityAuthor || undefined,
+    secondaryAuthor: values.secondaryAuthor || undefined,
+    secondaryEntity: values.secondaryEntity || undefined,
+    originalTitle: values.originalTitle || undefined,
+    translatedTitle: values.translatedTitle || undefined,
+    originalLanguage: values.originalLanguage || undefined,
+    translationLanguage: values.translationLanguage || undefined,
+    edition: values.edition || undefined,
+    publisher: values.publisher || undefined,
+    publicationPlace: values.publicationPlace || undefined,
+    year: values.year ? Number(values.year) : undefined,
+    isbn: values.isbn || undefined,
+    issn: values.issn || undefined,
+    category: values.category,
+    subject: values.subject || undefined,
+    kind: values.kind,
+    description: values.description || undefined,
+    physicalDescription: values.physicalDescription || undefined,
+    seriesCollection: values.seriesCollection || undefined,
+    generalNote: values.generalNote || undefined,
+    bibliography: values.bibliography || undefined,
+    summary: values.summary || undefined,
+    coverUrl: values.coverUrl || undefined,
+    materialUrl: values.materialUrl || undefined,
+    location: values.location || undefined,
+    callNumber: values.callNumber || undefined,
+    contributors: [
+      values.mainAuthor ? { name: values.mainAuthor, type: "PERSON", relationTerm: "autor", isPrimary: true } : null,
+      values.entityAuthor ? { name: values.entityAuthor, type: "ENTITY", relationTerm: "autor entidade", isPrimary: true } : null,
+      values.secondaryAuthor ? { name: values.secondaryAuthor, type: "PERSON", relationTerm: values.secondaryRelationTerm || undefined } : null,
+      values.secondaryEntity ? { name: values.secondaryEntity, type: "ENTITY", relationTerm: values.secondaryEntityRelationTerm || undefined } : null,
+    ].filter(Boolean),
+    totalCopies: Number(values.totalCopies || 0),
+    availableCopies: Number(values.availableCopies || 0),
+    isDigital: values.isDigital,
+    isReservable: values.isReservable,
+  };
 }
 
 function ReportList({
@@ -288,6 +374,9 @@ export function AdminLibraryScreen() {
   const [loading, setLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [activeView, setActiveView] = useState<LibraryAdminView>("catalog");
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState(defaultForm);
 
   const loadLibrary = useCallback(async () => {
     setLoading(true);
@@ -563,47 +652,7 @@ export function AdminLibraryScreen() {
       const response = await fetch("/api/admin/library", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.title,
-          author: form.author || undefined,
-          mainAuthor: form.mainAuthor || undefined,
-          entityAuthor: form.entityAuthor || undefined,
-          secondaryAuthor: form.secondaryAuthor || undefined,
-          secondaryEntity: form.secondaryEntity || undefined,
-          originalTitle: form.originalTitle || undefined,
-          translatedTitle: form.translatedTitle || undefined,
-          originalLanguage: form.originalLanguage || undefined,
-          translationLanguage: form.translationLanguage || undefined,
-          edition: form.edition || undefined,
-          publisher: form.publisher || undefined,
-          publicationPlace: form.publicationPlace || undefined,
-          year: form.year ? Number(form.year) : undefined,
-          isbn: form.isbn || undefined,
-          issn: form.issn || undefined,
-          category: form.category,
-          subject: form.subject || undefined,
-          kind: form.kind,
-          description: form.description || undefined,
-          physicalDescription: form.physicalDescription || undefined,
-          seriesCollection: form.seriesCollection || undefined,
-          generalNote: form.generalNote || undefined,
-          bibliography: form.bibliography || undefined,
-          summary: form.summary || undefined,
-          coverUrl: form.coverUrl || undefined,
-          materialUrl: form.materialUrl || undefined,
-          location: form.location || undefined,
-          callNumber: form.callNumber || undefined,
-          contributors: [
-            form.mainAuthor ? { name: form.mainAuthor, type: "PERSON", relationTerm: "autor", isPrimary: true } : null,
-            form.entityAuthor ? { name: form.entityAuthor, type: "ENTITY", relationTerm: "autor entidade", isPrimary: true } : null,
-            form.secondaryAuthor ? { name: form.secondaryAuthor, type: "PERSON", relationTerm: form.secondaryRelationTerm || undefined } : null,
-            form.secondaryEntity ? { name: form.secondaryEntity, type: "ENTITY", relationTerm: form.secondaryEntityRelationTerm || undefined } : null,
-          ].filter(Boolean),
-          totalCopies: Number(form.totalCopies || 0),
-          availableCopies: Number(form.availableCopies || 0),
-          isDigital: form.isDigital,
-          isReservable: form.isReservable,
-        }),
+        body: JSON.stringify(buildItemPayload(form)),
       });
       const data = await response.json();
 
@@ -614,9 +663,53 @@ export function AdminLibraryScreen() {
 
       setFeedback("Material catalogado com sucesso.");
       setForm(defaultForm);
+      setActiveView("catalog");
       await loadLibrary();
     } catch {
       setFeedback("Falha de conexão ao catalogar material.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function startEditingItem(item: AdminLibraryItem) {
+    setEditingItemId(item.id);
+    setEditForm(formFromItem(item));
+    setFeedback(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEditingItem() {
+    setEditingItemId(null);
+    setEditForm(defaultForm);
+  }
+
+  async function updateItem(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingItemId || busyAction) return;
+
+    setBusyAction(`edit-${editingItemId}`);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/admin/library/items/${editingItemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildItemPayload(editForm)),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setFeedback(data.error ?? "Não foi possível atualizar o material.");
+        return;
+      }
+
+      setFeedback("Material atualizado com sucesso.");
+      cancelEditingItem();
+      await loadLibrary();
+      await loadReport();
+    } catch {
+      setFeedback("Falha de conexão ao atualizar material.");
     } finally {
       setBusyAction(null);
     }
@@ -715,6 +808,40 @@ export function AdminLibraryScreen() {
           </div>
         ) : null}
 
+        <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
+          <Card className="h-fit p-3 xl:sticky xl:top-8">
+            {[
+              { id: "catalog" as const, label: "Livros cadastrados", description: "Buscar, editar e controlar exemplares", icon: Library },
+              { id: "create" as const, label: "Novo material", description: "Catalogar livro ou repositório", icon: Plus },
+              { id: "moves" as const, label: "Movimentações", description: "Reservas, empréstimos e devoluções", icon: BookOpen },
+              { id: "reports" as const, label: "Relatórios", description: "Indicadores e PDF do acervo", icon: BarChart3 },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = activeView === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  className={cn(
+                    "flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
+                    active ? "bg-[#0264af] text-white shadow-lg shadow-[#0264af]/20" : "text-slate-500 hover:bg-slate-50 hover:text-slate-950",
+                  )}
+                  onClick={() => setActiveView(item.id)}
+                >
+                  <Icon size={18} className="mt-0.5 shrink-0" />
+                  <span>
+                    <span className="block text-sm font-black">{item.label}</span>
+                    <span className={cn("mt-0.5 block text-xs font-semibold", active ? "text-white/75" : "text-slate-400")}>
+                      {item.description}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </Card>
+
+          <div className="space-y-6">
+        {activeView === "reports" ? (
         <Card className="p-6">
           <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-start gap-3">
@@ -829,8 +956,10 @@ export function AdminLibraryScreen() {
             />
           </div>
         </Card>
+        ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        {activeView === "create" ? (
+        <div className="grid gap-6">
           <Card className="p-6">
             <div className="mb-5 flex items-center gap-2">
               <Plus className="text-[#0264af]" size={20} />
@@ -920,11 +1049,17 @@ export function AdminLibraryScreen() {
               </Button>
             </form>
           </Card>
+        </div>
+        ) : null}
 
+        {activeView === "catalog" ? (
           <div className="space-y-6">
             <Card className="p-5">
               <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <h2 className="text-lg font-black text-slate-950">Acervo catalogado</h2>
+                <div>
+                  <h2 className="text-lg font-black text-slate-950">Livros e materiais cadastrados</h2>
+                  <p className="text-sm font-semibold text-slate-500">Pesquise pelo título, autor, ISBN, assunto ou classificação e edite o cadastro quando precisar corrigir algo.</p>
+                </div>
                 <div className="flex gap-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -938,9 +1073,78 @@ export function AdminLibraryScreen() {
                   </select>
                 </div>
               </div>
-              <div className="space-y-3">
+
+              {editingItemId ? (
+                <form className="mb-5 rounded-2xl border border-blue-100 bg-blue-50/40 p-4" onSubmit={(event) => void updateItem(event)}>
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-[#0264af]">Editando material</p>
+                      <h3 className="text-lg font-black text-slate-950">{editForm.title || "Material sem título"}</h3>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={cancelEditingItem}>
+                      <X size={14} />
+                      Fechar
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <input className={inputClassName} placeholder="Título" value={editForm.title} onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))} required />
+                    <input className={inputClassName} placeholder="Autor principal" value={editForm.mainAuthor} onChange={(event) => setEditForm((current) => ({ ...current, mainAuthor: event.target.value, author: event.target.value || current.author }))} />
+                    <input className={inputClassName} placeholder="ISBN" value={editForm.isbn} onChange={(event) => setEditForm((current) => ({ ...current, isbn: event.target.value }))} />
+                    <input className={inputClassName} placeholder="ISSN" value={editForm.issn} onChange={(event) => setEditForm((current) => ({ ...current, issn: event.target.value }))} />
+                    <select className={inputClassName} value={editForm.kind} onChange={(event) => setEditForm((current) => ({ ...current, kind: event.target.value }))}>
+                      {kindOptions.map((kind) => (
+                        <option key={kind.value} value={kind.value}>{kind.label}</option>
+                      ))}
+                    </select>
+                    <input className={inputClassName} placeholder="Classificação" value={editForm.category} onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))} required />
+                    <input className={inputClassName} placeholder="Assunto" value={editForm.subject} onChange={(event) => setEditForm((current) => ({ ...current, subject: event.target.value }))} />
+                    <input className={inputClassName} placeholder="URL da capa" value={editForm.coverUrl} onChange={(event) => setEditForm((current) => ({ ...current, coverUrl: event.target.value }))} />
+                    <input className={inputClassName} placeholder="Editora" value={editForm.publisher} onChange={(event) => setEditForm((current) => ({ ...current, publisher: event.target.value }))} />
+                    <input className={inputClassName} placeholder="Ano" value={editForm.year} onChange={(event) => setEditForm((current) => ({ ...current, year: event.target.value.replace(/\D/g, "").slice(0, 4) }))} />
+                    <input className={inputClassName} placeholder="Chamada / etiqueta da lombada" value={editForm.callNumber} onChange={(event) => setEditForm((current) => ({ ...current, callNumber: event.target.value }))} />
+                    <input className={inputClassName} placeholder="Local físico / prateleira" value={editForm.location} onChange={(event) => setEditForm((current) => ({ ...current, location: event.target.value }))} />
+                    <input className={inputClassName} placeholder="URL do arquivo/link" value={editForm.materialUrl} onChange={(event) => setEditForm((current) => ({ ...current, materialUrl: event.target.value }))} />
+                    <input className={inputClassName} placeholder="Série ou Coleção" value={editForm.seriesCollection} onChange={(event) => setEditForm((current) => ({ ...current, seriesCollection: event.target.value }))} />
+                  </div>
+                  <textarea className={cn(inputClassName, "mt-3 min-h-24 resize-none")} placeholder="Resumo" value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} />
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <textarea className={cn(inputClassName, "min-h-20 resize-none")} placeholder="Sumário" value={editForm.summary} onChange={(event) => setEditForm((current) => ({ ...current, summary: event.target.value }))} />
+                    <textarea className={cn(inputClassName, "min-h-20 resize-none")} placeholder="Nota geral" value={editForm.generalNote} onChange={(event) => setEditForm((current) => ({ ...current, generalNote: event.target.value }))} />
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <input className={inputClassName} placeholder="Total" value={editForm.totalCopies} onChange={(event) => setEditForm((current) => ({ ...current, totalCopies: event.target.value.replace(/\D/g, "") }))} />
+                    <input className={inputClassName} placeholder="Disponíveis" value={editForm.availableCopies} onChange={(event) => setEditForm((current) => ({ ...current, availableCopies: event.target.value.replace(/\D/g, "") }))} />
+                    <label className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-600">
+                      <input type="checkbox" checked={editForm.isDigital} onChange={(event) => setEditForm((current) => ({ ...current, isDigital: event.target.checked, isReservable: event.target.checked ? false : current.isReservable }))} />
+                      Digital
+                    </label>
+                    <label className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-600">
+                      <input type="checkbox" checked={editForm.isReservable} disabled={editForm.isDigital} onChange={(event) => setEditForm((current) => ({ ...current, isReservable: event.target.checked }))} />
+                      Reservável
+                    </label>
+                  </div>
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={cancelEditingItem}>Cancelar</Button>
+                    <Button type="submit" disabled={busyAction === `edit-${editingItemId}`}>
+                      {busyAction === `edit-${editingItemId}` ? "Salvando..." : "Salvar alterações"}
+                    </Button>
+                  </div>
+                </form>
+              ) : null}
+
+              <div className="grid gap-4 lg:grid-cols-2">
                 {items.map((item) => (
-                  <div key={item.id} className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm lg:grid-cols-[1fr_auto] lg:items-center">
+                  <div key={item.id} className="grid gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <div className="grid gap-4 sm:grid-cols-[96px_minmax(0,1fr)]">
+                      <div className="flex h-36 w-full items-center justify-center overflow-hidden rounded-2xl bg-slate-100 sm:h-32 sm:w-24">
+                        {item.coverUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <BookOpen className="text-slate-300" size={34} />
+                        )}
+                      </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-black text-slate-950">{item.title}</p>
@@ -953,8 +1157,16 @@ export function AdminLibraryScreen() {
                       {item.callNumber ? (
                         <p className="mt-1 text-xs font-bold text-slate-400">Chamada: {item.callNumber}</p>
                       ) : null}
+                      <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
+                        {item.description || item.summary || "Sem resumo cadastrado."}
+                      </p>
+                    </div>
                     </div>
                     <div className="flex flex-wrap gap-2 lg:justify-end">
+                      <Button variant="outline" size="sm" onClick={() => startEditingItem(item)}>
+                        <Edit3 size={14} />
+                        Editar
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => void downloadLabelsPdf(item)}>
                         <Tags size={14} />
                         Etiquetas
@@ -998,7 +1210,11 @@ export function AdminLibraryScreen() {
                 ) : null}
               </div>
             </Card>
+          </div>
+        ) : null}
 
+        {activeView === "moves" ? (
+          <div className="space-y-6">
             <Card className="p-5">
               <div className="mb-4 flex items-center gap-2">
                 <BarChart3 className="text-[#0264af]" size={20} />
@@ -1044,6 +1260,8 @@ export function AdminLibraryScreen() {
                 ) : null}
               </div>
             </Card>
+          </div>
+        ) : null}
           </div>
         </div>
       </div>
